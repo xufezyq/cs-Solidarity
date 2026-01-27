@@ -1,20 +1,88 @@
 import SteamAPI
-import WeChatRobot
 import time
 import schedule
+import json
 from datetime import datetime
 from wxauto import WeChat
+from pathlib import Path
 
-class Trainspotting():
-    def __init__(self, steam_api_key, steam_id, wechat_webhook_key):
+class SteamAuto():
+    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True):
         self.steam = SteamAPI.SteamAPI(steam_api_key)
         self.steam_id = steam_id
-        self.wechat_robot = WeChatRobot.WeChatRobot(wechat_webhook_key)
         self.wx = WeChat()
-        self.who = '【CS】团结友爱'
-        # 用于追踪好友的游戏状态变化
-        self.friend_game_status = {}
+        self.friend_game_status = {} # 用于追踪好友的游戏状态变化
+        
+        # 配置接收消息的微信群/个人
+        self.wechat_groups = []
+        if wechat_groups:
+            if isinstance(wechat_groups, list):
+                self.wechat_groups = wechat_groups
+            else:
+                self.wechat_groups = [wechat_groups]
+        else:
+            self.wechat_groups = ['【CS】团结友爱']
+        
+        # 配置监听的好友列表
+        self.monitored_friends = set()
+        self.enable_all_friends = enable_all_friends
+        
+        if monitored_friends:
+            # 将监听列表转换为集合，方便查询
+            for friend in monitored_friends:
+                if isinstance(friend, dict):
+                    self.monitored_friends.add(friend.get('steamid', ''))
+                else:
+                    self.monitored_friends.add(str(friend))
+            # 移除空字符串
+            self.monitored_friends.discard('')
+    
+    @staticmethod
+    def load_config(config_path='config.json'):
+        """从配置文件加载配置"""
+        if not Path(config_path).exists():
+            raise FileNotFoundError(f"配置文件 {config_path} 不存在")
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        return config
+    
+    @staticmethod
+    def create_from_config(config_path='config.json'):
+        """从配置文件创建 SteamAuto 实例"""
+        config = SteamAuto.load_config(config_path)
+        
+        # 支持新旧配置格式兼容
+        wechat_groups = config.get('wechat_groups')
+        if not wechat_groups:
+            # 如果没有 wechat_groups，尝试使用旧的 wechat_group
+            old_group = config.get('wechat_group')
+            wechat_groups = [old_group] if old_group else ['【CS】团结友爱']
+        
+        return SteamAuto(
+            steam_api_key=config.get('steam_api_key'),
+            steam_id=config.get('steam_id'),
+            wechat_groups=wechat_groups,
+            monitored_friends=config.get('monitored_friends', []),
+            enable_all_friends=config.get('enable_all_friends', True)
+        )
 
+    def send_message(self, message):
+        """
+        发送消息到所有配置的微信群/个人
+        :param message: 要发送的消息内容
+        """
+        if not message or not message.strip():
+            return
+        
+        for group in self.wechat_groups:
+            try:
+                self.wx.SendMsg(message, group)
+                print(f"[{datetime.now()}] 消息已发送到: {group}")
+            except Exception as e:
+                print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
+    
     def format_duration(self, seconds):
         """将秒数格式化为可读的时间格式"""
         hours = int(seconds // 3600)
@@ -35,7 +103,16 @@ class Trainspotting():
             print(f"[{datetime.now()}] 未获取到好友列表")
             return []
         
-        friend_steam_ids = [friend["steamid"] for friend in friend_list]
+        # 如果启用了所有好友监听，则监听全部；否则只监听指定的好友
+        if self.enable_all_friends:
+            friend_steam_ids = [friend["steamid"] for friend in friend_list]
+        else:
+            friend_steam_ids = [friend["steamid"] for friend in friend_list if friend["steamid"] in self.monitored_friends]
+        
+        if not friend_steam_ids:
+            print(f"[{datetime.now()}] 没有要监听的好友")
+            return []
+        
         print(f"[{datetime.now()}] 正在检查 {len(friend_steam_ids)} 位好友的状态...")
         
         # 批量查询好友状态
@@ -116,7 +193,7 @@ class Trainspotting():
         if messages:
             combined = "\n".join(messages)
             print(f"[{datetime.now()}] 发送合并消息：\n{combined}")
-            self.wx.SendMsg(combined, self.who)
+            self.send_message(combined)
 
     def start(self, check_interval=60):
         """
