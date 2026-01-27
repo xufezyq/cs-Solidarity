@@ -1,0 +1,4 @@
+2026-01-27 01:23:10.102 elements.py[41] _split -> Find Control Timeout(0s): {ControlType: ButtonControl}
+2026-01-27 01:35:50.245 wxauto.py[363] CurrentChat -> Find Control Timeout(1s): {ControlType: TextControl}
+2026-01-27 01:35:56.902 elements.py[41] _split -> Find Control Timeout(0s): {ControlType: ButtonControl}
+2026-01-27 01:55:16.591 elements.py[41] _split -> Find Control Timeout(0s): {ControlType: ButtonControl}

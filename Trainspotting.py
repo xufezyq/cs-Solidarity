@@ -3,12 +3,15 @@ import WeChatRobot
 import time
 import schedule
 from datetime import datetime
+from wxauto import WeChat
 
 class Trainspotting():
     def __init__(self, steam_api_key, steam_id, wechat_webhook_key):
         self.steam = SteamAPI.SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.wechat_robot = WeChatRobot.WeChatRobot(wechat_webhook_key)
+        self.wx = WeChat()
+        self.who = '【CS】团结友爱'
         # 用于追踪好友的游戏状态变化
         self.friend_game_status = {}
 
@@ -45,7 +48,9 @@ class Trainspotting():
         
         if not friend_status_list:
             return
-        
+        # 收集本次检查产生的所有通知，最后一次性发送
+        messages = []
+
         for friend in friend_status_list:
             steam_id = friend.get('steamid')
             nickname = friend.get('personaname', '未知昵称')
@@ -65,7 +70,8 @@ class Trainspotting():
                 # 状态发生变化，发送通知
                 message = f"🎮 好友 {nickname} 开始游玩 {game_name} 了！"
                 print(f"[{datetime.now()}] {message}")
-                self.wechat_robot.send_message(message)
+                # 先收集，后面统一发送
+                messages.append(message)
                 
                 # 保存当前状态及开始时间
                 self.friend_game_status[steam_id] = {
@@ -84,7 +90,8 @@ class Trainspotting():
                 
                 message = f"👋 好友 {nickname} 停止了游戏 {prev_game_name}，游玩时长：{duration_str}。"
                 print(f"[{datetime.now()}] {message}")
-                self.wechat_robot.send_message(message)
+                # 先收集，后面统一发送
+                messages.append(message)
                 
                 # 保存当前状态（无游戏）
                 self.friend_game_status[steam_id] = {
@@ -104,6 +111,12 @@ class Trainspotting():
                     'nickname': nickname,
                     'start_time': current_time if (game_id and game_id != '0') else None
                 }
+
+        # 如果有需要通知的消息，一次性合并并发送
+        if messages:
+            combined = "\n".join(messages)
+            print(f"[{datetime.now()}] 发送合并消息：\n{combined}")
+            self.wx.SendMsg(combined, self.who)
 
     def start(self, check_interval=60):
         """
