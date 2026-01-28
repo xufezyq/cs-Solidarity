@@ -1,14 +1,14 @@
-import SteamAPI
+from .SteamAPI import SteamAPI
 import time
 import schedule
 import json
 from datetime import datetime
 from pathlib import Path
-from wechat_instance import get_wechat
+from core.wechat_instance import get_wechat
 
 class SteamAuto():
     def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True):
-        self.steam = SteamAPI.SteamAPI(steam_api_key)
+        self.steam = SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
@@ -147,15 +147,6 @@ class SteamAuto():
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True)
         )
-
-    def notify_code_update(self, config_path='config.json'):
-        """发送代码更新通知"""
-        config = self.load_config(config_path)
-        update_message = config.get('code_update_message', '')
-        if update_message and update_message.strip():
-            full_message = f"🔔 [cs-Solidarity] 已更新:\n{update_message}"
-            self.send_message(full_message)
-
 
     def send_message(self, message):
         """
@@ -377,4 +368,3 @@ class SteamAuto():
                 time.sleep(1)
         except KeyboardInterrupt:
             print(f"\n[{datetime.now()}] 程序已停止")
-

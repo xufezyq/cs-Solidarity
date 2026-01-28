@@ -1,10 +1,7 @@
-from wxauto import WeChat
-import SteamAuto
-from pathlib import Path
 import sys
-from wechat_instance import init_wechat
-
-
+from pathlib import Path
+from steam import SteamAuto
+from core import init_wechat
 
 if __name__ == "__main__":
     # 从命令行参数获取配置文件，默认为 config.json
@@ -19,8 +16,7 @@ if __name__ == "__main__":
         # 初始化全局WeChat实例
         init_wechat()
 
-        steam_auto = SteamAuto.SteamAuto.create_from_config(config_file)
-        steam_auto.notify_code_update(config_file)
+        steam_auto = SteamAuto.create_from_config(config_file)
         steam_auto.start()
     except FileNotFoundError as e:
         print(f"配置加载失败: {e}")
