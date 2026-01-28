@@ -11,5 +11,6 @@
       "nickname": ""
     }
   ],
-  "enable_all_friends": true
+  "enable_all_friends": true,
+  "code_update_message": "已经成功搭建到服务器上了！"
 }

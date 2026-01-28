@@ -3,14 +3,13 @@ import time
 import schedule
 import json
 from datetime import datetime
-from wxauto import WeChat
 from pathlib import Path
+from wechat_instance import get_wechat
 
 class SteamAuto():
     def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True):
         self.steam = SteamAPI.SteamAPI(steam_api_key)
         self.steam_id = steam_id
-        self.wx = WeChat()
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         
@@ -112,6 +111,21 @@ class SteamAuto():
     def create_from_config(config_path='config.json'):
         """从配置文件创建 SteamAuto 实例"""
         config = SteamAuto.load_config(config_path)
+
+        # 创建临时实例用于自动填充
+        temp_instance = SteamAuto(
+            steam_api_key=config.get('steam_api_key'),
+            steam_id=config.get('steam_id'),
+            wechat_groups=config.get('wechat_groups', ['文件传输助手']),
+            monitored_friends=config.get('monitored_friends', []),
+            enable_all_friends=config.get('enable_all_friends', True)
+        )
+        
+        # 首次执行时且好友信息为空，自动填充好友信息
+        temp_instance.auto_fill_monitored_friends(config_path)
+        
+        # 重新加载配置（可能已被更新）
+        config = SteamAuto.load_config(config_path)
         
         # 显示配置信息
         print("=" * 50)
@@ -124,22 +138,7 @@ class SteamAuto():
         if not config.get('enable_all_friends', True):
             print(f"监听的好友数量: {len(config.get('monitored_friends', []))}")
         print("=" * 50)
-        
-        # 创建临时实例用于自动填充
-        temp_instance = SteamAuto(
-            steam_api_key=config.get('steam_api_key'),
-            steam_id=config.get('steam_id'),
-            wechat_groups=config.get('wechat_groups', ['文件传输助手']),
-            monitored_friends=config.get('monitored_friends', []),
-            enable_all_friends=config.get('enable_all_friends', True)
-        )
-        
-        # 首次执行时自动填充好友信息
-        temp_instance.auto_fill_monitored_friends(config_path)
-        
-        # 重新加载配置（可能已被更新）
-        config = SteamAuto.load_config(config_path)
-        
+
         # 创建最终实例
         return SteamAuto(
             steam_api_key=config.get('steam_api_key'),
@@ -148,6 +147,15 @@ class SteamAuto():
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True)
         )
+
+    def notify_code_update(self, config_path='config.json'):
+        """发送代码更新通知"""
+        config = self.load_config(config_path)
+        update_message = config.get('code_update_message', '')
+        if update_message and update_message.strip():
+            full_message = f"🔔 [cs-Solidarity] 已更新:\n{update_message}"
+            self.send_message(full_message)
+
 
     def send_message(self, message):
         """
@@ -159,7 +167,7 @@ class SteamAuto():
         
         for group in self.wechat_groups:
             try:
-                self.wx.SendMsg(message, group)
+                get_wechat().SendMsg(message, group)
                 print(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
@@ -369,3 +377,4 @@ class SteamAuto():
                 time.sleep(1)
         except KeyboardInterrupt:
             print(f"\n[{datetime.now()}] 程序已停止")
+
