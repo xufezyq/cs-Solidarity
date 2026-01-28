@@ -12,6 +12,7 @@ class SteamAuto():
         self.steam_id = steam_id
         self.wx = WeChat()
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
+        self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
@@ -49,21 +50,101 @@ class SteamAuto():
         return config
     
     @staticmethod
+    def save_config(config, config_path='config.json'):
+        """保存配置到文件"""
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+    
+    def auto_fill_monitored_friends(self, config_path='config.json'):
+        """首次执行时自动填充monitored_friends"""
+        config = self.load_config(config_path)
+        monitored_friends = config.get('monitored_friends', [])
+        
+        # 判断是否需要填充：monitored_friends为空或只有空值
+        need_fill = not monitored_friends or all(
+            not friend.get('steamid', '').strip() 
+            for friend in monitored_friends if isinstance(friend, dict)
+        )
+        
+        if not need_fill:
+            return
+        
+        print(f"[{datetime.now()}] 首次执行，正在获取所有好友信息...")
+        
+        try:
+            # 获取好友列表
+            friend_list = self.steam.get_friend_list(self.steam_id)
+            if not friend_list:
+                print(f"[{datetime.now()}] 未获取到好友列表")
+                return
+            
+            # 获取好友的详细信息
+            friend_ids = [friend["steamid"] for friend in friend_list]
+            friend_status_list = self.steam.get_friend_status(friend_ids)
+            
+            if not friend_status_list:
+                print(f"[{datetime.now()}] 未获取到好友详细信息")
+                return
+            
+            # 构建好友列表配置
+            friends_config = []
+            for friend in friend_status_list:
+                friends_config.append({
+                    "steamid": friend.get('steamid', ''),
+                    "nickname": friend.get('personaname', '未知昵称')
+                })
+            
+            # 更新配置
+            config['monitored_friends'] = friends_config
+            config['enable_all_friends'] = False  # 自动填充后改为false
+            
+            # 保存配置
+            self.save_config(config, config_path)
+            
+            print(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
+            for friend in friends_config:
+                print(f"  - {friend['nickname']} ({friend['steamid']})")
+            
+        except Exception as e:
+            print(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
+    
+    @staticmethod
     def create_from_config(config_path='config.json'):
         """从配置文件创建 SteamAuto 实例"""
         config = SteamAuto.load_config(config_path)
         
-        # 支持新旧配置格式兼容
-        wechat_groups = config.get('wechat_groups')
-        if not wechat_groups:
-            # 如果没有 wechat_groups，尝试使用旧的 wechat_group
-            old_group = config.get('wechat_group')
-            wechat_groups = [old_group] if old_group else ['【CS】团结友爱']
+        # 显示配置信息
+        print("=" * 50)
+        print("配置信息：")
+        print(f"配置文件: {config_path}")
+        print(f"WeChat 群组/个人数量: {len(config.get('wechat_groups', ['文件传输助手']))}")
+        for idx, group in enumerate(config.get('wechat_groups', ['文件传输助手']), 1):
+            print(f"  {idx}. {group}")
+        print(f"监听全部好友: {config.get('enable_all_friends', True)}")
+        if not config.get('enable_all_friends', True):
+            print(f"监听的好友数量: {len(config.get('monitored_friends', []))}")
+        print("=" * 50)
         
+        # 创建临时实例用于自动填充
+        temp_instance = SteamAuto(
+            steam_api_key=config.get('steam_api_key'),
+            steam_id=config.get('steam_id'),
+            wechat_groups=config.get('wechat_groups', ['文件传输助手']),
+            monitored_friends=config.get('monitored_friends', []),
+            enable_all_friends=config.get('enable_all_friends', True)
+        )
+        
+        # 首次执行时自动填充好友信息
+        temp_instance.auto_fill_monitored_friends(config_path)
+        
+        # 重新加载配置（可能已被更新）
+        config = SteamAuto.load_config(config_path)
+        
+        # 创建最终实例
         return SteamAuto(
             steam_api_key=config.get('steam_api_key'),
             steam_id=config.get('steam_id'),
-            wechat_groups=wechat_groups,
+            wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True)
         )
@@ -120,7 +201,7 @@ class SteamAuto():
         return friend_status_list
 
     def check_status_changes(self):
-        """检查好友游戏状态变化"""
+        """检查好友游戏状态变化，并累计今日游玩时长"""
         friend_status_list = self.get_steam_friend_status()
         
         if not friend_status_list:
@@ -170,6 +251,15 @@ class SteamAuto():
                 # 先收集，后面统一发送
                 messages.append(message)
                 
+                # 累计今日游玩时长
+                if steam_id not in self.friend_daily_stats:
+                    self.friend_daily_stats[steam_id] = {'nickname': nickname, 'games': {}}
+                
+                if prev_game_name not in self.friend_daily_stats[steam_id]['games']:
+                    self.friend_daily_stats[steam_id]['games'][prev_game_name] = 0
+                
+                self.friend_daily_stats[steam_id]['games'][prev_game_name] += duration
+                
                 # 保存当前状态（无游戏）
                 self.friend_game_status[steam_id] = {
                     'gameid': game_id,
@@ -195,19 +285,83 @@ class SteamAuto():
             print(f"[{datetime.now()}] 发送合并消息：\n{combined}")
             self.send_message(combined)
 
+    def get_friend_game_stats(self):
+        """获取好友今天的游玩统计信息"""
+        if not self.friend_daily_stats:
+            return None
+        
+        return self.friend_daily_stats
+
+    def format_game_stats_message(self, stats_data):
+        """格式化今日游玩统计信息为消息字符串"""
+        if not stats_data:
+            return "今日还没有好友游玩记录"
+        
+        today = datetime.now().strftime("%Y年%m月%d日")
+        message = f"📊 【好友今日游玩统计 - {today}】\n\n"
+        
+        for steam_id, friend_data in stats_data.items():
+            nickname = friend_data.get('nickname', '未知昵称')
+            games = friend_data.get('games', {})
+            
+            message += f"👤 {nickname}:\n"
+            
+            if not games:
+                message += "  暂无游玩记录\n"
+            else:
+                # 按游玩时间排序
+                sorted_games = sorted(games.items(), key=lambda x: x[1], reverse=True)
+                
+                total_time = sum(games.values())
+                
+                for idx, (game_name, duration) in enumerate(sorted_games, 1):
+                    time_str = self.format_duration(duration)
+                    message += f"  {idx}. {game_name}: {time_str}\n"
+                
+                total_time_str = self.format_duration(total_time)
+                message += f"  📈 今日总计: {total_time_str}\n"
+            
+            message += "\n"
+        
+        return message
+
+    def reset_daily_stats(self):
+        """重置每日游玩统计（在每天0点调用）"""
+        print(f"[{datetime.now()}] 重置每日游玩统计")
+        self.friend_daily_stats = {}
+
+    def send_daily_stats(self):
+        """发送每日游玩统计"""
+        print(f"[{datetime.now()}] 执行每日统计任务...")
+        try:
+            stats_data = self.get_friend_game_stats()
+            if stats_data:
+                message = self.format_game_stats_message(stats_data)
+                self.send_message(message)
+                # 统计发送完毕后，重置计数器
+                self.reset_daily_stats()
+            else:
+                print(f"[{datetime.now()}] 今日无游玩记录")
+        except Exception as e:
+            print(f"[{datetime.now()}] 发送每日统计失败: {e}")
+
     def start(self, check_interval=60):
         """
         启动定时检查
         :param check_interval: 检查间隔（秒），默认60秒
         """
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
-        print(f"[{datetime.now()}] 目标Steam ID: {self.steam_id}\n")
+        print(f"[{datetime.now()}] 目标Steam ID: {self.steam_id}")
+        print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计\n")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
         
-        # 设置定时任务
+        # 设置定时任务：每60秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
+        
+        # 设置每日定时任务：每天0点发送游玩统计
+        schedule.every().day.at("00:00").do(self.send_daily_stats)
         
         try:
             while True:
