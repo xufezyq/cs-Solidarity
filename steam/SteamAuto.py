@@ -5,13 +5,17 @@ import json
 from datetime import datetime
 from pathlib import Path
 from core.wechat_instance import get_wechat
+from pywechat.WechatAuto import Messages
+
+_use_pywechat = True
 
 class SteamAuto():
-    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True):
+    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message=""):
         self.steam = SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
+        self.code_update_message = code_update_message
         
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
@@ -25,15 +29,20 @@ class SteamAuto():
         
         # 配置监听的好友列表
         self.monitored_friends = set()
+        self.friend_nickname_map = {}  # 映射steamid到nickname
         self.enable_all_friends = enable_all_friends
         
         if monitored_friends:
-            # 将监听列表转换为集合，方便查询
+            # 将监听列表转换为集合，方便查询，同时构建nickname映射
             for friend in monitored_friends:
                 if isinstance(friend, dict):
-                    self.monitored_friends.add(friend.get('steamid', ''))
+                    steamid = friend.get('steamid', '')
+                    nickname = friend.get('nickname', friend.get('personaname', '未知昵称'))
+                    self.monitored_friends.add(steamid)
+                    self.friend_nickname_map[steamid] = nickname
                 else:
-                    self.monitored_friends.add(str(friend))
+                    steamid = str(friend)
+                    self.monitored_friends.add(steamid)
             # 移除空字符串
             self.monitored_friends.discard('')
     
@@ -90,6 +99,7 @@ class SteamAuto():
             for friend in friend_status_list:
                 friends_config.append({
                     "steamid": friend.get('steamid', ''),
+                    "personaname": friend.get('personaname', '未知昵称'),
                     "nickname": friend.get('personaname', '未知昵称')
                 })
             
@@ -158,7 +168,10 @@ class SteamAuto():
         
         for group in self.wechat_groups:
             try:
-                get_wechat().SendMsg(message, group)
+                if _use_pywechat:
+                    Messages.send_messages_to_friend(friend='文件传输助手',messages=[message],delay=0.1,tickle=False,search_pages=0)
+                else:
+                    get_wechat().SendMsg(message, group)
                 print(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
@@ -210,7 +223,8 @@ class SteamAuto():
 
         for friend in friend_status_list:
             steam_id = friend.get('steamid')
-            nickname = friend.get('personaname', '未知昵称')
+            # 从config中的nickname_map获取昵称，如果没有则使用personaname
+            nickname = self.friend_nickname_map.get(steam_id, friend.get('personaname', '未知昵称'))
             game_id = friend.get('gameid', None)
             game_name = friend.get('gameextrainfo', '未游玩游戏')
             personastate = friend.get('personastate', 0)  # 0: 离线, 1: 在线, 2: 忙碌, 3: 离开, 4: 暂离, 5: 求交易, 6: 求组队
@@ -221,7 +235,7 @@ class SteamAuto():
             prev_start_time = self.friend_game_status.get(steam_id, {}).get('start_time')
             
             current_time = time.time()
-            
+
             # 检查游戏状态变化：从无游戏变为有游戏
             if game_id and game_id != '0' and prev_game_id != game_id:
                 # 状态发生变化，发送通知
