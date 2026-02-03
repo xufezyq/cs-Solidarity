@@ -4,7 +4,7 @@ import schedule
 import json
 from datetime import datetime
 from pathlib import Path
-from core.wechat_instance import get_wechat
+from core.wechat_instance import *
 from pywechat.WechatAuto import Messages
 
 _use_pywechat = True
@@ -131,6 +131,9 @@ class SteamAuto():
             enable_all_friends=config.get('enable_all_friends', True)
         )
         
+        # 首次执行发生一次消息
+        temp_instance.send_message(config.get('code_update_message', ''))
+        
         # 首次执行时且好友信息为空，自动填充好友信息
         temp_instance.auto_fill_monitored_friends(config_path)
         
@@ -168,10 +171,11 @@ class SteamAuto():
         
         for group in self.wechat_groups:
             try:
-                if _use_pywechat:
-                    Messages.send_messages_to_friend(friend='文件传输助手',messages=[message],delay=0.1,tickle=False,search_pages=0)
-                else:
+                if is_using_wxauto():
                     get_wechat().SendMsg(message, group)
+                else:
+                    Messages.send_messages_to_friend(friend=group, messages=[message], delay=0.2, tickle=False, search_pages=0)
+
                 print(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
