@@ -125,12 +125,30 @@ class SteamAPI:
         except requests.exceptions.RequestException as e:
             print(f"查询好友状态请求错误: {e}")
             return []
+    
+    def get_next_match_code(self, steam_id):
+        """调用 Steam API 获取上一场比赛的 Share Code"""
+        url = f"{self.base_url}ICSGOPlayers_730/GetNextMatchSharingCode/v1/"
+        params = {
+            'key': self.api_key,
+            'steamid': steam_id,
+            'steamidkey': self.auth_code,
+            'knowncode': self.known_share_code
+        }
+        try:
+            response = requests.get(url, params=params, verify=False)
+            response.raise_for_status()
+            data = response.json()
+            return data['result']['nextcode']
+        except requests.exceptions.RequestException as e:
+            print(f"获取下一个比赛代码请求错误: {e}")
+            return None
 
 if __name__ == "__main__":
     # 配置参数
-    API_KEY = "4C858E561994F8B512A4402905DB607C"  # 替换为你的API密钥
+    API_KEY = ""  # 替换为你的API密钥
     VANITY_URL = ""    # 目标用户的自定义URL（如："xxx123"），为空则使用下面的SteamID
-    STEAM_ID = "76561198383859685"  
+    STEAM_ID = ""  
 
     # 初始化SteamAPI实例
     steam_api = SteamAPI(API_KEY)
@@ -170,6 +188,7 @@ if __name__ == "__main__":
         print(f"共获取到 {len(friend_steam_ids)} 位双向好友\n")
         
         # 批量查询好友状态
+        friend_steam_ids.append(steam_id)  # 把自己的状态也添加进去
         friend_status_list = steam_api.get_friend_status(friend_steam_ids)
         if not friend_status_list:
             print("未查询到任何好友的状态信息")
