@@ -125,6 +125,24 @@ class SteamAPI:
         except requests.exceptions.RequestException as e:
             print(f"查询好友状态请求错误: {e}")
             return []
+    
+    def get_next_match_code(self, steam_id):
+        """调用 Steam API 获取上一场比赛的 Share Code"""
+        url = f"{self.base_url}ICSGOPlayers_730/GetNextMatchSharingCode/v1/"
+        params = {
+            'key': self.api_key,
+            'steamid': steam_id,
+            'steamidkey': self.auth_code,
+            'knowncode': self.known_share_code
+        }
+        try:
+            response = requests.get(url, params=params, verify=False)
+            response.raise_for_status()
+            data = response.json()
+            return data['result']['nextcode']
+        except requests.exceptions.RequestException as e:
+            print(f"获取下一个比赛代码请求错误: {e}")
+            return None
 
 if __name__ == "__main__":
     # 配置参数
