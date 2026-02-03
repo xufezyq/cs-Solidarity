@@ -15,8 +15,9 @@ class SteamAuto():
         self.steam_id = steam_id
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
+        self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
-        
+
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
         if wechat_groups:
@@ -62,6 +63,20 @@ class SteamAuto():
         """保存配置到文件"""
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
+
+    def get_cached_friend_list(self, force_refresh=False):
+        """返回缓存的好友列表；若无缓存或 force_refresh=True 则从 API 拉取并缓存"""
+        if force_refresh or not self.cached_friend_list:
+            try:
+                self.cached_friend_list = self.steam.get_friend_list(self.steam_id)
+            except Exception as e:
+                print(f"[{datetime.now()}] 获取好友列表失败: {e}")
+                self.cached_friend_list = None
+        return self.cached_friend_list
+
+    def invalidate_friend_list_cache(self):
+        """使好友列表缓存失效，下次调用将重新拉取"""
+        self.cached_friend_list = None
     
     def auto_fill_monitored_friends(self, config_path='config.json'):
         """首次执行时自动填充monitored_friends"""
@@ -80,14 +95,15 @@ class SteamAuto():
         print(f"[{datetime.now()}] 首次执行，正在获取所有好友信息...")
         
         try:
-            # 获取好友列表
-            friend_list = self.steam.get_friend_list(self.steam_id)
+            # 获取好友列表（使用缓存，必要时可强制刷新）
+            friend_list = self.get_cached_friend_list()
             if not friend_list:
                 print(f"[{datetime.now()}] 未获取到好友列表")
                 return
             
             # 获取好友的详细信息
             friend_ids = [friend["steamid"] for friend in friend_list]
+            friend_ids.append(self.steam_id)  # 把自己的状态也添加进去
             friend_status_list = self.steam.get_friend_status(friend_ids)
             
             if not friend_status_list:
@@ -191,7 +207,7 @@ class SteamAuto():
 
     def get_steam_friend_status(self):
         """获取Steam好友列表及其游戏状态"""
-        friend_list = self.steam.get_friend_list(self.steam_id)
+        friend_list = self.get_cached_friend_list()
         if not friend_list:
             print(f"[{datetime.now()}] 未获取到好友列表")
             return []
@@ -209,6 +225,7 @@ class SteamAuto():
         print(f"[{datetime.now()}] 正在检查 {len(friend_steam_ids)} 位好友的状态...")
         
         # 批量查询好友状态
+        friend_steam_ids.append(self.steam_id)  # 把自己的状态也添加进去
         friend_status_list = self.steam.get_friend_status(friend_steam_ids)
         return friend_status_list
 
@@ -358,6 +375,26 @@ class SteamAuto():
         except Exception as e:
             print(f"[{datetime.now()}] 发送每日统计失败: {e}")
 
+    def daily_update_tasks(self):
+        """封装每天 00:00 需要执行的任务集合。
+
+        包含：发送每日统计、清理/刷新需要每天更新的缓存或计数器等。
+        如需添加其他每日任务，可在此处扩展。
+        """
+        print(f"[{datetime.now()}] 执行每日更新任务...")
+        try:
+            # 发送并重置每日统计（内部已包含重置逻辑）
+            self.send_daily_stats()
+        except Exception as e:
+            print(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
+
+        try:
+            # 每天刷新好友列表缓存，确保次日拉取到最新好友变更
+            self.invalidate_friend_list_cache()
+            print(f"[{datetime.now()}] 好友列表缓存已失效，将在下一次访问时刷新")
+        except Exception as e:
+            print(f"[{datetime.now()}] 清理好友列表缓存失败: {e}")
+
     def start(self, check_interval=60):
         """
         启动定时检查
@@ -373,8 +410,8 @@ class SteamAuto():
         # 设置定时任务：每60秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
-        # 设置每日定时任务：每天0点发送游玩统计
-        schedule.every().day.at("00:00").do(self.send_daily_stats)
+        # 设置每日定时任务：每天0点执行封装的每日更新任务
+        schedule.every().day.at("00:00").do(self.daily_update_tasks)
         
         try:
             while True:

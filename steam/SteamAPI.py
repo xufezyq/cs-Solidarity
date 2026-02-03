@@ -146,9 +146,9 @@ class SteamAPI:
 
 if __name__ == "__main__":
     # 配置参数
-    API_KEY = "4C858E561994F8B512A4402905DB607C"  # 替换为你的API密钥
+    API_KEY = ""  # 替换为你的API密钥
     VANITY_URL = ""    # 目标用户的自定义URL（如："xxx123"），为空则使用下面的SteamID
-    STEAM_ID = "76561198383859685"  
+    STEAM_ID = ""  
 
     # 初始化SteamAPI实例
     steam_api = SteamAPI(API_KEY)
@@ -188,6 +188,7 @@ if __name__ == "__main__":
         print(f"共获取到 {len(friend_steam_ids)} 位双向好友\n")
         
         # 批量查询好友状态
+        friend_steam_ids.append(steam_id)  # 把自己的状态也添加进去
         friend_status_list = steam_api.get_friend_status(friend_steam_ids)
         if not friend_status_list:
             print("未查询到任何好友的状态信息")
