@@ -15,7 +15,6 @@ if __name__ == "__main__":
     try:
         # 初始化全局WeChat实例
         init_wechat()
-
         steam_auto = SteamAuto.create_from_config(config_file)
         steam_auto.start()
     except FileNotFoundError as e:
