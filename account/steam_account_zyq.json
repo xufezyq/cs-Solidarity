@@ -87,5 +87,5 @@
     }
   ],
   "enable_all_friends": false,
-  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.0\n\n⚠⚠⚠请注意！因无法解决微信虚拟化检测问题，未使用云服务器启动。仅临时本地运行。⚠⚠⚠\n\n服务器成本分担9人已支付，1人未支付\n感谢：Oopy、Oopz、不杀菜鸟、蘑音甜菜、皮能侠、派大星、大宝贝、难念的经、强锁 支持♥"
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.1\n\n更新内容：\n- 增加来源账号的游戏状态更新 \n- 优化部分功能逻辑 \n- 优化文字输出格式"
 }
