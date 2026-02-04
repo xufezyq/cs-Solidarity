@@ -1,5 +1,5 @@
 {
-  "check_interval": 60,
+  "check_interval": 30,
   "instances": [
     "account/steam_account_zyq.json"
   ]
