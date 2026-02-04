@@ -87,5 +87,5 @@
     }
   ],
   "enable_all_friends": false,
-  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.1\n\n更新内容：\n- 增加来源账号的游戏状态更新 \n- 优化部分功能逻辑 \n- 优化文字输出格式"
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.2\n\n更新内容：\n- 修复多线程无法发送消息的问题\n"
 }
