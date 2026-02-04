@@ -9,3 +9,4 @@ emoji
 pyautogui
 pywinauto
 pycaw
+comtypes
