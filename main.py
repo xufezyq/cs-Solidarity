@@ -1,9 +1,6 @@
 import json
 import threading
-import time
-from pathlib import Path
-import json
-import threading
+import queue
 import time
 from pathlib import Path
 from steam import SteamAuto
@@ -48,15 +45,51 @@ def create_instances(master_cfg):
 
 
 def start_instances(instances, check_interval):
-    """启动实例线程并返回线程列表。"""
+    """使用队列模式：后台线程负责检测并将消息入队，主线程负责出队并调用原始发送方法。"""
+    if not instances:
+        return
+
+    msg_queue = queue.Queue()
     threads = []
+    orig_senders = {}
+
     for name, inst in instances:
-        print(f"启动 {name} -> Steam ID: {inst.steam_id}")
+        print(f"准备实例 {name} -> Steam ID: {inst.steam_id}")
+        # 保存原始发送方法，以便在主线程中调用
+        orig_senders[name] = inst.send_message
+
+        # 替换为入队函数（实例中调用 send_message 将只把消息放入队列）
+        def make_enqueue(n):
+            def enqueue(message):
+                msg_queue.put((n, message))
+            return enqueue
+
+        inst.send_message = make_enqueue(name)
+
+        # 启动实例的调度循环于后台线程（守护线程）
         t = threading.Thread(target=inst.start, kwargs={'check_interval': check_interval}, daemon=True)
         t.start()
         threads.append((name, t))
 
-    return threads
+    print("已启动所有实例的检测线程；主线程将消费消息队列并在主线程执行发送操作。按 Ctrl+C 退出。")
+
+    try:
+        while True:
+            name, message = msg_queue.get()
+            try:
+                sender = orig_senders.get(name)
+                if sender:
+                    sender(message)
+                else:
+                    print(f"未知来源的消息：{name}，已跳过")
+            except Exception as e:
+                print(f"发送来自 {name} 的消息失败: {e}")
+            finally:
+                msg_queue.task_done()
+    except KeyboardInterrupt:
+        print("\n收到中断，主进程退出，守护线程将随之终止")
+
+    return
 
 
 def main():
@@ -69,13 +102,11 @@ def main():
         return
     
     check_interval = master_cfg.get('check_interval', 60) if master_cfg else 60
-    start_instances(instances, check_interval)
 
     try:
-        while True:
-            time.sleep(1)
+        start_instances(instances, check_interval)
     except KeyboardInterrupt:
-        print("\n收到中断，主进程退出，守护线程将随之终止")
+        print("\n收到中断，主进程退出")
 
 
 if __name__ == "__main__":

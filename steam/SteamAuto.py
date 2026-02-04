@@ -406,7 +406,7 @@ class SteamAuto():
         """
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标Steam ID: {self.steam_id}")
-        print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计\n")
+        print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
