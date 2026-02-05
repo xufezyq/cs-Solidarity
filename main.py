@@ -1,10 +1,10 @@
 import json
 import threading
 import queue
-import time
 from pathlib import Path
-from steam import SteamAuto
 from core import init_wechat
+from core import get_instance_from_item
+from core import BaseInstance
 
 
 def load_master_config(config_file):
@@ -35,7 +35,8 @@ def create_instances(master_cfg):
     instances = []
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
-            inst = SteamAuto.create_from_config(item)
+            # 通过实例工厂解析并创建实例
+            inst = get_instance_from_item(item)
             instances.append((f"instance_{idx}", inst))
         except Exception as e:
             print(f"创建实例 {idx} 失败: {e}")
@@ -44,7 +45,7 @@ def create_instances(master_cfg):
     return instances
 
 
-def start_instances(instances, check_interval):
+def start_instances(instances):
     """使用队列模式：后台线程负责检测并将消息入队，主线程负责出队并调用原始发送方法。"""
     if not instances:
         return
@@ -54,7 +55,12 @@ def start_instances(instances, check_interval):
     orig_senders = {}
 
     for name, inst in instances:
-        print(f"准备实例 {name} -> Steam ID: {inst.steam_id}")
+        # 校验类型，确保是 BaseInstance 子类
+        if not isinstance(inst, BaseInstance):
+            print(f"实例 {name} 不是 BaseInstance 子类，已跳过：{type(inst).__name__}")
+            continue
+        print(f"准备实例 {name} -> 类型: {type(inst).__name__}")
+
         # 保存原始发送方法，以便在主线程中调用
         orig_senders[name] = inst.send_message
 
@@ -63,15 +69,14 @@ def start_instances(instances, check_interval):
             def enqueue(message):
                 msg_queue.put((n, message))
             return enqueue
-
         inst.send_message = make_enqueue(name)
 
         # 启动实例的调度循环于后台线程（守护线程）
-        t = threading.Thread(target=inst.start, kwargs={'check_interval': check_interval}, daemon=True)
+        t = threading.Thread(target=inst.start, daemon=True)
         t.start()
         threads.append((name, t))
 
-    print("已启动所有实例的检测线程；主线程将消费消息队列并在主线程执行发送操作。按 Ctrl+C 退出。")
+    print("已启动所有实例的检测线程，主线程将消费消息队列并在主线程执行发送操作。")
 
     try:
         while True:
@@ -96,15 +101,14 @@ def main():
     config_file = 'config.json'
 
     init_wechat()
+    
     master_cfg = load_master_config(config_file)
     instances = create_instances(master_cfg)
     if not instances:
         return
-    
-    check_interval = master_cfg.get('check_interval', 60) if master_cfg else 60
 
     try:
-        start_instances(instances, check_interval)
+        start_instances(instances)
     except KeyboardInterrupt:
         print("\n收到中断，主进程退出")
 

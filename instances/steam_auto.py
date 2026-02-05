@@ -1,22 +1,21 @@
-from .SteamAPI import SteamAPI
+from steam.SteamAPI import SteamAPI
 import time
 import schedule
 import json
 from datetime import datetime
 from pathlib import Path
-from core.wechat_instance import *
-from pywechat.WechatAuto import Messages
+from core import wechat_instance
+from core.base_instance import BaseInstance
 
-_use_pywechat = True
-
-class SteamAuto():
-    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message=""):
+class SteamAuto(BaseInstance):
+    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60):
         self.steam = SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
+        self.check_interval = check_interval
 
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
@@ -144,7 +143,9 @@ class SteamAuto():
             steam_id=config.get('steam_id'),
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
-            enable_all_friends=config.get('enable_all_friends', True)
+            enable_all_friends=config.get('enable_all_friends', True),
+            code_update_message=config.get('code_update_message', ''),
+            check_interval=config.get('check_interval', 60)
         )
         
         # 首次执行发生一次消息
@@ -174,7 +175,9 @@ class SteamAuto():
             steam_id=config.get('steam_id'),
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
-            enable_all_friends=config.get('enable_all_friends', True)
+            enable_all_friends=config.get('enable_all_friends', True),
+            code_update_message=config.get('code_update_message', ''),
+            check_interval=config.get('check_interval', 60)
         )
 
     def send_message(self, message):
@@ -187,11 +190,7 @@ class SteamAuto():
         
         for group in self.wechat_groups:
             try:
-                if is_using_wxauto():
-                    get_wechat().SendMsg(message, group)
-                else:
-                    Messages.send_messages_to_friend(friend=group, messages=[message], delay=0.2, tickle=False, search_pages=0)
-
+                wechat_instance.send_message(message, group)
                 print(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
@@ -399,11 +398,11 @@ class SteamAuto():
         except Exception as e:
             print(f"[{datetime.now()}] 清理好友列表缓存失败: {e}")
 
-    def start(self, check_interval=60):
+    def start(self):
         """
-        启动定时检查
-        :param check_interval: 检查间隔（秒），默认60秒
+        启动定时检查（检查间隔来源于实例配置 self.check_interval）
         """
+        check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标Steam ID: {self.steam_id}")
         print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计")
@@ -411,7 +410,7 @@ class SteamAuto():
         # 初始化一次，获取当前状态
         self.check_status_changes()
         
-        # 设置定时任务：每60秒检查一次好友游戏状态变化
+        # 设置定时任务：每 check_interval 秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
         # 设置每日定时任务：每天0点执行封装的每日更新任务

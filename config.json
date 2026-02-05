@@ -1,6 +1,12 @@
 {
-  "check_interval": 60,
   "instances": [
-    "account/steam_account_zyq.json"
+    {
+      "type": "steam",
+      "config": "instconfig/steam_account_zyq.json"
+    },
+    {
+      "type": "daily",
+      "config": "instconfig/daily_morning.json"
+    }
   ]
 }
