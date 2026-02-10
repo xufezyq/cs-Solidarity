@@ -1,0 +1,20 @@
+{
+  "mobile_phone": "YOUR_PHONE_NUMBER",
+  "security_code": "YOUR_SECURITY_CODE",
+  "token_file": "config/perfectworld/token.json",
+  "wechat_groups": ["文件传输助手"],
+  "monitored_friends": [
+    {
+      "steam_id": "76561198929215155",
+      "nickname": "好友昵称1"
+    },
+    {
+      "steam_id": "76561198929215156",
+      "nickname": "好友昵称2"
+    }
+  ],
+  "check_interval": 60,
+  "enable_match_start_notify": true,
+  "enable_match_end_notify": true,
+  "startup_message": "【cs-Solidarity】完美平台监控已启动！正在监控好友的比赛状态..."
+}

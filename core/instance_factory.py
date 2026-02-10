@@ -1,6 +1,8 @@
 from typing import Callable, Dict, Any
 from instances.steam_auto import SteamAuto
 from instances.daily_auto import DailyAuto
+from instances.pw_monitor_auto import PWMonitorAuto
+from instances.pw_stats_auto import PWStatsAuto
 
 # 可扩展的类型注册表，值为从配置项创建实例的函数
 _INSTANCE_TYPES: Dict[str, Callable[[Any], Any]] = {}
@@ -32,5 +34,7 @@ def get_instance_from_item(item: Any):
 def _register_defaults():
     register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
     register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
+    register_instance_type('pw_monitor', lambda data: PWMonitorAuto.create_from_config(data.get('config')))
+    register_instance_type('pw_stats', lambda data: PWStatsAuto.create_from_config(data.get('config')))
 
 _register_defaults()

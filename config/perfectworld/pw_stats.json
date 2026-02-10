@@ -1,0 +1,20 @@
+{
+  "mobile_phone": "YOUR_PHONE_NUMBER",
+  "security_code": "YOUR_SECURITY_CODE",
+  "token_file": "config/perfectworld/token.json",
+  "wechat_groups": ["文件传输助手"],
+  "target_players": [
+    {
+      "steam_id": "76561198929215155",
+      "nickname": "玩家昵称1"
+    },
+    {
+      "steam_id": "76561198929215156",
+      "nickname": "玩家昵称2"
+    }
+  ],
+  "send_times": ["08:00", "20:00"],
+  "include_recent_matches": 5,
+  "include_hot_maps": true,
+  "include_hot_weapons": true
+}
