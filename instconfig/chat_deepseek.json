@@ -1,0 +1,9 @@
+{
+  "api_key": "sk-8118d300353d419c90eff78b1664c9d5",
+  "base_url": "https://api.deepseek.com",
+  "model": "deepseek-chat",
+  "system_prompt": "你是群内的智能助手，请简短、幽默地回答问题。",
+  "trigger_prefix": "@bot",
+  "allowed_groups": ["测试"],
+  "allowed_users": []
+}
