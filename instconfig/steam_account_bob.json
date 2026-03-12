@@ -1,8 +1,0 @@
-{
-  "steam_api_key": "YOUR_STEAM_API_KEY_BOB",
-  "steam_id": "76561198000000000",
-  "wechat_groups": ["文件传输助手"],
-  "enable_all_friends": true,
-  "monitored_friends": [],
-  "check_interval": 60
-}
