@@ -4,7 +4,7 @@
 from wxauto import WeChat
 from pywechat import Messages
 
-_use_wxauto = False
+_use_wxauto = True
 _wx = None # 全局WeChat单例对象，所有模块都可以导入使用
 
 def send_message(message, group):
@@ -40,23 +40,33 @@ def is_using_wxauto():
 
 def get_new_messages():
     """获取所有新消息（兼容 wxauto 和 pywechat）"""
+    print(f"[DEBUG] [wechat_instance] is_using_wxauto() = {is_using_wxauto()}")
+    
     if is_using_wxauto():
         wx = get_wechat()
         if wx:
             try:
                 # 获取所有新消息
+                print(f"[DEBUG] [wechat_instance] wxauto 模式，调用 wx.GetAllNewMessage()")
                 msgs = wx.GetAllNewMessage()
+                print(f"[DEBUG] [wechat_instance] wxauto 返回消息: {msgs}")
                 return msgs
             except Exception as e:
-                print(f"获取新消息失败: {e}")
+                print(f"[ERROR] [wechat_instance] 获取新消息失败: {e}")
+                import traceback
+                traceback.print_exc()
                 return {}
     else:
         # pywechat 模式
+        print(f"[DEBUG] [wechat_instance] pywechat 模式，调用 Messages.check_new_message()")
         try:
             # check_new_message 返回的是 list[dict]
             # dict 包含：'好友名称', '新消息条数', '消息内容'(list), '发送消息群成员'(list, optional)
             new_msgs_list = Messages.check_new_message(close_wechat=False)
+            print(f"[DEBUG] [wechat_instance] pywechat 返回: {new_msgs_list}")
+            
             if not new_msgs_list:
+                print(f"[DEBUG] [wechat_instance] pywechat 没有新消息")
                 return {}
             
             result = {}
@@ -87,8 +97,11 @@ def get_new_messages():
                 if msg_list:
                     result[chat_name] = msg_list
             
+            print(f"[DEBUG] [wechat_instance] 处理后返回: {result}")
             return result
         except Exception as e:
-            print(f"pywechat 获取新消息失败: {e}")
+            print(f"[ERROR] [wechat_instance] pywechat 获取新消息失败: {e}")
+            import traceback
+            traceback.print_exc()
             return {}
     return {}

@@ -7,6 +7,10 @@
     {
       "type": "daily",
       "config": "instconfig/daily_morning.json"
+    },
+    {
+      "type": "chat",
+      "config": "instconfig/chat_deepseek.json"
     }
   ]
 }
