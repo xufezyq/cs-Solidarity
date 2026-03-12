@@ -33,6 +33,7 @@ from pywechat import WechatAuto as wechat
 wechat.send_messages_to_friend()来进行使用
 ```
 '''
+from __future__ import annotations
 #########################################依赖环境#####################################
 import os 
 import re

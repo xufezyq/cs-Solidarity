@@ -2,20 +2,37 @@ from steam.SteamAPI import SteamAPI
 import time
 import schedule
 import json
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from core import wechat_instance
 from core.base_instance import BaseInstance
+from cs2_pw.request import PerfectWorldApi
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60):
+    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True):
         self.steam = SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
+        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
+        self.friend_pw_history_stats = {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, "max_rating": 0, "min_rating": 999, "max_pw_rating": 0, "min_pw_rating": 999, "max_we": 0, "min_we": 999, "max_score": 0, "min_score": 999}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
         self.check_interval = check_interval
+        
+        # 新闻检查相关
+        self.enable_news_check = enable_news_check
+        self.check_news_interval = check_news_interval  # 新闻检查间隔（秒），默认 1 小时
+        # cached_news_titles 将在 check_cs2_news 中首次使用时初始化
+        
+        # 完美平台配置
+        self.perfect_world_config = perfect_world_config or {}
+        self.pw_uid = self.perfect_world_config.get('uid')
+        self.pw_token = self.perfect_world_config.get('token')
+        self.pw_api = None
+        if self.pw_uid and self.pw_token:
+            self.pw_api = PerfectWorldApi(uid=self.pw_uid, token=self.pw_token)
 
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
@@ -29,17 +46,26 @@ class SteamAuto(BaseInstance):
         
         # 配置监听的好友列表
         self.monitored_friends = set()
-        self.friend_nickname_map = {}  # 映射steamid到nickname
+        self.friend_nickname_map = {}  # 映射 steamid 到 nickname
+        self.friend_pw_username_map = {}  # 映射 steamid 到 pw_username
+        self.friend_pw_nickname_map = {}  # 映射 steamid 到 pw_nickname
         self.enable_all_friends = enable_all_friends
         
         if monitored_friends:
-            # 将监听列表转换为集合，方便查询，同时构建nickname映射
+            # 将监听列表转换为集合，方便查询，同时构建各种映射
             for friend in monitored_friends:
                 if isinstance(friend, dict):
                     steamid = friend.get('steamid', '')
                     nickname = friend.get('nickname', friend.get('personaname', '未知昵称'))
+                    pw_username = friend.get('pw_username', '')
+                    pw_nickname = friend.get('pw_nickname', nickname)
+                    
                     self.monitored_friends.add(steamid)
                     self.friend_nickname_map[steamid] = nickname
+                    if pw_username:
+                        self.friend_pw_username_map[steamid] = pw_username
+                    if pw_nickname:
+                        self.friend_pw_nickname_map[steamid] = pw_nickname
                 else:
                     steamid = str(friend)
                     self.monitored_friends.add(steamid)
@@ -145,7 +171,10 @@ class SteamAuto(BaseInstance):
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
             code_update_message=config.get('code_update_message', ''),
-            check_interval=config.get('check_interval', 60)
+            check_interval=config.get('check_interval', 60),
+            perfect_world_config=config.get('perfect_world_config'),
+            check_news_interval=config.get('check_news_interval', 3600),
+            enable_news_check=config.get('enable_news_check', True)
         )
         
         # 首次执行发生一次消息
@@ -167,6 +196,10 @@ class SteamAuto(BaseInstance):
         print(f"监听全部好友: {config.get('enable_all_friends', True)}")
         if not config.get('enable_all_friends', True):
             print(f"监听的好友数量: {len(config.get('monitored_friends', []))}")
+        if config.get('perfect_world_config'):
+             print(f"完美平台配置已启用: UID={config['perfect_world_config'].get('uid')}")
+        else:
+             print("完美平台配置未启用")
         print("=" * 50)
 
         # 创建最终实例
@@ -177,7 +210,10 @@ class SteamAuto(BaseInstance):
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
             code_update_message=config.get('code_update_message', ''),
-            check_interval=config.get('check_interval', 60)
+            check_interval=config.get('check_interval', 60),
+            perfect_world_config=config.get('perfect_world_config'),
+            check_news_interval=config.get('check_news_interval', 3600),
+            enable_news_check=config.get('enable_news_check', True)
         )
 
     def send_message(self, message):
@@ -232,6 +268,252 @@ class SteamAuto(BaseInstance):
         friend_status_list = self.steam.get_friend_status(friend_steam_ids)
         return friend_status_list
 
+    def check_cs2_news(self):
+        """检查 CS2 是否有新新闻，如果有则发送通知"""
+        if not self.enable_news_check:
+            return
+        
+        try:
+            # 获取最新 5 条新闻
+            news_items = self.steam.get_steam_news(app_id=730, count=5)
+            
+            if not news_items or len(news_items) == 0:
+                print(f"[{datetime.now()}] 未获取到 CS2 新闻")
+                return
+            
+            # 初始化缓存（如果还没有）
+            if not hasattr(self, 'cached_news_gids'):
+                self.cached_news_gids = set()
+            
+            # 如果是第一次运行（缓存为空），只初始化缓存不发送新闻
+            if len(self.cached_news_gids) == 0:
+                current_gids = set(news.get('gid', '') for news in news_items)
+                self.cached_news_gids = current_gids
+                print(f"[{datetime.now()}] 首次运行，已初始化新闻缓存，当前缓存 {len(self.cached_news_gids)} 条")
+                return
+            
+            # 提取当前新闻的 gid 集合
+            current_gids = set()
+            new_news_list = []
+            
+            for news in news_items:
+                gid = news.get('gid', '')
+                current_gids.add(gid)
+                
+                # 如果 gid 不在缓存中，说明是新新闻
+                if gid not in self.cached_news_gids:
+                    new_news_list.append(news)
+            
+            # 如果有新新闻，全部发送
+            if new_news_list:
+                print(f"[{datetime.now()}] 发现 {len(new_news_list)} 条新新闻")
+                
+                # 按时间倒序排序（最新的在前）
+                # 注意：API 返回的已经是按时间倒序，新新闻应该也是倒序
+                # 但为了用户体验，我们从最新的开始发送（列表已经是倒序）
+                
+                for news in new_news_list:
+                    title = news.get('title', '无标题')
+                    url = news.get('url', '#')
+                    contents = news.get('contents', '无摘要')
+                    
+                    # 截断摘要内容（最多 200 字）
+                    if len(contents) > 300:
+                        contents = contents[:300] + '...'
+                    
+                    # 构建消息
+                    message = f"【CS2 更新】\n\n"
+                    message += f"{title}\n\n"
+                    message += f"{contents}\n\n"
+                    message += f"原文链接：{url}"
+                    
+                    print(f"[{datetime.now()}] 发送新新闻：{title}")
+                    self.send_message(message)
+                
+                # 更新缓存：保留最新的 5 条 gid
+                self.cached_news_gids = current_gids
+                print(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
+            else:
+                print(f"[{datetime.now()}] 无新新闻，最新 5 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
+                
+        except Exception as e:
+            print(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
+
+    async def _fetch_pw_stats_async(self, steam_ids):
+        """异步获取完美平台战绩"""
+        if not self.pw_api:
+            return []
+        
+        match_groups = {} # match_id -> list of (steam_id, match_data)
+        
+        print(f"[{datetime.now()}] 开始查询 {len(steam_ids)} 位好友的完美平台战绩: {steam_ids}")
+        
+        for steam_id in steam_ids:
+            try:
+                # 获取最近对局列表 (dataSource=3 表示完美平台)
+                # type=-1 表示全部类型
+                match_data = await self.pw_api.get_csgopfmatch(steam_id, csgoSeasonId=3, type=-1)
+                
+                if isinstance(match_data, int) or not match_data.get('data'):
+                    continue
+                    
+                matches = match_data['data'].get('matchList', [])
+                if not matches:
+                    continue
+                
+                # 获取最近一场比赛
+                last_match = matches[0]
+                match_id = last_match.get('matchId')
+                
+                # 检查比赛是否是最近结束的 (例如 30 分钟内)
+                # endTime 格式: "2024-06-13 21:10:39"
+                end_time_str = last_match.get('endTime')
+                if end_time_str:
+                    end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
+                    # 简单检查：如果在过去 30 分钟内结束
+                    time_diff = (datetime.now() - end_time).total_seconds()
+                    if time_diff > 1800:
+                         print(f"[{datetime.now()}] {steam_id} 最近一场比赛 ({match_id}) 结束于 {end_time_str}，已超过30分钟 ({int(time_diff/60)}分钟)，忽略")
+                         # 比赛结束太久了，忽略
+                         continue
+                    else:
+                         print(f"[{datetime.now()}] {steam_id} 发现最近比赛: {match_id}, 结束时间: {end_time_str}")
+                
+                if match_id not in match_groups:
+                    match_groups[match_id] = []
+                match_groups[match_id].append((steam_id, last_match))
+                
+            except Exception as e:
+                print(f"[{datetime.now()}] 查询完美战绩出错 ({steam_id}): {e}")
+        
+        if not match_groups:
+            print(f"[{datetime.now()}] 本次查询未发现有效的新比赛")
+            return []
+
+        messages = []
+        print(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
+        
+        for match_id, group in match_groups.items():
+            try:
+                # 这一组都是同一场比赛的好友
+                # 取第一个人的数据来获取比赛基本信息（地图、比分等）
+                first_player_data = group[0][1]
+                map_name = first_player_data.get('mapName', '未知地图')
+                score1 = first_player_data.get('score1')
+                score2 = first_player_data.get('score2')
+                
+                # 构建消息
+                msg = f"🏆 完美平台战报 - {map_name} ({score1}:{score2})\n"
+                
+                for steam_id, data in group:
+                    nickname = self.friend_nickname_map.get(steam_id, '未知好友')
+                    
+                    # 胜负
+                    win_team = data.get('winTeam')
+                    my_team = data.get('team')
+                    if win_team == 0:
+                        result = "平局"
+                    elif win_team == my_team:
+                        result = "胜利"
+                    else:
+                        result = "失败"
+                    
+                    # KDA
+                    kills = data.get('kill', 0)
+                    deaths = data.get('death', 0)
+                    assists = data.get('assist', 0)
+                    rating = data.get('rating', 0.0)
+                    pwRating = data.get('pwRating', 0.0)
+                    we = data.get('we', 0)
+                    pvpScore = data.get('pvpScore', 0)
+                    score_change = data.get('pvpScoreChange', 0)
+                    score_change_str = f"+{score_change}" if score_change > 0 else f"{score_change}"
+                    
+                    msg += f"👤 {nickname}: {result} | Score: {pvpScore} ({score_change_str})\n"
+                    msg += f"   K/D/A: {kills}/{deaths}/{assists} | RT: {rating} | PW RT: {pwRating} | WE: {we}\n"
+                    
+                    # 统计今日完美平台战绩
+                    if steam_id not in self.friend_pw_daily_stats:
+                        self.friend_pw_daily_stats[steam_id] = {
+                            'nickname': nickname,
+                            'matches': [],
+                            'wins': 0,
+                            'losses': 0,
+                            'total_score_change': 0,
+                            'total_kills': 0,
+                            'total_deaths': 0,
+                            'total_assists': 0,
+                            'total_rating': 0.0,
+                            'total_pw_rating': 0.0,
+                            'total_we': 0,
+                            'match_count': 0
+                        }
+                    
+                    stats = self.friend_pw_daily_stats[steam_id]
+                    stats['matches'].append(match_id)
+                    if result == "胜利":
+                        stats['wins'] += 1
+                    elif result == "失败":
+                        stats['losses'] += 1
+                    
+                    stats['total_score_change'] += score_change
+                    stats['total_kills'] += kills
+                    stats['total_deaths'] += deaths
+                    stats['total_assists'] += assists
+                    stats['total_rating'] += rating
+                    stats['total_pw_rating'] += pwRating
+                    stats['total_we'] += we
+                    stats['match_count'] += 1
+                    
+                    # 更新历史最佳战绩
+                    if steam_id not in self.friend_pw_history_stats:
+                        self.friend_pw_history_stats[steam_id] = {
+                            'nickname': nickname,
+                            'max_kills': 0,
+                            'min_kills': 999,
+                            'max_rating': 0.0,
+                            'min_rating': 999.0,
+                            'max_pw_rating': 0.0,
+                            'min_pw_rating': 999.0,
+                            'max_we': 0,
+                            'min_we': 999,
+                            'max_score': 0,
+                            'min_score': 999
+                        }
+                    
+                    hist = self.friend_pw_history_stats[steam_id]
+                    if kills > hist['max_kills']:
+                        hist['max_kills'] = kills
+                    if kills < hist['min_kills'] and kills > 0:
+                        hist['min_kills'] = kills
+                    
+                    if rating > hist['max_rating']:
+                        hist['max_rating'] = rating
+                    if rating < hist['min_rating'] and rating > 0:
+                        hist['min_rating'] = rating
+                    
+                    if pwRating > hist['max_pw_rating']:
+                        hist['max_pw_rating'] = pwRating
+                    if pwRating < hist['min_pw_rating'] and pwRating > 0:
+                        hist['min_pw_rating'] = pwRating
+                    
+                    if we > hist['max_we']:
+                        hist['max_we'] = we
+                    if we < hist['min_we'] and we > 0:
+                        hist['min_we'] = we
+                    
+                    if pvpScore > hist['max_score']:
+                        hist['max_score'] = pvpScore
+                    if pvpScore < hist['min_score'] and pvpScore > 0:
+                        hist['min_score'] = pvpScore
+                
+                messages.append(msg)
+                
+            except Exception as e:
+                print(f"[{datetime.now()}] 处理比赛数据出错 ({match_id}): {e}")
+                
+        return messages
+
     def check_status_changes(self):
         """检查好友游戏状态变化，并累计今日游玩时长"""
         friend_status_list = self.get_steam_friend_status()
@@ -240,6 +522,9 @@ class SteamAuto(BaseInstance):
             return
         # 收集本次检查产生的所有通知，最后一次性发送
         messages = []
+        
+        # 收集刚结束CS2的好友，用于查询完美战绩
+        stopped_cs2_friends = []
 
         for friend in friend_status_list:
             steam_id = friend.get('steamid')
@@ -279,10 +564,14 @@ class SteamAuto(BaseInstance):
                 duration = current_time - prev_start_time if prev_start_time else 0
                 duration_str = self.format_duration(duration)
                 
-                message = f"👋 好友 {nickname} 停止了游戏 {prev_game_name}，游玩时长：{duration_str}。"
+                message = f"👋 好友 {nickname} 停止了游戏 {prev_game_name}，时长：{duration_str}。"
                 print(f"[{datetime.now()}] {message}")
                 # 先收集，后面统一发送
                 messages.append(message)
+                
+                # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
+                if prev_game_id == '730' and self.pw_api:
+                    stopped_cs2_friends.append(steam_id)
                 
                 # 累计今日游玩时长
                 if steam_id not in self.friend_daily_stats:
@@ -311,6 +600,16 @@ class SteamAuto(BaseInstance):
                     'nickname': nickname,
                     'start_time': current_time if (game_id and game_id != '0') else None
                 }
+
+        # 查询完美战绩
+        if stopped_cs2_friends:
+            print(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
+            try:
+                pw_messages = asyncio.run(self._fetch_pw_stats_async(stopped_cs2_friends))
+                if pw_messages:
+                    messages.extend(pw_messages)
+            except Exception as e:
+                print(f"[{datetime.now()}] 查询完美战绩失败: {e}")
 
         # 如果有需要通知的消息，一次性合并并发送
         if messages:
@@ -358,25 +657,206 @@ class SteamAuto(BaseInstance):
         
         return message
 
+    def get_friend_pw_stats(self):
+        """获取好友今天的完美平台战绩统计信息"""
+        if not self.friend_pw_daily_stats:
+            return None
+        return self.friend_pw_daily_stats
+
+    def get_friend_pw_history_stats(self):
+        """获取好友的历史最佳战绩统计信息"""
+        if not self.friend_pw_history_stats:
+            return None
+        return self.friend_pw_history_stats
+
+    def format_pw_daily_stats_message(self, pw_stats_data):
+        """格式化今日完美平台战绩统计信息为消息字符串"""
+        if not pw_stats_data:
+            return "今日还没有完美平台对战记录"
+        
+        today = datetime.now().strftime("%Y年%m月%d日")
+        message = f"⚔️ 【完美平台今日战绩统计 - {today}】\n\n"
+        
+        sorted_friends = sorted(pw_stats_data.items(), key=lambda x: x[1]['match_count'], reverse=True)
+        
+        for steam_id, stats in sorted_friends:
+            nickname = stats.get('nickname', '未知好友')
+            match_count = stats.get('match_count', 0)
+            
+            if match_count == 0:
+                continue
+            
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            total_score_change = stats.get('total_score_change', 0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_assists = stats.get('total_assists', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_pw_rating = stats.get('total_pw_rating', 0.0)
+            total_we = stats.get('total_we', 0)
+            
+            avg_kills = total_kills / match_count if match_count > 0 else 0
+            avg_deaths = total_deaths / match_count if match_count > 0 else 0
+            avg_assists = total_assists / match_count if match_count > 0 else 0
+            avg_rating = total_rating / match_count if match_count > 0 else 0
+            avg_pw_rating = total_pw_rating / match_count if match_count > 0 else 0
+            avg_we = total_we / match_count if match_count > 0 else 0
+            
+            score_change_str = f"+{total_score_change}" if total_score_change > 0 else f"{total_score_change}"
+            
+            message += f"👤 {nickname}: {match_count}场 | 胜{wins}负{losses} | 分数：{score_change_str}\n"
+            message += f"   K/D/A: {avg_kills:.1f}/{avg_deaths:.1f}/{avg_assists:.1f}\n"
+            message += f"   平均 RT: {avg_rating:.2f} | 平均 PW RT: {avg_pw_rating:.2f} | 平均 WE: {avg_we:.1f}\n\n"
+        
+        if message == f"⚔️ 【完美平台今日战绩统计 - {today}】\n\n":
+            return "今日还没有完美平台对战记录"
+        
+        return message
+
+    def format_pw_leaderboard_message(self, history_stats_data):
+        """格式化完美平台历史最佳战绩排行榜"""
+        if not history_stats_data:
+            return "暂无历史战绩记录"
+        
+        message = "🏆 【完美平台历史战绩排行榜】\n\n"
+        
+        message += "🔫【击杀王】\n"
+        kills_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_kills'] > 0],
+            key=lambda x: x[1]['max_kills'],
+            reverse=True
+        )[:5]
+        if kills_leaderboard:
+            for idx, (steam_id, data) in enumerate(kills_leaderboard, 1):
+                nickname = data.get('nickname', '未知好友')
+                max_kills = data['max_kills']
+                min_kills = data['min_kills'] if data['min_kills'] < 999 else 0
+                message += f"  {idx}. {nickname}: 最高{max_kills}杀 | 最低{min_kills}杀\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "📊【Rating 之神】\n"
+        rating_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_rating'] > 0],
+            key=lambda x: x[1]['max_rating'],
+            reverse=True
+        )[:5]
+        if rating_leaderboard:
+            for idx, (steam_id, data) in enumerate(rating_leaderboard, 1):
+                nickname = data.get('nickname', '未知好友')
+                max_rating = data['max_rating']
+                min_rating = data['min_rating'] if data['min_rating'] < 999 else 0
+                message += f"  {idx}. {nickname}: 最高{max_rating:.2f} | 最低{min_rating:.2f}\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "⚡【PW Rating 之神】\n"
+        pw_rating_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_pw_rating'] > 0],
+            key=lambda x: x[1]['max_pw_rating'],
+            reverse=True
+        )[:5]
+        if pw_rating_leaderboard:
+            for idx, (steam_id, data) in enumerate(pw_rating_leaderboard, 1):
+                nickname = data.get('nickname', '未知好友')
+                max_pw_rating = data['max_pw_rating']
+                min_pw_rating = data['min_pw_rating'] if data['min_pw_rating'] < 999 else 0
+                message += f"  {idx}. {nickname}: 最高{max_pw_rating:.2f} | 最低{min_pw_rating:.2f}\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "💪【WE 之神】\n"
+        we_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_we'] > 0],
+            key=lambda x: x[1]['max_we'],
+            reverse=True
+        )[:5]
+        if we_leaderboard:
+            for idx, (steam_id, data) in enumerate(we_leaderboard, 1):
+                nickname = data.get('nickname', '未知好友')
+                max_we = data['max_we']
+                min_we = data['min_we'] if data['min_we'] < 999 else 0
+                message += f"  {idx}. {nickname}: 最高{max_we} | 最低{min_we}\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "🎯【得分王】\n"
+        score_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_score'] > 0],
+            key=lambda x: x[1]['max_score'],
+            reverse=True
+        )[:5]
+        if score_leaderboard:
+            for idx, (steam_id, data) in enumerate(score_leaderboard, 1):
+                nickname = data.get('nickname', '未知好友')
+                max_score = data['max_score']
+                min_score = data['min_score'] if data['min_score'] < 999 else 0
+                message += f"  {idx}. {nickname}: 最高{max_score}分 | 最低{min_score}分\n"
+        else:
+            message += "  暂无数据\n"
+        
+        return message
+
     def reset_daily_stats(self):
-        """重置每日游玩统计（在每天0点调用）"""
+        """重置每日游玩统计（在每天 0 点调用）"""
         print(f"[{datetime.now()}] 重置每日游玩统计")
         self.friend_daily_stats = {}
+        self.friend_pw_daily_stats = {}
 
     def send_daily_stats(self):
-        """发送每日游玩统计"""
+        """发送每日游玩统计（包含 Steam 时长和完美平台战绩）"""
         print(f"[{datetime.now()}] 执行每日统计任务...")
+        messages = []
+        
         try:
+            # 1. 发送 Steam 游玩时长统计
             stats_data = self.get_friend_game_stats()
             if stats_data:
                 message = self.format_game_stats_message(stats_data)
-                self.send_message(message)
-                # 统计发送完毕后，重置计数器
-                self.reset_daily_stats()
+                if message:
+                    messages.append(message)
             else:
-                print(f"[{datetime.now()}] 今日无游玩记录")
+                print(f"[{datetime.now()}] 今日无 Steam 游玩记录")
         except Exception as e:
-            print(f"[{datetime.now()}] 发送每日统计失败: {e}")
+            print(f"[{datetime.now()}] 发送 Steam 统计失败：{e}")
+        
+        try:
+            # 2. 发送完美平台今日战绩统计
+            pw_stats_data = self.get_friend_pw_stats()
+            if pw_stats_data:
+                message = self.format_pw_daily_stats_message(pw_stats_data)
+                if message:
+                    messages.append(message)
+            else:
+                print(f"[{datetime.now()}] 今日无完美平台战绩记录")
+        except Exception as e:
+            print(f"[{datetime.now()}] 发送完美平台统计失败：{e}")
+        
+        try:
+            # 3. 发送历史最佳战绩排行榜
+            history_stats_data = self.get_friend_pw_history_stats()
+            if history_stats_data:
+                message = self.format_pw_leaderboard_message(history_stats_data)
+                if message:
+                    messages.append(message)
+            else:
+                print(f"[{datetime.now()}] 无历史战绩记录")
+        except Exception as e:
+            print(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
+        
+        # 发送所有消息
+        if messages:
+            for msg in messages:
+                self.send_message(msg)
+            # 统计发送完毕后，重置计数器
+            self.reset_daily_stats()
+        else:
+            print(f"[{datetime.now()}] 今日暂无任何统计记录")
 
     def daily_update_tasks(self):
         """封装每天 00:00 需要执行的任务集合。
@@ -404,7 +884,7 @@ class SteamAuto(BaseInstance):
         """
         check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
-        print(f"[{datetime.now()}] 目标Steam ID: {self.steam_id}")
+        print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
         print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计")
         
         # 初始化一次，获取当前状态
@@ -413,8 +893,14 @@ class SteamAuto(BaseInstance):
         # 设置定时任务：每 check_interval 秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
-        # 设置每日定时任务：每天0点执行封装的每日更新任务
+        # 设置每日定时任务：每天 0 点执行封装的每日更新任务
         schedule.every().day.at("00:00").do(self.daily_update_tasks)
+        
+        # 设置定时任务：定期检查 CS2 新闻（如果启用）
+        if self.enable_news_check:
+            check_news_interval = int(self.check_news_interval) if isinstance(self.check_news_interval, (int, float, str)) else 3600
+            print(f"[{datetime.now()}] 已启用新闻检查，将每 {check_news_interval} 秒检查一次 CS2 新闻")
+            schedule.every(check_news_interval).seconds.do(self.check_cs2_news)
         
         try:
             while True:

@@ -15,3 +15,11 @@ class BaseInstance(ABC):
         - 子类内部调用 self.send_message 时，实际会被 start_instances 替换为入队函数
         """
         pass
+
+    def handle_message(self, chat_name: str, message: str):
+        """
+        处理接收到的消息（可选实现）
+        :param chat_name: 消息来源（群名或好友名）
+        :param message: 消息内容
+        """
+        pass

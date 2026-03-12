@@ -33,6 +33,7 @@ from pywechat.WechatTools import Tools
 message_contents,message_senders,message_types=Tools.pull_messages(friend='文件传输助手',number=200)
 ```
 '''
+from __future__ import annotations
 ############################依赖环境###########################
 import os
 import re

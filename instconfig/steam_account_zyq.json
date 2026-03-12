@@ -1,19 +1,32 @@
 {
   "steam_api_key": "594FAD4869EEC7F9816B9600B5E2C3CE",
   "steam_id": "76561198383859685",
+  "perfect_world_config": {
+    "uid": "76561199209601450",
+    "token": "6cb373b9a2d2dcf371d9d938474deb7c484d72b8"
+  },
+  "enable_all_friends": false,
+  "check_interval": 60,
+  "enable_news_check": true,
+  "check_news_interval": 3600,
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.4\n\n更新内容：\n- 增加完美战绩数据播报\n- 增加 CS2 官方新闻推送\n",
   "wechat_groups": [
-    "文件传输助手"
+    "【CS】团结友爱"
   ],
   "monitored_friends": [
     {
       "steamid": "76561198383859685",
       "personaname": "風間トオル",
-      "nickname": "風間トオル"
+      "nickname": "風間トオル",
+      "pw_username": "風間トオル_steam",
+      "pw_nickname": "風間トオル"
     },
     {
       "steamid": "76561198412776807",
       "personaname": "Sakura",
-      "nickname": "Oopz"
+      "nickname": "Oopz",
+      "pw_username": "",
+      "pw_nickname": ""
     },
     {
       "steamid": "76561199024723338",
@@ -85,8 +98,5 @@
       "personaname": "强锁",
       "nickname": "又快又快先生"
     }
-  ],
-  "enable_all_friends": false,
-  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.2\n\n更新内容：\n- 修复多线程无法发送消息的问题\n",
-  "check_interval": 60
+  ]
 }

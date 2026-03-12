@@ -10,3 +10,4 @@ pyautogui
 pywinauto
 pycaw
 comtypes
+httpx

@@ -144,6 +144,24 @@ class SteamAPI:
             print(f"获取下一个比赛代码请求错误: {e}")
             return None
 
+    def get_steam_news(self, app_id, count=5):
+        """获取游戏的最新新闻"""
+        url = f"{self.base_url}ISteamNews/GetNewsForApp/v2/"
+        params = {
+            "key": self.api_key,
+            "appid": app_id,
+            "count": count,
+            "maxlength": 300
+        }
+        try:
+            response = requests.get(url, params=params, verify=False)
+            response.raise_for_status()
+            data = response.json()
+            return data["appnews"]["newsitems"]
+        except requests.exceptions.RequestException as e:
+            print(f"获取游戏新闻请求错误: {e}")
+            return None
+
 if __name__ == "__main__":
     # 配置参数
     API_KEY = ""  # 替换为你的API密钥
@@ -206,3 +224,13 @@ if __name__ == "__main__":
                 print(f"【{idx}】{nickname} ({steam_id})")
                 print(f"  状态: {state_cn} | 游玩游戏: {game_name} (Game ID: {game_id})")
                 print(f"  最后离线时间戳: {last_offline}\n")
+    
+    news_items = steam_api.get_steam_news(app_id = 730, count=1)
+    if news_items:
+        for news in news_items:
+            title = news.get('title', '无标题')
+            url = news.get('url', '无链接')
+            contents = news.get('contents', '无摘要')
+            print(f"新闻标题: {title}")
+            print(f"新闻链接: {url}\n")
+            print(f"新闻摘要：{contents}\n")

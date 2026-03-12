@@ -1,6 +1,7 @@
 import json
 import threading
 import queue
+import time
 from pathlib import Path
 from core import init_wechat
 from core import wechat_instance
@@ -80,10 +81,7 @@ def start_instances(instances):
     print("已启动所有实例的检测线程，主线程将消费消息队列并在主线程执行发送操作。")
 
     try:
-        import time
-        last_check_time = time.time()
-        check_interval = 60  # 每60秒检查一次新消息
-        
+        last_check_time = 0  # 上次检查消息的时间戳
         while True:
             try:
                 # 尝试从队列获取消息，超时 1 秒
@@ -102,37 +100,25 @@ def start_instances(instances):
                     msg_queue.task_done()
             
             except queue.Empty:
-                # 队列空闲时，检查并分发新消息
+                # 队列空闲时，检查并分发新消息（每1分钟一次）
                 current_time = time.time()
-                if current_time - last_check_time >= check_interval:
-                    print(f"[DEBUG] 开始检查新消息 (每 {check_interval} 秒一次)")
+                if current_time - last_check_time >= 60:  # 60秒 = 1分钟
                     try:
                         # 获取所有新消息（兼容 wxauto 和 pywechat）
-                        print(f"[DEBUG] 调用 wechat_instance.get_new_messages()")
                         new_msgs = wechat_instance.get_new_messages()
-                        print(f"[DEBUG] get_new_messages() 返回: {new_msgs}")
-                        print(f"[DEBUG] 新消息数量: {len(new_msgs) if isinstance(new_msgs, dict) else 0}")
                         if new_msgs:
-                            print(f"[DEBUG] 分发 {len(new_msgs)} 个聊天对象的消息给实例")
                             for chat_name, msg_list in new_msgs.items():
-                                print(f"[DEBUG] 处理来自 {chat_name} 的 {len(msg_list)} 条消息")
-                                for msg in msg_list:
-                                    print(f"[DEBUG] 消息内容: {msg}")
-                                    # 分发给所有实例
-                                    print(f"[DEBUG] 分发给 {len(instances)} 个实例")
-                                    for name, inst in instances:
-                                        try:
-                                            print(f"[DEBUG] 调用 {name} 的 handle_message 方法")
-                                            inst.handle_message(chat_name, msg)
-                                        except Exception as e:
-                                            print(f"[DEBUG] 实例 {name} 处理消息失败: {e}")
+                                    for msg in msg_list:
+                                        # 分发给所有实例
+                                        for _, inst in instances:
+                                            try:
+                                                inst.handle_message(chat_name, msg)
+                                            except Exception as e:
+                                                print(f"实例处理消息失败: {e}")
+                        last_check_time = current_time  # 更新上次检查时间
                     except Exception as e:
-                        print(f"[DEBUG] 获取/分发消息时出错: {e}")
-                    finally:
-                        last_check_time = current_time
-                else:
-                    # 等待到下一次检查
-                    time.sleep(1)
+                        # print(f"获取/分发消息时出错: {e}") # 避免刷屏
+                        pass
                 
     except KeyboardInterrupt:
         print("\n收到中断，主进程退出，守护线程将随之终止")

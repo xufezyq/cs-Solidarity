@@ -60,9 +60,6 @@ class ChatAuto(BaseInstance):
         处理接收到的消息
         msg 格式依赖于 wxauto 版本。通常是 [sender, content, id, type] 或对象
         """
-        # 打印原始消息，检查是否收到消息
-        print(f"[DEBUG] [ChatAuto] 收到原始消息 - 来源: {chat_name}, 消息: {msg}")
-        
         # 简单的防抖/去重
         # 假设 msg 是一个对象或列表，我们需要提取 content 和 sender
         sender = ""
@@ -85,9 +82,6 @@ class ChatAuto(BaseInstance):
                 # 尝试作为字符串处理
                 content = str(msg)
                 msg_id = str(hash(content))
-            
-            # 打印解析后的消息
-            print(f"[DEBUG] [ChatAuto] 解析消息 - 发送者: {sender}, 内容: {content}, ID: {msg_id}")
 
             # 过滤非文本消息
             if not isinstance(content, str):
