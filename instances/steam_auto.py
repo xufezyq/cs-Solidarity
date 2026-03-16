@@ -180,7 +180,7 @@ class SteamAuto(BaseInstance):
         )
         
         # 首次执行发生一次消息
-        # temp_instance.send_message(config.get('code_update_message', ''))
+        temp_instance.send_message(config.get('code_update_message', ''))
         
         # 首次执行时且好友信息为空，自动填充好友信息
         temp_instance.auto_fill_monitored_friends(config_path)
@@ -484,7 +484,9 @@ class SteamAuto(BaseInstance):
                             'max_we': 0,
                             'min_we': 999,
                             'max_score': 0,
-                            'min_score': 9999
+                            'min_score': 999,
+                            'max_deaths': 0,
+                            'min_deaths': 999
                         }
                     
                     hist = self.friend_pw_history_stats[steam_id]
@@ -492,6 +494,11 @@ class SteamAuto(BaseInstance):
                         hist['max_kills'] = kills
                     if kills < hist['min_kills'] and kills > 0:
                         hist['min_kills'] = kills
+                    
+                    if deaths > hist['max_deaths']:
+                        hist['max_deaths'] = deaths
+                    if deaths < hist['min_deaths'] and deaths > 0:
+                        hist['min_deaths'] = deaths
                     
                     if rating > hist['max_rating']:
                         hist['max_rating'] = rating
@@ -508,10 +515,11 @@ class SteamAuto(BaseInstance):
                     if we < hist['min_we'] and we > 0:
                         hist['min_we'] = we
                     
-                    if pvpScore > hist['max_score']:
-                        hist['max_score'] = pvpScore
-                    if pvpScore < hist['min_score'] and pvpScore > 0:
-                        hist['min_score'] = pvpScore
+                    if pvpScore > 0:
+                        if pvpScore > hist['max_score']:
+                            hist['max_score'] = pvpScore
+                        if pvpScore < hist['min_score']:
+                            hist['min_score'] = pvpScore
                 
                 messages.append(msg)
                 
@@ -748,29 +756,71 @@ class SteamAuto(BaseInstance):
             [(sid, data) for sid, data in history_stats_data.items() if data['max_kills'] > 0],
             key=lambda x: x[1]['max_kills'],
             reverse=True
-        )[:5]
+        )
         if kills_leaderboard:
-            for idx, (steam_id, data) in enumerate(kills_leaderboard, 1):
-                nickname = data.get('nickname', '未知好友')
-                max_kills = data['max_kills']
-                min_kills = data['min_kills'] if data['min_kills'] < 999 else 0
-                message += f"  {idx}. {nickname}: 最高{max_kills}杀 | 最低{min_kills}杀\n"
+            max_player = kills_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_kills = max_player[1]['max_kills']
+            message += f"  {nickname_max} ({max_kills}杀)\n"
         else:
             message += "  暂无数据\n"
         message += "\n"
+        
+        message += "🔫【精神支持】\n"
+        if kills_leaderboard:
+            min_player = kills_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_kills = min_player[1]['min_kills'] if min_player[1]['min_kills'] < 999 else 0
+            message += f"  {nickname_min} ({min_kills}杀)\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+
+        message += "💀【唐宋八大家】\n"
+        deaths_leaderboard = sorted(
+            [(sid, data) for sid, data in history_stats_data.items() if data['max_deaths'] > 0],
+            key=lambda x: x[1]['max_deaths'],
+            reverse=True
+        )
+        if deaths_leaderboard:
+            max_player = deaths_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_deaths = max_player[1]['max_deaths']
+            message += f"  {nickname_max} ({max_deaths}死)\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "💀【怯战蜥蜴】\n"
+        if deaths_leaderboard:
+            min_player = deaths_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_deaths = min_player[1]['min_deaths'] if min_player[1]['min_deaths'] < 999 else 0
+            message += f"  {nickname_min} ({min_deaths}死)\n"
+        else:
+            message += "  暂无数据\n"
         
         message += "📊【Rating 之神】\n"
         rating_leaderboard = sorted(
             [(sid, data) for sid, data in history_stats_data.items() if data['max_rating'] > 0],
             key=lambda x: x[1]['max_rating'],
             reverse=True
-        )[:5]
+        )
         if rating_leaderboard:
-            for idx, (steam_id, data) in enumerate(rating_leaderboard, 1):
-                nickname = data.get('nickname', '未知好友')
-                max_rating = data['max_rating']
-                min_rating = data['min_rating'] if data['min_rating'] < 999 else 0
-                message += f"  {idx}. {nickname}: 最高{max_rating:.2f} | 最低{min_rating:.2f}\n"
+            max_player = rating_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_rating = max_player[1]['max_rating']
+            message += f"  {nickname_max} ({max_rating:.2f})\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "📊【团队吉祥物】\n"
+        if rating_leaderboard:
+            min_player = rating_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_rating = min_player[1]['min_rating'] if min_player[1]['min_rating'] < 999 else 0
+            message += f"  {nickname_min} ({min_rating:.2f})\n"
         else:
             message += "  暂无数据\n"
         message += "\n"
@@ -780,13 +830,22 @@ class SteamAuto(BaseInstance):
             [(sid, data) for sid, data in history_stats_data.items() if data['max_pw_rating'] > 0],
             key=lambda x: x[1]['max_pw_rating'],
             reverse=True
-        )[:5]
+        )
         if pw_rating_leaderboard:
-            for idx, (steam_id, data) in enumerate(pw_rating_leaderboard, 1):
-                nickname = data.get('nickname', '未知好友')
-                max_pw_rating = data['max_pw_rating']
-                min_pw_rating = data['min_pw_rating'] if data['min_pw_rating'] < 999 else 0
-                message += f"  {idx}. {nickname}: 最高{max_pw_rating:.2f} | 最低{min_pw_rating:.2f}\n"
+            max_player = pw_rating_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_pw_rating = max_player[1]['max_pw_rating']
+            message += f"  {nickname_max} ({max_pw_rating:.2f})\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "⚡【纯路人】\n"
+        if pw_rating_leaderboard:
+            min_player = pw_rating_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_pw_rating = min_player[1]['min_pw_rating'] if min_player[1]['min_pw_rating'] < 999 else 0
+            message += f"  {nickname_min} ({min_pw_rating:.2f})\n"
         else:
             message += "  暂无数据\n"
         message += "\n"
@@ -796,13 +855,22 @@ class SteamAuto(BaseInstance):
             [(sid, data) for sid, data in history_stats_data.items() if data['max_we'] > 0],
             key=lambda x: x[1]['max_we'],
             reverse=True
-        )[:5]
+        )
         if we_leaderboard:
-            for idx, (steam_id, data) in enumerate(we_leaderboard, 1):
-                nickname = data.get('nickname', '未知好友')
-                max_we = data['max_we']
-                min_we = data['min_we'] if data['min_we'] < 999 else 0
-                message += f"  {idx}. {nickname}: 最高{max_we} | 最低{min_we}\n"
+            max_player = we_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_we = max_player[1]['max_we']
+            message += f"  {nickname_max} ({max_we})\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "💪【不懂装懂】\n"
+        if we_leaderboard:
+            min_player = we_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_we = min_player[1]['min_we'] if min_player[1]['min_we'] < 999 else 0
+            message += f"  {nickname_min} ({min_we})\n"
         else:
             message += "  暂无数据\n"
         message += "\n"
@@ -812,15 +880,25 @@ class SteamAuto(BaseInstance):
             [(sid, data) for sid, data in history_stats_data.items() if data['max_score'] > 0],
             key=lambda x: x[1]['max_score'],
             reverse=True
-        )[:5]
+        )
         if score_leaderboard:
-            for idx, (steam_id, data) in enumerate(score_leaderboard, 1):
-                nickname = data.get('nickname', '未知好友')
-                max_score = data['max_score']
-                min_score = data['min_score'] if data['min_score'] < 999 else 0
-                message += f"  {idx}. {nickname}: 最高{max_score}分 | 最低{min_score}分\n"
+            max_player = score_leaderboard[0]
+            nickname_max = max_player[1].get('nickname', '未知好友')
+            max_score = max_player[1]['max_score']
+            message += f"  {nickname_max} ({max_score}分)\n"
         else:
             message += "  暂无数据\n"
+        message += "\n"
+        
+        message += "🎯【吊车尾】\n"
+        if score_leaderboard:
+            min_player = score_leaderboard[-1]
+            nickname_min = min_player[1].get('nickname', '未知好友')
+            min_score = min_player[1]['min_score'] if min_player[1]['min_score'] < 999 else 0
+            message += f"  {nickname_min} ({min_score}分)\n"
+        else:
+            message += "  暂无数据\n"
+        message += "\n"
         
         return message
 
@@ -859,18 +937,6 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             print(f"[{datetime.now()}] 发送完美平台统计失败：{e}")
         
-        try:
-            # 3. 发送历史最佳战绩排行榜
-            history_stats_data = self.get_friend_pw_history_stats()
-            if history_stats_data:
-                message = self.format_pw_leaderboard_message(history_stats_data)
-                if message:
-                    messages.append(message)
-            else:
-                print(f"[{datetime.now()}] 无历史战绩记录")
-        except Exception as e:
-            print(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
-        
         # 发送所有消息
         if messages:
             for msg in messages:
@@ -879,6 +945,20 @@ class SteamAuto(BaseInstance):
             self.reset_daily_stats()
         else:
             print(f"[{datetime.now()}] 今日暂无任何统计记录")
+
+    def send_leaderboard(self):
+        """发送历史最佳战绩排行榜"""
+        print(f"[{datetime.now()}] 执行排行榜发送任务...")
+        try:
+            history_stats_data = self.get_friend_pw_history_stats()
+            if history_stats_data:
+                message = self.format_pw_leaderboard_message(history_stats_data)
+                if message:
+                    self.send_message(message)
+            else:
+                print(f"[{datetime.now()}] 无历史战绩记录")
+        except Exception as e:
+            print(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
 
     def daily_update_tasks(self):
         """封装每天 00:00 需要执行的任务集合。
@@ -908,6 +988,7 @@ class SteamAuto(BaseInstance):
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
         print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计")
+        print(f"[{datetime.now()}] 每天 09:00 将发送历史战绩排行榜")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
@@ -917,6 +998,9 @@ class SteamAuto(BaseInstance):
         
         # 设置每日定时任务：每天 0 点执行封装的每日更新任务
         schedule.every().day.at("00:00").do(self.daily_update_tasks)
+        
+        # 设置每日定时任务：每天 09:00 发送历史最佳战绩排行榜
+        schedule.every().day.at("09:00").do(self.send_leaderboard)
         
         # 设置定时任务：定期检查 CS2 新闻（如果启用）
         if self.enable_news_check:
