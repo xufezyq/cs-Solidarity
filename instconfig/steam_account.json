@@ -1,0 +1,243 @@
+{
+  "steam_api_key": "594FAD4869EEC7F9816B9600B5E2C3CE",
+  "steam_id": "76561198383859685",
+  "perfect_world_config": {
+    "uid": "76561199209601450",
+    "token": "6cb373b9a2d2dcf371d9d938474deb7c484d72b8"
+  },
+  "enable_all_friends": false,
+  "check_interval": 60,
+  "enable_news_check": true,
+  "check_news_interval": 3600,
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.0.6\n\n更新内容：\n- 增加排行榜功能\n- 增加 CS2 官方新闻推送\n- 增加每日定时播报\n- 接入deepseek-chat模型\n",
+  "wechat_groups": [
+    "测试",
+    "【CS】团结友爱"
+  ],
+  "monitored_friends": [
+    {
+      "steamid": "76561199009839689",
+      "personaname": "难念的经",
+      "nickname": "难念的经"
+    },
+    {
+      "steamid": "76561199133009394",
+      "personaname": "JOKER",
+      "nickname": "JOKER"
+    },
+    {
+      "steamid": "76561199103253412",
+      "personaname": "贼眉鼠眼",
+      "nickname": "贼眉鼠眼"
+    },
+    {
+      "steamid": "76561198347252622",
+      "personaname": "苦海胆",
+      "nickname": "苦海胆"
+    },
+    {
+      "steamid": "76561199142850248",
+      "personaname": "不见见手青",
+      "nickname": "不见见手青"
+    },
+    {
+      "steamid": "76561199027909536",
+      "personaname": "拥有大姐姐的诚哥",
+      "nickname": "拥有大姐姐的诚哥"
+    },
+    {
+      "steamid": "76561198987925371",
+      "personaname": "三重刘德华",
+      "nickname": "三重刘德华"
+    },
+    {
+      "steamid": "76561198126298848",
+      "personaname": "旧颜",
+      "nickname": "旧颜"
+    },
+    {
+      "steamid": "76561199110612255",
+      "personaname": "你的年级主任",
+      "nickname": "你的年级主任"
+    },
+    {
+      "steamid": "76561199642003137",
+      "personaname": "蘑音甜菜",
+      "nickname": "蘑音甜菜"
+    },
+    {
+      "steamid": "76561198986231197",
+      "personaname": "大宝贝",
+      "nickname": "大宝贝"
+    },
+    {
+      "steamid": "76561198324071323",
+      "personaname": "Oopy",
+      "nickname": "Oopy"
+    },
+    {
+      "steamid": "76561199262650715",
+      "personaname": "electronic",
+      "nickname": "electronic"
+    },
+    {
+      "steamid": "76561198383859685",
+      "personaname": "風間トオル",
+      "nickname": "風間トオル"
+    },
+    {
+      "steamid": "76561198412776807",
+      "personaname": "Sakura",
+      "nickname": "Sakura"
+    },
+    {
+      "steamid": "76561199209601450",
+      "personaname": "帅气棍哥",
+      "nickname": "帅气棍哥"
+    },
+    {
+      "steamid": "76561199024723338",
+      "personaname": "农家炒肉",
+      "nickname": "农家炒肉"
+    },
+    {
+      "steamid": "76561199059506806",
+      "personaname": "强锁",
+      "nickname": "强锁"
+    },
+    {
+      "steamid": "76561198413270779",
+      "personaname": "你的教导主任",
+      "nickname": "你的教导主任"
+    },
+    {
+      "steamid": "76561198828073207",
+      "personaname": "邮寄一束白玫瑰",
+      "nickname": "邮寄一束白玫瑰"
+    },
+    {
+      "steamid": "76561199447107976",
+      "personaname": "小猫老弟",
+      "nickname": "小猫老弟"
+    }
+  ],
+  "friend_pw_history_stats": {
+    "76561198324071323": {
+      "nickname": "Oopy",
+      "max_kills": 36,
+      "min_kills": 5,
+      "max_rating": 1.59,
+      "min_rating": 0.37,
+      "max_pw_rating": 1.44,
+      "min_pw_rating": 0.52,
+      "max_we": 12.5118,
+      "min_we": 4.1588,
+      "max_score": 2157,
+      "min_score": 999
+    },
+    "76561199009839689": {
+      "nickname": "难念的经",
+      "max_kills": 28,
+      "min_kills": 5,
+      "max_rating": 1.46,
+      "min_rating": 0.34,
+      "max_pw_rating": 1.43,
+      "min_pw_rating": 0.62,
+      "max_we": 12.889,
+      "min_we": 2.6874,
+      "max_score": 2267,
+      "min_score": 999
+    },
+    "76561198986231197": {
+      "nickname": "大宝贝",
+      "max_kills": 31,
+      "min_kills": 12,
+      "max_rating": 1.64,
+      "min_rating": 0.75,
+      "max_pw_rating": 1.52,
+      "min_pw_rating": 0.96,
+      "max_we": 11.7978,
+      "min_we": 6.3744,
+      "max_score": 2168,
+      "min_score": 999
+    },
+    "76561199103253412": {
+      "nickname": "贼眉鼠眼",
+      "max_kills": 13,
+      "min_kills": 13,
+      "max_rating": 0.8,
+      "min_rating": 0.8,
+      "max_pw_rating": 0.91,
+      "min_pw_rating": 0.91,
+      "max_we": 6.4967,
+      "min_we": 6.4967,
+      "max_score": 1564,
+      "min_score": 1564
+    },
+    "76561199262650715": {
+      "nickname": "electronic",
+      "max_kills": 20,
+      "min_kills": 8,
+      "max_rating": 1.11,
+      "min_rating": 0.62,
+      "max_pw_rating": 1.15,
+      "min_pw_rating": 0.7,
+      "max_we": 11.5529,
+      "min_we": 4.7097,
+      "max_score": 1865,
+      "min_score": 1761
+    },
+    "76561199142850248": {
+      "nickname": "不见见手青",
+      "max_kills": 18,
+      "min_kills": 10,
+      "max_rating": 1.29,
+      "min_rating": 0.67,
+      "max_pw_rating": 1.33,
+      "min_pw_rating": 0.79,
+      "max_we": 11.3874,
+      "min_we": 5.8979,
+      "max_score": 1782,
+      "min_score": 1679
+    },
+    "76561198383859685": {
+      "nickname": "風間トオル",
+      "max_kills": 24,
+      "min_kills": 7,
+      "max_rating": 1.37,
+      "min_rating": 0.45,
+      "max_pw_rating": 1.33,
+      "min_pw_rating": 0.63,
+      "max_we": 10.8972,
+      "min_we": 5.4678,
+      "max_score": 1914,
+      "min_score": 1769
+    },
+    "76561198126298848": {
+      "nickname": "旧颜",
+      "max_kills": 19,
+      "min_kills": 5,
+      "max_rating": 1.13,
+      "min_rating": 0.4,
+      "max_pw_rating": 1.43,
+      "min_pw_rating": 0.49,
+      "max_we": 11.4806,
+      "min_we": 3.1481,
+      "max_score": 1747,
+      "min_score": 1635
+    },
+    "76561198347252622": {
+      "nickname": "苦海胆",
+      "max_kills": 11,
+      "min_kills": 11,
+      "max_rating": 1.23,
+      "min_rating": 1.23,
+      "max_pw_rating": 1.07,
+      "min_pw_rating": 1.07,
+      "max_we": 10.818,
+      "min_we": 10.818,
+      "max_score": 2068,
+      "min_score": 2068
+    }
+  }
+}

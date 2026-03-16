@@ -2,7 +2,7 @@
   "instances": [
     {
       "type": "steam",
-      "config": "instconfig/steam_account_zyq.json"
+      "config": "instconfig/steam_account.json"
     },
     {
       "type": "daily",

@@ -26,3 +26,6 @@ env/
 
 # Logs
 *.log
+
+# batch files
+*.bat

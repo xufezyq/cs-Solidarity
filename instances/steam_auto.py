@@ -180,7 +180,7 @@ class SteamAuto(BaseInstance):
         )
         
         # 首次执行发生一次消息
-        temp_instance.send_message(config.get('code_update_message', ''))
+        # temp_instance.send_message(config.get('code_update_message', ''))
         
         # 首次执行时且好友信息为空，自动填充好友信息
         temp_instance.auto_fill_monitored_friends(config_path)
@@ -484,7 +484,7 @@ class SteamAuto(BaseInstance):
                             'max_we': 0,
                             'min_we': 999,
                             'max_score': 0,
-                            'min_score': 999
+                            'min_score': 9999
                         }
                     
                     hist = self.friend_pw_history_stats[steam_id]
