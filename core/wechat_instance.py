@@ -10,7 +10,13 @@ _wx = None # 全局WeChat单例对象，所有模块都可以导入使用
 def send_message(message, group):
     """发送消息到指定的群或好友"""
     if is_using_wxauto():
-        get_wechat().SendMsg(message, group)
+        wx = get_wechat()
+        wx.SendMsg(message, group)
+        # 发送完后切换到文件传输助手，避免影响获取新消息
+        try:
+            wx.ChatWith('文件传输助手')
+        except Exception as e:
+            print(f"[DEBUG] 切换到文件传输助手失败: {e}")
     else:
         Messages.send_messages_to_friend(friend=group, messages=[message], delay=0.5, tickle=False, search_pages=0)
         
