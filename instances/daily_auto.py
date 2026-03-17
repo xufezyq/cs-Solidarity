@@ -78,10 +78,10 @@ class DailyAuto(BaseInstance):
     def create_from_data(cls, data: dict):
         """从字典数据创建 DailyAuto 实例"""
         if not isinstance(data, dict):
-            raise TypeError("DailyMessenger.create_from_data 需要传入字典数据")
+            raise TypeError("DailyAuto.create_from_data 需要传入字典数据")
 
         return DailyAuto(
             wechat_groups=data.get("wechat_groups", []),
-            send_time=data.get("send_time", "08:00"),
+            send_time=data.get("time", "08:00"),
             message=data.get("message", ""),
         )

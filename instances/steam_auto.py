@@ -17,7 +17,7 @@ class SteamAuto(BaseInstance):
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
-        self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, "max_rating": 0, "min_rating": 999, "max_pw_rating": 0, "min_pw_rating": 999, "max_we": 0, "min_we": 999, "max_score": 0, "min_score": 999}}
+        self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, "max_deaths": 0, "min_deaths": 999, "max_rating": 0, "min_rating": 999, "max_pw_rating": 0, "min_pw_rating": 999, "max_we": 0, "min_we": 999, "max_score": 0, "min_score": 9999}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
         self.check_interval = check_interval
@@ -179,8 +179,9 @@ class SteamAuto(BaseInstance):
             config_path=config_path
         )
         
-        # 首次执行发生一次消息
-        temp_instance.send_message(config.get('code_update_message', ''))
+        # 首次执行一次消息
+        if not config.get('debug', False):
+            temp_instance.send_message(config.get('code_update_message', ''))
         
         # 首次执行时且好友信息为空，自动填充好友信息
         temp_instance.auto_fill_monitored_friends(config_path)
@@ -484,12 +485,34 @@ class SteamAuto(BaseInstance):
                             'max_we': 0,
                             'min_we': 999,
                             'max_score': 0,
-                            'min_score': 999,
+                            'min_score': 9999,
                             'max_deaths': 0,
                             'min_deaths': 999
                         }
                     
                     hist = self.friend_pw_history_stats[steam_id]
+                    
+                    # 确保所有必要字段都存在
+                    required_fields = {
+                        'nickname': '未知好友',
+                        'max_kills': 0,
+                        'min_kills': 999,
+                        'max_deaths': 0,
+                        'min_deaths': 999,
+                        'max_rating': 0.0,
+                        'min_rating': 999.0,
+                        'max_pw_rating': 0.0,
+                        'min_pw_rating': 999.0,
+                        'max_we': 0,
+                        'min_we': 999,
+                        'max_score': 0,
+                        'min_score': 9999
+                    }
+                    
+                    for field, default in required_fields.items():
+                        if field not in hist:
+                            hist[field] = default
+                    
                     if kills > hist['max_kills']:
                         hist['max_kills'] = kills
                     if kills < hist['min_kills'] and kills > 0:
@@ -745,160 +768,197 @@ class SteamAuto(BaseInstance):
         return message
 
     def format_pw_leaderboard_message(self, history_stats_data):
-        """格式化完美平台历史最佳战绩排行榜"""
+        """格式化完美平台历史最佳战绩排行榜
+        
+        如果某个排行榜没有有效数据，则跳过该排行榜。
+        如果所有排行榜都没有数据，返回 None 表示不发送消息。
+        """
         if not history_stats_data:
-            return "暂无历史战绩记录"
+            return None
         
-        message = "🏆 【完美平台历史战绩排行榜】\n\n"
+        # 过滤掉所有数据都为0或无效的玩家
+        valid_players = {}
+        for sid, data in history_stats_data.items():
+            # 检查是否有任何有效数据（使用.get()避免KeyError）
+            has_valid_data = (
+                data.get('max_kills', 0) > 0 or
+                data.get('max_deaths', 0) > 0 or
+                data.get('max_rating', 0) > 0 or
+                data.get('max_pw_rating', 0) > 0 or
+                data.get('max_we', 0) > 0 or
+                data.get('max_score', 0) > 0
+            )
+            if has_valid_data:
+                valid_players[sid] = data
         
-        message += "🔫【击杀王】\n"
+        if not valid_players:
+            return None
+        
+        sections = []
+        
+        # 击杀排行榜
         kills_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_kills'] > 0],
-            key=lambda x: x[1]['max_kills'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_kills', 0) > 0],
+            key=lambda x: x[1].get('max_kills', 0),
             reverse=True
         )
         if kills_leaderboard:
+            section = "🔫【击杀王】\n"
             max_player = kills_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_kills = max_player[1]['max_kills']
-            message += f"  {nickname_max} ({max_kills}杀)\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_kills = max_player[1].get('max_kills', 0)
+            section += f"  {nickname_max} ({max_kills}杀)\n"
+            
+            # 精神支持（最少击杀）
+            min_kills_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_kills', 999) < 999],
+                key=lambda x: x[1].get('min_kills', 999)
+            )
+            if min_kills_list:
+                section += "\n🔫【精神支持】\n"
+                min_player = min_kills_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_kills = min_player[1].get('min_kills', 0)
+                section += f"  {nickname_min} ({min_kills}杀)\n"
+            sections.append(section)
         
-        message += "🔫【精神支持】\n"
-        if kills_leaderboard:
-            min_player = kills_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_kills = min_player[1]['min_kills'] if min_player[1]['min_kills'] < 999 else 0
-            message += f"  {nickname_min} ({min_kills}杀)\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
-
-        message += "💀【唐宋八大家】\n"
+        # 死亡排行榜
         deaths_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_deaths'] > 0],
-            key=lambda x: x[1]['max_deaths'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_deaths', 0) > 0],
+            key=lambda x: x[1].get('max_deaths', 0),
             reverse=True
         )
         if deaths_leaderboard:
+            section = "💀【唐宋八大家】\n"
             max_player = deaths_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_deaths = max_player[1]['max_deaths']
-            message += f"  {nickname_max} ({max_deaths}死)\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_deaths = max_player[1].get('max_deaths', 0)
+            section += f"  {nickname_max} ({max_deaths}死)\n"
+            
+            # 怯战蜥蜴（最少死亡）
+            min_deaths_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_deaths', 999) < 999],
+                key=lambda x: x[1].get('min_deaths', 999)
+            )
+            if min_deaths_list:
+                section += "\n💀【怯战蜥蜴】\n"
+                min_player = min_deaths_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_deaths = min_player[1].get('min_deaths', 0)
+                section += f"  {nickname_min} ({min_deaths}死)\n"
+            sections.append(section)
         
-        message += "💀【怯战蜥蜴】\n"
-        if deaths_leaderboard:
-            min_player = deaths_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_deaths = min_player[1]['min_deaths'] if min_player[1]['min_deaths'] < 999 else 0
-            message += f"  {nickname_min} ({min_deaths}死)\n"
-        else:
-            message += "  暂无数据\n"
-        
-        message += "📊【Rating 之神】\n"
+        # Rating 排行榜
         rating_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_rating'] > 0],
-            key=lambda x: x[1]['max_rating'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_rating', 0) > 0],
+            key=lambda x: x[1].get('max_rating', 0),
             reverse=True
         )
         if rating_leaderboard:
+            section = "📊【Rating 之神】\n"
             max_player = rating_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_rating = max_player[1]['max_rating']
-            message += f"  {nickname_max} ({max_rating:.2f})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_rating = max_player[1].get('max_rating', 0)
+            section += f"  {nickname_max} ({max_rating:.2f})\n"
+            
+            # 团队吉祥物（最低Rating）
+            min_rating_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_rating', 999) < 999],
+                key=lambda x: x[1].get('min_rating', 999)
+            )
+            if min_rating_list:
+                section += "\n📊【团队吉祥物】\n"
+                min_player = min_rating_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_rating = min_player[1].get('min_rating', 0)
+                section += f"  {nickname_min} ({min_rating:.2f})\n"
+            sections.append(section)
         
-        message += "📊【团队吉祥物】\n"
-        if rating_leaderboard:
-            min_player = rating_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_rating = min_player[1]['min_rating'] if min_player[1]['min_rating'] < 999 else 0
-            message += f"  {nickname_min} ({min_rating:.2f})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
-        
-        message += "⚡【PW Rating 之神】\n"
+        # PW Rating 排行榜
         pw_rating_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_pw_rating'] > 0],
-            key=lambda x: x[1]['max_pw_rating'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_pw_rating', 0) > 0],
+            key=lambda x: x[1].get('max_pw_rating', 0),
             reverse=True
         )
         if pw_rating_leaderboard:
+            section = "⚡【PW Rating 之神】\n"
             max_player = pw_rating_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_pw_rating = max_player[1]['max_pw_rating']
-            message += f"  {nickname_max} ({max_pw_rating:.2f})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_pw_rating = max_player[1].get('max_pw_rating', 0)
+            section += f"  {nickname_max} ({max_pw_rating:.2f})\n"
+            
+            # 纯路人（最低PW Rating）
+            min_pw_rating_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_pw_rating', 999) < 999],
+                key=lambda x: x[1].get('min_pw_rating', 999)
+            )
+            if min_pw_rating_list:
+                section += "\n⚡【纯路人】\n"
+                min_player = min_pw_rating_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_pw_rating = min_player[1].get('min_pw_rating', 0)
+                section += f"  {nickname_min} ({min_pw_rating:.2f})\n"
+            sections.append(section)
         
-        message += "⚡【纯路人】\n"
-        if pw_rating_leaderboard:
-            min_player = pw_rating_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_pw_rating = min_player[1]['min_pw_rating'] if min_player[1]['min_pw_rating'] < 999 else 0
-            message += f"  {nickname_min} ({min_pw_rating:.2f})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
-        
-        message += "💪【WE 之神】\n"
+        # WE 排行榜
         we_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_we'] > 0],
-            key=lambda x: x[1]['max_we'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_we', 0) > 0],
+            key=lambda x: x[1].get('max_we', 0),
             reverse=True
         )
         if we_leaderboard:
+            section = "💪【WE 之神】\n"
             max_player = we_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_we = max_player[1]['max_we']
-            message += f"  {nickname_max} ({max_we})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_we = max_player[1].get('max_we', 0)
+            section += f"  {nickname_max} ({max_we})\n"
+            
+            # 不懂装懂（最低WE）
+            min_we_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_we', 999) < 999],
+                key=lambda x: x[1].get('min_we', 999)
+            )
+            if min_we_list:
+                section += "\n💪【不懂装懂】\n"
+                min_player = min_we_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_we = min_player[1].get('min_we', 0)
+                section += f"  {nickname_min} ({min_we})\n"
+            sections.append(section)
         
-        message += "💪【不懂装懂】\n"
-        if we_leaderboard:
-            min_player = we_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_we = min_player[1]['min_we'] if min_player[1]['min_we'] < 999 else 0
-            message += f"  {nickname_min} ({min_we})\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
-        
-        message += "🎯【得分王】\n"
+        # 得分排行榜
         score_leaderboard = sorted(
-            [(sid, data) for sid, data in history_stats_data.items() if data['max_score'] > 0],
-            key=lambda x: x[1]['max_score'],
+            [(sid, data) for sid, data in valid_players.items() if data.get('max_score', 0) > 0],
+            key=lambda x: x[1].get('max_score', 0),
             reverse=True
         )
         if score_leaderboard:
+            section = "🎯【得分王】\n"
             max_player = score_leaderboard[0]
             nickname_max = max_player[1].get('nickname', '未知好友')
-            max_score = max_player[1]['max_score']
-            message += f"  {nickname_max} ({max_score}分)\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+            max_score = max_player[1].get('max_score', 0)
+            section += f"  {nickname_max} ({max_score}分)\n"
+            
+            # 吊车尾（最低得分）
+            min_score_list = sorted(
+                [(sid, data) for sid, data in valid_players.items() if data.get('min_score', 9999) < 9999],
+                key=lambda x: x[1].get('min_score', 9999)
+            )
+            if min_score_list:
+                section += "\n🎯【吊车尾】\n"
+                min_player = min_score_list[0]
+                nickname_min = min_player[1].get('nickname', '未知好友')
+                min_score = min_player[1].get('min_score', 0)
+                section += f"  {nickname_min} ({min_score}分)\n"
+            sections.append(section)
         
-        message += "🎯【吊车尾】\n"
-        if score_leaderboard:
-            min_player = score_leaderboard[-1]
-            nickname_min = min_player[1].get('nickname', '未知好友')
-            min_score = min_player[1]['min_score'] if min_player[1]['min_score'] < 999 else 0
-            message += f"  {nickname_min} ({min_score}分)\n"
-        else:
-            message += "  暂无数据\n"
-        message += "\n"
+        # 如果没有有效排行榜，返回 None
+        if not sections:
+            return None
+        
+        # 组合消息
+        message = "🏆 【完美平台历史战绩排行榜】\n\n"
+        message += "\n".join(sections)
         
         return message
 

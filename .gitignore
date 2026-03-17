@@ -29,3 +29,6 @@ env/
 
 # batch files
 *.bat
+
+# @AutomationLog.txt
+@AutomationLog.txt
