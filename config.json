@@ -1,16 +1,16 @@
 {
   "instances": [
     {
-      "type": "steam",
-      "config": "instconfig/steam_account.json"
-    },
-    {
       "type": "daily",
       "config": "instconfig/daily_morning.json"
     },
     {
-      "type": "chat",
-      "config": "instconfig/chat_deepseek.json"
+      "type": "korichat",
+      "config": {
+        "config_file": "KouriChat/data/config/config.json",
+        "listen_list": ["测试"],
+        "avatar_dir": "data/avatars/ATRI"
+      }
     }
   ]
 }

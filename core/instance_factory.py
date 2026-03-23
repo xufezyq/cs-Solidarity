@@ -14,7 +14,7 @@ def list_instance_types():
 def init_defaults():
     """初始化默认实例类型注册"""
     # 如果已经注册过，直接返回
-    if 'steam' in _INSTANCE_TYPES and 'daily' in _INSTANCE_TYPES:
+    if 'steam' in _INSTANCE_TYPES and 'daily' in _INSTANCE_TYPES and 'chat' in _INSTANCE_TYPES:
         return
 
     # 局部导入避免循环依赖
@@ -22,10 +22,12 @@ def init_defaults():
         from instances.steam_auto import SteamAuto
         from instances.daily_auto import DailyAuto
         from instances.chat_auto import ChatAuto
+        from instances.kori_chat import KoriChatInstance
         
         register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
-        register_instance_type('daily', lambda data: DailyAuto.create_from_data(data.get('config') or data))
+        register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
         register_instance_type('chat', lambda data: ChatAuto.create_from_config(data.get('config') or data))
+        register_instance_type('korichat', lambda data: KoriChatInstance(data.get('config') or data))
     except ImportError as e:
         # 如果导入失败（例如在测试环境中可能找不到模块），则跳过注册
         print(f"警告：导入实例模块失败，原因：{e}")

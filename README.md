@@ -21,11 +21,20 @@
 - 支持群组和私聊
 - 可配置允许的用户和群组
 
-### 4. 架构特性
+### 4. KoriChat 智能助手 (KoriChat)
+- 基于 KoriChat 项目的完整 AI 对话系统
+- 支持多轮对话上下文和长期记忆
+- 多种人设可选（ATRI、MONO、Nijiko 等）
+- 支持图像识别、表情符号处理
+- 主动消息和定时任务
+- 群聊触发机制（@机器人、触发词、人设名）
+- 调试命令（`/diary`、`/state`、`/letter` 等）
+
+### 5. 架构特性
 - 线程安全的消息队列机制
 - 多实例并行运行
 - 兼容 wxauto 和 pywechat
-- 消息获取频率限制（每1分钟一次）
+- 消息获取频率限制（每 1 分钟一次）
 
 ## 快速开始
 
@@ -90,12 +99,24 @@ pip install -r requirements.txt
 #### AI 聊天配置示例 (instconfig/chat_deepseek.json)
 ```json
 {
-  "api_key": "你的DeepSeek API Key",
+  "api_key": "你的 DeepSeek API Key",
   "base_url": "https://api.deepseek.com",
   "model": "deepseek-chat",
   "system_prompt": "你是一个友好的助手。",
   "trigger_prefix": "@bot",
   "allowed_groups": ["【CS】团结友爱"]
+}
+```
+
+#### KoriChat 配置示例
+```json
+{
+  "type": "korichat",
+  "config": {
+    "config_file": "KouriChat/data/config/config.json",
+    "listen_list": ["文件传输助手", "测试群"],
+    "avatar_dir": "data/avatars/ATRI"
+  }
 }
 ```
 
@@ -127,9 +148,10 @@ cs-Solidarity/
 │   ├── instance_factory.py # 实例工厂
 │   └── wechat_instance.py  # 微信实例管理
 ├── instances/              # 功能实例
-│   ├── steam_auto.py       # Steam监控
+│   ├── steam_auto.py       # Steam 监控
 │   ├── daily_auto.py       # 每日消息
-│   └── chat_auto.py        # AI聊天
+│   ├── chat_auto.py        # AI 聊天
+│   └── kori_chat.py        # KoriChat 智能助手
 ├── instconfig/             # 实例配置文件
 ├── pywechat/               # pywechat库
 ├── wxauto/                 # wxauto库
@@ -151,6 +173,16 @@ cs-Solidarity/
 
 ### 消息获取太频繁导致窗口频繁打开？
 已在代码中设置每 1 分钟获取一次消息，可在 `main.py` 中调整此间隔。
+
+### KoriChat 是什么？
+KoriChat 是一个功能强大的 AI 对话系统，已集成到本框架中。它提供：
+- 完整的 AI 对话能力（基于 LLM）
+- 长期记忆系统
+- 多种人设角色
+- 图像识别能力
+- 主动消息和定时任务
+
+详细使用文档请查看 `KORI_CHAT_INTEGRATION.md`。
 
 ## 开发说明
 
