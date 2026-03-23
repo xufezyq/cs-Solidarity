@@ -2,11 +2,67 @@ import json
 import threading
 import queue
 import time
+from datetime import datetime, time as dt_time
 from pathlib import Path
 from core import init_wechat
 from core import wechat_instance
 from core import get_instance_from_item
 from core import BaseInstance
+
+
+def is_maintenance_time():
+    """检查当前时间是否在维护时间（00:30-06:00）"""
+    now = datetime.now().time()
+    start_time = dt_time(0, 30)
+    end_time = dt_time(6, 0)
+    return start_time <= now < end_time
+
+
+def process_send_message(name, message, orig_senders):
+    """处理发送消息的逻辑"""
+    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 准备发送消息: name={name}, message={message}")
+    try:
+        sender = orig_senders.get(name)
+        if sender:
+            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 调用发送方法: {name}")
+            sender(message)
+            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 消息发送成功")
+        else:
+            print(f"未知来源的消息：{name}，已跳过")
+    except Exception as e:
+        print(f"发送来自 {name} 的消息失败: {e}")
+
+
+def process_receive_messages(instances):
+    """处理接收和分发新消息的逻辑"""
+    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 开始检查新消息...")
+    try:
+        new_msgs = wechat_instance.get_new_messages()
+        print(f"[DEBUG] get_new_messages() 返回: {new_msgs}")
+        
+        if new_msgs:
+            print(f"[DEBUG] 收到来自 {len(new_msgs)} 个聊天对象的消息:")
+            for chat_name, msg_list in new_msgs.items():
+                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息")
+                for i, msg in enumerate(msg_list):
+                    print(f"[DEBUG]     消息 {i+1}: {msg}")
+                    
+            for chat_name, msg_list in new_msgs.items():
+                for msg in msg_list:
+                    for name, inst in instances:
+                        try:
+                            print(f"[DEBUG] 调用 {name}({type(inst).__name__}) 的 handle_message 方法")
+                            print(f"[DEBUG]   参数: chat_name={chat_name}, msg={msg}")
+                            inst.handle_message(chat_name, msg)
+                            print(f"[DEBUG] {name} handle_message 执行完成")
+                        except Exception as e:
+                            print(f"[ERROR] 实例 {name} 处理消息失败: {e}")
+        else:
+            print(f"[DEBUG] 没有新消息")
+    except Exception as e:
+        print(f"[ERROR] 获取/分发消息时出错: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def load_master_config(config_file):
@@ -87,56 +143,29 @@ def start_instances(instances):
                 # 尝试从队列获取消息，超时 1 秒
                 name, message = msg_queue.get(timeout=1)
                 
-                # 处理发送消息的任务
-                try:
-                    sender = orig_senders.get(name)
-                    if sender:
-                        sender(message)
-                    else:
-                        print(f"未知来源的消息：{name}，已跳过")
-                except Exception as e:
-                    print(f"发送来自 {name} 的消息失败: {e}")
-                finally:
+                # 检查是否在维护时间，如果是则跳过发送
+                if is_maintenance_time():
+                    print(f"[INFO] 当前时间在维护时段（00:30-06:00），跳过发送消息")
                     msg_queue.task_done()
+                    continue
+                
+                # 处理发送消息的任务
+                process_send_message(name, message, orig_senders)
+                msg_queue.task_done()
             
             except queue.Empty:
-                # 队列空闲时，检查并分发新消息（每10秒一次）
+                # 队列空闲时，检查并分发新消息（每60秒一次）
                 current_time = time.time()
-                if current_time - last_check_time >= 60:  # 60秒
-                    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 开始检查新消息...")
-                    try:
-                        # 获取所有新消息（兼容 wxauto 和 pywechat）
-                        print(f"[DEBUG] 调用 wechat_instance.get_new_messages()")
-                        new_msgs = wechat_instance.get_new_messages()
-                        print(f"[DEBUG] get_new_messages() 返回: {new_msgs}")
-                        
-                        if new_msgs:
-                            print(f"[DEBUG] 收到来自 {len(new_msgs)} 个聊天对象的消息:")
-                            for chat_name, msg_list in new_msgs.items():
-                                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息")
-                                for i, msg in enumerate(msg_list):
-                                    print(f"[DEBUG]     消息 {i+1}: {msg}")
-                                    
-                            for chat_name, msg_list in new_msgs.items():
-                                    for msg in msg_list:
-                                        # 分发给所有实例
-                                        print(f"[DEBUG] 开始分发给 {len(instances)} 个实例...")
-                                        for name, inst in instances:
-                                            try:
-                                                print(f"[DEBUG] 调用 {name}({type(inst).__name__}) 的 handle_message 方法")
-                                                print(f"[DEBUG]   参数: chat_name={chat_name}, msg={msg}")
-                                                inst.handle_message(chat_name, msg)
-                                                print(f"[DEBUG] {name} handle_message 执行完成")
-                                            except Exception as e:
-                                                print(f"[ERROR] 实例 {name} 处理消息失败: {e}")
-                        else:
-                            print(f"[DEBUG] 没有新消息")
-                            
-                        last_check_time = current_time  # 更新上次检查时间
-                    except Exception as e:
-                        print(f"[ERROR] 获取/分发消息时出错: {e}")
-                        import traceback
-                        traceback.print_exc()
+                if current_time - last_check_time >= 60:
+                    # 检查是否在维护时间，如果是则跳过接收消息
+                    if is_maintenance_time():
+                        print(f"[INFO] 当前时间在维护时段（00:30-06:00），跳过检查新消息")
+                        last_check_time = current_time
+                        continue
+                    
+                    # 处理接收和分发新消息
+                    process_receive_messages(instances)
+                    last_check_time = current_time
                 
     except KeyboardInterrupt:
         print("\n收到中断，主进程退出，守护线程将随之终止")

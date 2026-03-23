@@ -397,8 +397,10 @@ class SteamAuto(BaseInstance):
             print(f"[{datetime.now()}] 本次查询未发现有效的新比赛")
             return []
 
-        messages = []
         print(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
+        
+        # 收集所有玩家的数据，用于合并和排序
+        all_players = []  # [(steam_id, data, map_name, score1, score2), ...]
         
         for match_id, group in match_groups.items():
             try:
@@ -409,10 +411,8 @@ class SteamAuto(BaseInstance):
                 score1 = first_player_data.get('score1')
                 score2 = first_player_data.get('score2')
                 
-                # 构建消息
-                msg = f"🏆 完美平台战报 - {map_name} ({score1}:{score2})\n"
-                
                 for steam_id, data in group:
+                    # 先统计数据和历史战绩
                     nickname = self.friend_nickname_map.get(steam_id, '未知好友')
                     
                     # 胜负
@@ -434,10 +434,6 @@ class SteamAuto(BaseInstance):
                     we = data.get('we', 0)
                     pvpScore = data.get('pvpScore', 0)
                     score_change = data.get('pvpScoreChange', 0)
-                    score_change_str = f"+{score_change}" if score_change > 0 else f"{score_change}"
-                    
-                    msg += f"👤 {nickname}: {result} | Score: {pvpScore} ({score_change_str})\n"
-                    msg += f"   K/D/A: {kills}/{deaths}/{assists} | RT: {rating} | PW RT: {pwRating} | WE: {we}\n"
                     
                     # 统计今日完美平台战绩
                     if steam_id not in self.friend_pw_daily_stats:
@@ -506,7 +502,9 @@ class SteamAuto(BaseInstance):
                         'max_we': 0,
                         'min_we': 999,
                         'max_score': 0,
-                        'min_score': 9999
+                        'min_score': 9999,
+                        'max_deaths': 0,
+                        'min_deaths': 999
                     }
                     
                     for field, default in required_fields.items():
@@ -543,11 +541,47 @@ class SteamAuto(BaseInstance):
                             hist['max_score'] = pvpScore
                         if pvpScore < hist['min_score']:
                             hist['min_score'] = pvpScore
-                
-                messages.append(msg)
+                    
+                    # 收集用于显示的数据
+                    all_players.append((steam_id, data, map_name, score1, score2, nickname, result))
                 
             except Exception as e:
                 print(f"[{datetime.now()}] 处理比赛数据出错 ({match_id}): {e}")
+        
+        # 按WE排序（从高到低）
+        all_players.sort(key=lambda x: x[1].get('we', 0), reverse=True)
+        
+        # 生成合并的消息
+        messages = []
+        if all_players:
+            # 按地图分组
+            map_groups = {}
+            for steam_id, data, map_name, score1, score2, nickname, result in all_players:
+                if map_name not in map_groups:
+                    map_groups[map_name] = []
+                map_groups[map_name].append((steam_id, data, score1, score2, nickname, result))
+            
+            # 为每个地图生成消息
+            for map_name, players in map_groups.items():
+                score1 = players[0][2]
+                score2 = players[0][3]
+                msg = f"🏆 完美平台战报 - {map_name} ({score1}:{score2})\n"
+                
+                for steam_id, data, _, _, nickname, result in players:
+                    kills = data.get('kill', 0)
+                    deaths = data.get('death', 0)
+                    assists = data.get('assist', 0)
+                    rating = data.get('rating', 0.0)
+                    pwRating = data.get('pwRating', 0.0)
+                    we = data.get('we', 0)
+                    pvpScore = data.get('pvpScore', 0)
+                    score_change = data.get('pvpScoreChange', 0)
+                    score_change_str = f"+{score_change}" if score_change > 0 else f"{score_change}"
+                    
+                    msg += f"👤 {nickname}: {result} | Score: {pvpScore} ({score_change_str})\n"
+                    msg += f"   K/D/A: {kills}/{deaths}/{assists} | RT: {rating} | PW RT: {pwRating} | WE: {we}\n"
+                
+                messages.append(msg)
                 
         # 保存历史战绩统计到配置文件
         try:
@@ -563,8 +597,10 @@ class SteamAuto(BaseInstance):
         
         if not friend_status_list:
             return
-        # 收集本次检查产生的所有通知，最后一次性发送
-        messages = []
+        
+        # 收集本次检查产生的所有通知，按游戏名称分组
+        game_start_messages = {}  # game_name -> [nickname1, nickname2, ...]
+        game_stop_messages = {}  # game_name -> [(nickname, duration_str), ...]
         
         # 收集刚结束CS2的好友，用于查询完美战绩
         stopped_cs2_friends = []
@@ -586,11 +622,10 @@ class SteamAuto(BaseInstance):
 
             # 检查游戏状态变化：从无游戏变为有游戏
             if game_id and game_id != '0' and prev_game_id != game_id:
-                # 状态发生变化，发送通知
-                message = f"🎮 好友 {nickname} 开始游玩 {game_name} 了！"
-                print(f"[{datetime.now()}] {message}")
-                # 先收集，后面统一发送
-                messages.append(message)
+                # 按游戏名称分组收集
+                if game_name not in game_start_messages:
+                    game_start_messages[game_name] = []
+                game_start_messages[game_name].append(nickname)
                 
                 # 保存当前状态及开始时间
                 self.friend_game_status[steam_id] = {
@@ -607,10 +642,10 @@ class SteamAuto(BaseInstance):
                 duration = current_time - prev_start_time if prev_start_time else 0
                 duration_str = self.format_duration(duration)
                 
-                message = f"👋 好友 {nickname} 停止了游戏 {prev_game_name}，时长：{duration_str}。"
-                print(f"[{datetime.now()}] {message}")
-                # 先收集，后面统一发送
-                messages.append(message)
+                # 按游戏名称分组收集
+                if prev_game_name not in game_stop_messages:
+                    game_stop_messages[prev_game_name] = []
+                game_stop_messages[prev_game_name].append((nickname, duration_str))
                 
                 # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
                 if prev_game_id == '730' and self.pw_api:
@@ -643,6 +678,25 @@ class SteamAuto(BaseInstance):
                     'nickname': nickname,
                     'start_time': current_time if (game_id and game_id != '0') else None
                 }
+
+        # 生成合并的消息
+        messages = []
+        
+        # 生成游戏开始消息（按游戏合并）
+        for game_name, nicknames in game_start_messages.items():
+            if len(nicknames) == 1:
+                messages.append(f"🎮 好友 {nicknames[0]} 开始游玩 {game_name} 了！")
+            else:
+                messages.append(f"🎮 好友 {', '.join(nicknames)} 开始游玩 {game_name} 了！")
+        
+        # 生成游戏停止消息（按游戏合并）
+        for game_name, stop_info in game_stop_messages.items():
+            if len(stop_info) == 1:
+                nickname, duration_str = stop_info[0]
+                messages.append(f"👋 好友 {nickname} 停止了游戏 {game_name}，时长：{duration_str}。")
+            else:
+                players_text = ', '.join([f"{nickname}({duration_str})" for nickname, duration_str in stop_info])
+                messages.append(f"👋 好友 {players_text} 停止了游戏 {game_name}。")
 
         # 查询完美战绩
         if stopped_cs2_friends:
