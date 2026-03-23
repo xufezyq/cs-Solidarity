@@ -1,6 +1,10 @@
 {
   "instances": [
     {
+      "type": "steam",
+      "config": "instconfig/steam_account.json"
+    },
+    {
       "type": "daily",
       "config": "instconfig/daily_morning.json"
     },
