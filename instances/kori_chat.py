@@ -147,13 +147,15 @@ class KoriChatInstance(BaseInstance):
             )
             print("[KoriChat] ImageRecognitionService 初始化完成")
             
-            # 获取机器人名称（只创建一次微信实例）
+            # 获取机器人名称（使用全局微信实例，避免重复初始化）
             robot_name = ""
             try:
-                # 检查是否已有微信实例
-                if not hasattr(self, '_wx') or self._wx is None:
-                    self._wx = WeChat()
-                robot_name = self._wx.A_MyIcon.Name
+                from core.wechat_instance import get_wechat
+                # 使用全局单例，避免重复初始化
+                wx = get_wechat()
+                if wx and hasattr(wx, 'A_MyIcon') and wx.A_MyIcon:
+                    robot_name = wx.A_MyIcon.Name
+                    self._wx = wx  # 保存引用
                 print(f"[KoriChat] 机器人名称：{robot_name}")
             except Exception as e:
                 print(f"[KoriChat] 获取机器人名称失败：{e}")
@@ -357,6 +359,7 @@ class KoriChatInstance(BaseInstance):
                 
                 # 剔除@机器人名字（KoriChat 原始逻辑）
                 # 获取机器人名称用于剔除
+                from core.wechat_instance import get_wechat, is_using_wxauto
                 robot_name = None
                 if is_using_wxauto():
                     wx = get_wechat()

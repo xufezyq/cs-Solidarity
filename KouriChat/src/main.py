@@ -88,7 +88,13 @@ class PrivateChatBot:
         self.image_recognition_service = image_recognition_service
         self.auto_sender = auto_sender
         self.emoji_handler = emoji_handler
-        self.wx = WeChat()
+        # 使用全局微信实例，避免重复初始化
+        try:
+            from core.wechat_instance import get_wechat
+            self.wx = get_wechat()
+        except Exception as e:
+            logger.warning(f"获取全局微信实例失败：{e}，将创建新实例")
+            self.wx = WeChat()
         self.robot_name = self.wx.A_MyIcon.Name
         logger.info(f"私聊机器人初始化完成 - 机器人名称: {self.robot_name}")
         
@@ -154,7 +160,13 @@ class GroupChatBot:
         self.auto_sender = auto_sender
         self.emoji_handler = emoji_handler
         self.image_recognition_service = image_recognition_service
-        self.wx = WeChat()
+        # 使用全局微信实例，避免重复初始化
+        try:
+            from core.wechat_instance import get_wechat
+            self.wx = get_wechat()
+        except Exception as e:
+            logger.warning(f"获取全局微信实例失败：{e}，将创建新实例")
+            self.wx = WeChat()
         self.robot_name = self.wx.A_MyIcon.Name
         logger.info(f"群聊机器人初始化完成 - 机器人名称: {self.robot_name}")
 
@@ -424,7 +436,13 @@ def message_dispatcher():
             current_time = time.time()
 
             if wx is None or (current_time - last_window_check > check_interval):
-                wx = WeChat()
+                # 使用全局微信实例，避免重复初始化
+                try:
+                    from core.wechat_instance import get_wechat
+                    wx = get_wechat()
+                except Exception as e:
+                    logger.warning(f"获取全局微信实例失败：{e}，将创建新实例")
+                    wx = WeChat()
                 if not wx.GetSessionList():
                     time.sleep(5)
                     continue

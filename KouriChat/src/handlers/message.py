@@ -58,13 +58,18 @@ class MessageHandler:
         # 消息队列相关
         self.message_queues = {}  # 存储每个用户的消息队列，格式：{queue_key: queue_data}
         self.queue_timers = {}  # 存储每个用户的定时器，格式：{queue_key: timer}
-        # 从全局导入的config中获取队列等待时间（秒）
+        # 从全局导入的 config 中获取队列等待时间（秒）
         self.QUEUE_TIMEOUT = config.behavior.message_queue.timeout
         self.queue_lock = threading.Lock()
         self.chat_contexts = {}
 
-        # 微信实例
-        self.wx = WeChat()
+        # 微信实例（使用全局单例，避免重复初始化）
+        try:
+            from core.wechat_instance import get_wechat
+            self.wx = get_wechat()
+        except Exception as e:
+            logger.warning(f"获取全局微信实例失败：{e}，将创建新实例")
+            self.wx = WeChat()
 
         # 添加 handlers
         self.image_handler = image_handler
