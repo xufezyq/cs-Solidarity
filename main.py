@@ -9,9 +9,15 @@ from core import wechat_instance
 from core import get_instance_from_item
 from core import BaseInstance
 
+# 调试模式标志
+DEBUG_MODE = False
 
 def is_maintenance_time():
     """检查当前时间是否在维护时间（00:30-06:00）"""
+    # 如果是调试模式，直接返回 False（不进入维护时间）
+    if DEBUG_MODE:
+        return False
+    
     now = datetime.now().time()
     start_time = dt_time(0, 15)
     end_time = dt_time(8, 0)
@@ -43,16 +49,16 @@ def process_receive_messages(instances):
         if new_msgs:
             print(f"[DEBUG] 收到来自 {len(new_msgs)} 个聊天对象的消息:")
             for chat_name, msg_list in new_msgs.items():
-                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息")
+                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息, msg_list 类型: {type(msg_list)}")
                 for i, msg in enumerate(msg_list):
-                    print(f"[DEBUG]     消息 {i+1}: {msg}")
+                    print(f"[DEBUG]     消息 {i+1}: {msg}, 类型: {type(msg)}")
                     
             for chat_name, msg_list in new_msgs.items():
                 for msg in msg_list:
                     for name, inst in instances:
                         try:
                             print(f"[DEBUG] 调用 {name}({type(inst).__name__}) 的 handle_message 方法")
-                            print(f"[DEBUG]   参数: chat_name={chat_name}, msg={msg}")
+                            print(f"[DEBUG]   参数: chat_name={chat_name}, msg={msg}, msg 类型: {type(msg)}")
                             inst.handle_message(chat_name, msg)
                             print(f"[DEBUG] {name} handle_message 执行完成")
                         except Exception as e:
@@ -67,6 +73,8 @@ def process_receive_messages(instances):
 
 def load_master_config(config_file):
     """加载主配置，读取失败或格式不对时返回空字典。"""
+    global DEBUG_MODE
+    
     if not Path(config_file).exists():
         return {}
 
@@ -81,6 +89,11 @@ def load_master_config(config_file):
 
     if not master_cfg.get('instances'):
         return {}
+    
+    # 读取调试模式配置
+    DEBUG_MODE = master_cfg.get('debug_mode', False)
+    if DEBUG_MODE:
+        print(f"[DEBUG] 调试模式已启用，维护时间检查将被忽略")
 
     return master_cfg
 
@@ -89,15 +102,24 @@ def create_instances(master_cfg):
     """根据主配置创建实例列表，失败的项只打印错误并跳过。"""
     if not master_cfg:
         return []
+    
+    # 将主配置的 debug_mode 传递到所有实例配置中
+    debug_mode = master_cfg.get('debug_mode', False)
 
     instances = []
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
+            # 将主配置的 debug_mode 传递到实例配置中
+            if isinstance(item, dict) and 'config' in item:
+                config = item['config']
+                if isinstance(config, dict):
+                    config['debug_mode'] = debug_mode
+            
             # 通过实例工厂解析并创建实例
             inst = get_instance_from_item(item)
             instances.append((f"instance_{idx}", inst))
         except Exception as e:
-            print(f"创建实例 {idx} 失败: {e}")
+            print(f"创建实例 {idx} 失败：{e}")
             continue
 
     return instances

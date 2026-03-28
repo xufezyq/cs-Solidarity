@@ -55,10 +55,11 @@ init()
 # 全局变量
 logger = None
 listen_list = []
+group_chat_list = []  # 新增：群聊列表（与私聊列表分开）
 
 def initialize_logging():
     """初始化日志系统"""
-    global logger, listen_list
+    global logger, listen_list, group_chat_list
 
     # 清除所有现有日志处理器
     for handler in logging.root.handlers[:]:
@@ -67,6 +68,8 @@ def initialize_logging():
     logger_config = LoggerConfig(root_dir)
     logger = logger_config.setup_logger('main')
     listen_list = config.user.listen_list
+    # 优先使用 group_chat_list，如果不存在则使用 listen_list 作为群聊列表
+    group_chat_list = getattr(config.user, 'group_chat_list', listen_list)
     
     # 确保autoupdate模块的日志级别设置为DEBUG
     logging.getLogger("autoupdate").setLevel(logging.DEBUG)
@@ -477,19 +480,25 @@ def message_dispatcher():
                             logger.debug(f"非好友消息，忽略! 消息类型: {msgtype}")
                             continue
                         
-                        # 检查消息来源是否在监听列表中
-                        if who not in listen_list:
-                            logger.debug(f"消息来源不在监听列表中，忽略: {who}")
-                            continue
+                        # 接收窗口名跟发送人一样，代表是私聊，否则是群聊
+                        is_private_chat = (who == msg.sender)
+                        
+                        # 私聊消息默认接收，群聊消息需要检查是否在监听列表中
+                        if not is_private_chat:
+                            # 优先使用 group_chat_list（新配置），如果不存在则使用 listen_list（旧配置）
+                            if who not in group_chat_list:
+                                logger.debug(f"群聊不在监听列表中，忽略：{who}")
+                                continue
+
                         
                         if msg_id:
                             processed_messages.add(msg_id)
                         last_processed_content[who] = content            
                             
-                        # 接收窗口名跟发送人一样，代表是私聊，否则是群聊
-                        if who == msg.sender:
+                        # 处理私聊和群聊消息
+                        if is_private_chat:
                             # 私聊消息 - 放入私聊队列
-                            logger.debug(f"[分发] 私聊消息 -> 私聊队列: {who}")
+                            logger.debug(f"[分发] 私聊消息 -> 私聊队列：{who}")
                             private_message_queue.put((msg, msg.sender))
                         else:
                             # 群聊消息 - 检查触发条件后放入群聊队列
@@ -505,12 +514,21 @@ def message_dispatcher():
                                 for gc_config in config.user.group_chat_config:
                                     if gc_config.group_name == who:  # who 是群聊名称
                                         group_config = gc_config
-                                        # 检查群聊配置中的触发词
-                                        for trigger in gc_config.triggers:
-                                            if trigger and trigger in msg.content:
-                                                trigger_reason = f"群聊配置触发词({trigger})"
-                                                should_respond = True
-                                                break
+                                        
+                                        # 检查回复模式
+                                        reply_mode = getattr(gc_config, 'replyMode', 'at_only')
+                                        
+                                        # 如果是"回复所有"模式，直接响应
+                                        if reply_mode == 'all':
+                                            trigger_reason = "回复所有消息模式"
+                                            should_respond = True
+                                        else:
+                                            # "只回复@"模式，检查触发词
+                                            for trigger in gc_config.triggers:
+                                                if trigger and trigger in msg.content:
+                                                    trigger_reason = f"群聊配置触发词 ({trigger})"
+                                                    should_respond = True
+                                                    break
                                         break
                             
                             # 如果没有找到群聊配置或没有触发，使用默认逻辑

@@ -11,8 +11,8 @@ memory/
 !modules/memory/
 
 # Config files
-data/config/config.json
-data/config/backups
+# data/config/config.json
+# data/config/backups
 
 # Logs
 logs/

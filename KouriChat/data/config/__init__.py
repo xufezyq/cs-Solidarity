@@ -15,6 +15,7 @@ class GroupChatConfigItem:
     avatar: str
     triggers: List[str]
     enable_at_trigger: bool = True  # 默认启用@触发
+    replyMode: str = 'at_only'  # 回复模式：'at_only' 只回复@，'all' 回复所有
 
 @dataclass
 class UserSettings:
@@ -385,7 +386,8 @@ class Config:
                                 group_name=config_item['groupName'],
                                 avatar=config_item['avatar'],
                                 triggers=config_item.get('triggers', []),
-                                enable_at_trigger=config_item.get('enableAtTrigger', True)  # 默认启用@触发
+                                enable_at_trigger=config_item.get('enableAtTrigger', True),  # 默认启用@触发
+                                replyMode=config_item.get('replyMode', 'at_only')  # 回复模式
                             ))
                 
                 self.user = UserSettings(

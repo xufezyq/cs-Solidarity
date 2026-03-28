@@ -1,0 +1,33 @@
+{
+  "config_file": "KouriChat/data/config/config.json",
+  "avatar_dir": "data/avatars/ATRI",
+  "group_chat_config": [
+    {
+      "groupName": "测试",
+      "avatar": "data/avatars/CALEB",
+      "triggers": ["夏以昼", "以昼", "哥哥", "执舰官"],
+      "enableAtTrigger": false,
+      "replyMode": "all"
+    },
+    {
+      "groupName": "【CS】团结友爱",
+      "avatar": "data/avatars/ATRI",
+      "triggers": [],
+      "enableAtTrigger": true,
+      "replyMode": "at_only"
+    },
+    {
+      "groupName": "代号粽",
+      "avatar": "data/avatars/ATRI",
+      "triggers": [],
+      "enableAtTrigger": true,
+      "replyMode": "at_only"
+    }
+  ],
+  "private_chat_config": [
+    {
+      "friendName": "毁灭菇🍄",
+      "avatar": "data/avatars/CALEB"
+    }
+  ]
+}

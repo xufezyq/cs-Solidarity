@@ -27,7 +27,7 @@ def init_defaults():
         register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
         register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
         register_instance_type('chat', lambda data: ChatAuto.create_from_config(data.get('config') or data))
-        register_instance_type('korichat', lambda data: KoriChatInstance(data.get('config') or data))
+        register_instance_type('korichat', lambda data: KoriChatInstance.create_from_config(data.get('config')))
     except ImportError as e:
         # 如果导入失败（例如在测试环境中可能找不到模块），则跳过注册
         print(f"警告：导入实例模块失败，原因：{e}")

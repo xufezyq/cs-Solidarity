@@ -32,3 +32,6 @@ env/
 
 # @AutomationLog.txt
 @AutomationLog.txt
+
+# Documentation
+docs/

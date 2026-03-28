@@ -30,7 +30,8 @@ function addGroupChatConfig() {
         groupName: '',
         avatar: '',
         triggers: [],
-        enableAtTrigger: true  // 默认启用@触发
+        enableAtTrigger: true,  // 默认启用@触发
+        replyMode: 'at_only'  // 回复模式：'at_only' 只回复@，'all' 回复所有
     };
     window.groupChatConfigs.push(newConfig);
     updateGroupChatConfigData();
@@ -100,6 +101,24 @@ window.renderGroupChatConfigList = function renderGroupChatConfigList() {
                 </div>
             </div>
             
+            <!-- 回复模式选择 -->
+            <div class="mb-3">
+                <label class="form-label">
+                    <i class="bi bi-reply me-1"></i>回复模式
+                </label>
+                <select class="form-select" 
+                        onchange="updateGroupChatConfigField('${config.id}', 'replyMode', this.value)">
+                    <option value="at_only" ${config.replyMode === 'at_only' ? 'selected' : ''}>只回复@机器人的消息</option>
+                    <option value="all" ${config.replyMode === 'all' ? 'selected' : ''}>回复群聊中的所有消息</option>
+                </select>
+                <div class="form-text">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span id="replyModeDesc_${config.id}">
+                        ${config.replyMode === 'all' ? '将回复群聊中的所有消息（包括触发词和@）' : '只回复@机器人或包含触发词的消息'}
+                    </span>
+                </div>
+            </div>
+
             <!-- @触发开关 -->
             <div class="mb-3">
                 <div class="form-check form-switch">

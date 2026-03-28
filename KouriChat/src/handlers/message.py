@@ -525,9 +525,12 @@ class MessageHandler:
                     'is_image_recognition': is_image_recognition,
                     'last_update': time.time(),
                     'has_link': has_link,  # 标记消息中是否包含链接
-                    'urls': urls if has_link else []  # 如果有链接，保存URL列表
+                    'urls': urls if has_link else [],  # 如果有链接，保存URL列表
+                    'avatar_name': self.current_avatar,  # 保存当前人设
+                    'avatar_content': self.prompt_content  # 保存当前人设内容
                 }
                 logger.debug(f"[消息队列] 首条消息: {content[:50]}...")
+                logger.info(f"[消息队列] 保存人设: {self.current_avatar}")
             else:
                 # 添加新消息到现有队列，后续消息不带时间戳
                 self.message_queues[queue_key]['messages'].append(content)
@@ -561,7 +564,6 @@ class MessageHandler:
 
     def _process_message_queue(self, queue_key: str):
         """处理消息队列"""
-        avatar_name = self.current_avatar
         try:
             with self.queue_lock:
                 if queue_key not in self.message_queues:
@@ -590,6 +592,17 @@ class MessageHandler:
                 sender_name = queue_data['sender_name']
                 is_group = queue_data['is_group']
                 is_image_recognition = queue_data['is_image_recognition']
+                
+                # 使用队列中保存的人设（而不是当前的 self.current_avatar）
+                saved_avatar_name = queue_data.get('avatar_name', self.current_avatar)
+                saved_avatar_content = queue_data.get('avatar_content', self.prompt_content)
+                logger.info(f"[消息队列] 使用保存的人设: {saved_avatar_name}")
+                
+                # 临时切换到保存的人设
+                original_avatar_name = self.current_avatar
+                original_avatar_content = self.prompt_content
+                self.current_avatar = saved_avatar_name
+                self.prompt_content = saved_avatar_content
 
                 # 合并消息
                 combined_message = "；".join(messages)
@@ -661,10 +674,24 @@ class MessageHandler:
                                 reminder_type=reminder_type
                             )
 
-                return self._handle_text_message(processed_message, chat_id, sender_name, username, is_group)
+                result = self._handle_text_message(processed_message, chat_id, sender_name, username, is_group)
+                
+                # 恢复原始人设
+                self.current_avatar = original_avatar_name
+                self.prompt_content = original_avatar_content
+                logger.info(f"[消息队列] 恢复原始人设: {original_avatar_name}")
+                
+                return result
 
         except Exception as e:
             logger.error(f"处理消息队列失败: {e}")
+            # 发生异常时也恢复原始人设
+            try:
+                self.current_avatar = original_avatar_name
+                self.prompt_content = original_avatar_content
+                logger.info(f"[消息队列] 异常后恢复原始人设: {original_avatar_name}")
+            except:
+                pass
             return None
 
     def _process_text_for_display(self, text: str) -> str:

@@ -180,7 +180,9 @@ class SteamAuto(BaseInstance):
         )
         
         # 首次执行一次消息
-        if not config.get('debug', False):
+        # 优先使用 debug_mode（从主 config.json 传递），其次使用 debug（本地配置）
+        is_debug = config.get('debug_mode', config.get('debug', False))
+        if not is_debug:
             temp_instance.send_message(config.get('code_update_message', ''))
         
         # 首次执行时且好友信息为空，自动填充好友信息
