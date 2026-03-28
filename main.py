@@ -13,8 +13,8 @@ from core import BaseInstance
 def is_maintenance_time():
     """检查当前时间是否在维护时间（00:30-06:00）"""
     now = datetime.now().time()
-    start_time = dt_time(0, 30)
-    end_time = dt_time(6, 0)
+    start_time = dt_time(0, 15)
+    end_time = dt_time(8, 0)
     return start_time <= now < end_time
 
 
@@ -145,7 +145,7 @@ def start_instances(instances):
                 
                 # 检查是否在维护时间，如果是则跳过发送
                 if is_maintenance_time():
-                    print(f"[INFO] 当前时间在维护时段（00:30-06:00），跳过发送消息")
+                    print(f"[INFO] 当前时间在维护时段（00:15-08:00），跳过发送消息")
                     msg_queue.task_done()
                     continue
                 
@@ -159,7 +159,7 @@ def start_instances(instances):
                 if current_time - last_check_time >= 60:
                     # 检查是否在维护时间，如果是则跳过接收消息
                     if is_maintenance_time():
-                        print(f"[INFO] 当前时间在维护时段（00:30-06:00），跳过检查新消息")
+                        print(f"[INFO] 当前时间在维护时段（00:15-08:00），跳过检查新消息")
                         last_check_time = current_time
                         continue
                     

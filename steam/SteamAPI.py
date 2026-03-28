@@ -5,9 +5,17 @@ import json
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 class SteamAPI:
-    def __init__(self, api_key):
+    def __init__(self, api_key, proxy=None, timeout=60):
         self.api_key = api_key
-        self.base_url = "https://api.steampowered.com/"  # 建议使用HTTPS更安全
+        self.base_url = "https://api.steampowered.com/"  # 建议使用 HTTPS 更安全
+        self.proxy = proxy  # 代理设置，例如：http://127.0.0.1:7890
+        self.timeout = timeout  # 请求超时时间（秒）
+        self.session = requests.Session()
+        if self.proxy:
+            self.session.proxies = {
+                'http': self.proxy,
+                'https': self.proxy
+            }
         # 在线状态码映射（中文）
         self.STATE_MAP = {
             0: "离线",
@@ -20,20 +28,23 @@ class SteamAPI:
         }
     
     def get_steam_id(self, vanity_url):
-        """通过自定义URL解析SteamID64"""
+        """通过自定义 URL 解析 SteamID64"""
         url = f"{self.base_url}ISteamUser/ResolveVanityURL/v0001/"
         params = {"key": self.api_key, "vanityurl": vanity_url}
         try:
-            response = requests.get(url, params=params, verify=False)
-            response.raise_for_status()  # 抛出HTTP错误
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
+            response.raise_for_status()  # 抛出 HTTP 错误
             data = response.json()
             if data["response"]["success"] == 1:
                 return data["response"]["steamid"]
             else:
-                print(f"获取Steam ID失败: {data['response']['message']}")
+                print(f"获取 Steam ID 失败：{data['response']['message']}")
                 return None
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"解析自定义URL请求错误: {e}")
+            print(f"解析自定义 URL 请求错误：{e}")
             return None
     
     def get_player_summary(self, steam_id):
@@ -41,7 +52,7 @@ class SteamAPI:
         url = f"{self.base_url}ISteamUser/GetPlayerSummaries/v0002/"
         params = {"key": self.api_key, "steamids": steam_id}
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             if data["response"]["players"]:
@@ -49,8 +60,11 @@ class SteamAPI:
             else:
                 print("未找到用户信息")
                 return None
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取用户信息请求错误: {e}")
+            print(f"获取用户信息请求错误：{e}")
             return None
     
     def get_owned_games(self, steam_id, include_free_games=True):
@@ -63,12 +77,15 @@ class SteamAPI:
             "include_played_free_games": 1 if include_free_games else 0
         }
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return data["response"].get("games", [])
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取拥有游戏请求错误: {e}")
+            print(f"获取拥有游戏请求错误：{e}")
             return None
     
     def get_app_details(self, app_id):
@@ -76,20 +93,23 @@ class SteamAPI:
         url = f"https://store.steampowered.com/api/appdetails/"
         params = {"appids": app_id, "cc": "cn", "l": "zh-CN"}
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             if data[str(app_id)]["success"]:
                 return data[str(app_id)]["data"]
             else:
-                print(f"获取游戏详情失败: App ID {app_id} 不存在或无法访问")
+                print(f"获取游戏详情失败：App ID {app_id} 不存在或无法访问")
                 return None
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取游戏详情请求错误: {e}")
+            print(f"获取游戏详情请求错误：{e}")
             return None
 
     def get_friend_list(self, steam_id):
-        """获取用户的双向好友列表（仅返回SteamID）"""
+        """获取用户的双向好友列表（仅返回 SteamID）"""
         url = f"{self.base_url}ISteamUser/GetFriendList/v0001/"
         # 必须添加 relationship=friend 参数，否则接口返回空
         params = {
@@ -98,32 +118,38 @@ class SteamAPI:
             "relationship": "friend"
         }
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return data["friendslist"].get("friends", [])
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取好友列表请求错误: {e}")
+            print(f"获取好友列表请求错误：{e}")
             return None
     
     def get_friend_status(self, steam_ids):
         """批量查询好友的在线状态和游戏状态"""
         if not steam_ids:
-            print("好友SteamID列表为空")
+            print("好友 SteamID 列表为空")
             return []
         
         url = f"{self.base_url}ISteamUser/GetPlayerSummaries/v0002/"
         params = {
             "key": self.api_key,
-            "steamids": ",".join(steam_ids)  # 拼接多个SteamID
+            "steamids": ",".join(steam_ids)  # 拼接多个 SteamID
         }
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return data["response"]["players"]
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return []
         except requests.exceptions.RequestException as e:
-            print(f"查询好友状态请求错误: {e}")
+            print(f"查询好友状态请求错误：{e}")
             return []
     
     def get_next_match_code(self, steam_id):
@@ -136,12 +162,15 @@ class SteamAPI:
             'knowncode': self.known_share_code
         }
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return data['result']['nextcode']
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取下一个比赛代码请求错误: {e}")
+            print(f"获取下一个比赛代码请求错误：{e}")
             return None
 
     def get_steam_news(self, app_id, count=5):
@@ -154,19 +183,22 @@ class SteamAPI:
             "maxlength": 300
         }
         try:
-            response = requests.get(url, params=params, verify=False)
+            response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return data["appnews"]["newsitems"]
+        except requests.exceptions.Timeout:
+            print(f"请求超时：连接 Steam API 超时，请检查网络连接或代理设置")
+            return None
         except requests.exceptions.RequestException as e:
-            print(f"获取游戏新闻请求错误: {e}")
+            print(f"获取游戏新闻请求错误：{e}")
             return None
 
 if __name__ == "__main__":
     # 配置参数
-    API_KEY = ""  # 替换为你的API密钥
+    API_KEY = "594FAD4869EEC7F9816B9600B5E2C3CE"  # 替换为你的API密钥
     VANITY_URL = ""    # 目标用户的自定义URL（如："xxx123"），为空则使用下面的SteamID
-    STEAM_ID = ""  
+    STEAM_ID = "76561198383859685"  
 
     # 初始化SteamAPI实例
     steam_api = SteamAPI(API_KEY)
