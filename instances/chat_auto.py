@@ -9,8 +9,8 @@ from core import wechat_instance
 
 class ChatAuto(BaseInstance):
     def __init__(self, api_key, base_url="https://api.deepseek.com", model="deepseek-chat", 
-                 system_prompt="你是DeepSeek智能助手，请简短回答用户的问题。", 
-                 trigger_prefix="@bot", allowed_users=None, allowed_groups=None):
+                 system_prompt="", 
+                 trigger_prefix="", allowed_users=None, allowed_groups=None):
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
         self.model = model
@@ -59,9 +59,12 @@ class ChatAuto(BaseInstance):
         """
         处理接收到的消息
         msg 格式依赖于 wxauto 版本。通常是 [sender, content, id, type] 或对象
+        
+        注意：此方法只处理以 trigger_prefix（如 @bot）开头的消息
+        其他消息会被直接忽略，不会分发给其他实例
         """
         print(f"[DEBUG] [ChatAuto] handle_message 被调用!")
-        print(f"[DEBUG] [ChatAuto] 原始参数: chat_name={chat_name}, msg={msg}, msg类型={type(msg)}")
+        print(f"[DEBUG] [ChatAuto] 原始参数：chat_name={chat_name}, msg={msg}, msg 类型={type(msg)}")
         
         # 简单的防抖/去重
         # 假设 msg 是一个对象或列表，我们需要提取 content 和 sender
@@ -76,36 +79,30 @@ class ChatAuto(BaseInstance):
                 content = msg.content
                 sender = msg.sender
                 msg_id = getattr(msg, 'id', str(time.time()))
-                print(f"[DEBUG] [ChatAuto] 解析为对象: sender={sender}, content={content}, msg_id={msg_id}")
+                print(f"[DEBUG] [ChatAuto] 解析为对象：sender={sender}, content={content}, msg_id={msg_id}")
             elif isinstance(msg, (list, tuple)):
-                # 假设格式: [sender, content, id]
+                # 假设格式：[sender, content, id]
                 sender = msg[0]
                 content = msg[1]
                 msg_id = msg[2] if len(msg) > 2 else str(time.time())
-                print(f"[DEBUG] [ChatAuto] 解析为列表: sender={sender}, content={content}, msg_id={msg_id}")
+                print(f"[DEBUG] [ChatAuto] 解析为列表：sender={sender}, content={content}, msg_id={msg_id}")
             else:
                 # 尝试作为字符串处理
                 content = str(msg)
                 msg_id = str(hash(content))
-                print(f"[DEBUG] [ChatAuto] 解析为字符串: content={content}, msg_id={msg_id}")
+                print(f"[DEBUG] [ChatAuto] 解析为字符串：content={content}, msg_id={msg_id}")
 
             # 过滤非文本消息
             if not isinstance(content, str):
-                print(f"[DEBUG] [ChatAuto] 过滤非文本消息: content类型={type(content)}")
+                print(f"[DEBUG] [ChatAuto] 过滤非文本消息：content 类型={type(content)}")
                 return
             print(f"[DEBUG] [ChatAuto] 通过非文本消息过滤")
 
             # 过滤自己发送的消息 (sender == 'Self' or 'self')
             if sender == 'Self':
-                print(f"[DEBUG] [ChatAuto] 过滤自己发送的消息: sender={sender}")
+                print(f"[DEBUG] [ChatAuto] 过滤自己发送的消息：sender={sender}")
                 return
             print(f"[DEBUG] [ChatAuto] 通过自己消息过滤")
-
-            # 检查是否以触发词开头
-            if not content.startswith(self.trigger_prefix):
-                print(f"[DEBUG] [ChatAuto] 消息不包含触发词 '{self.trigger_prefix}': {content}")
-                return
-            print(f"[DEBUG] [ChatAuto] 通过触发词检查: 包含 {self.trigger_prefix}")
 
             # 检查权限
             if self.allowed_groups and chat_name not in self.allowed_groups:
@@ -127,16 +124,17 @@ class ChatAuto(BaseInstance):
             print(f"[INFO] [ChatAuto] 收到 {chat_name} - {sender}: {content}")
 
             # 提取真实 prompt
-            user_query = content[len(self.trigger_prefix):].strip()
+            # 注意：trigger_prefix 可能在消息中间（如 @某人 /claw），需要找到它的位置
+            prefix_index = content.find(self.trigger_prefix)
+            user_query = content[prefix_index + len(self.trigger_prefix):].strip()
             if not user_query:
-                print(f"[DEBUG] [ChatAuto] 触发词后无内容，跳过")
                 return
             print(f"[DEBUG] [ChatAuto] 提取问题: {user_query}")
 
             # 调用 LLM
-            print(f"[DEBUG] [ChatAuto] 开始调用 DeepSeek API...")
-            reply = self.call_deepseek(user_query)
-            print(f"[DEBUG] [ChatAuto] DeepSeek 返回: {reply[:50]}..." if len(reply) > 50 else f"[DEBUG] [ChatAuto] DeepSeek 返回: {reply}")
+            print(f"[DEBUG] [ChatAuto] 开始调用 LLM API...")
+            reply = self.call_llm(user_query)
+            print(f"[DEBUG] [ChatAuto] LLM 返回: {reply[:50]}..." if len(reply) > 50 else f"[DEBUG] [ChatAuto] LLM 返回: {reply}")
             
             # 发送回复
             # 注意：这里调用 self.send_message，它已经被 hook 为入队函数
@@ -150,8 +148,8 @@ class ChatAuto(BaseInstance):
             import traceback
             traceback.print_exc()
 
-    def call_deepseek(self, query):
-        """调用 DeepSeek API"""
+    def call_llm(self, query):
+        """调用 OpenAI 兼容的 LLM API（DeepSeek、OpenClaw 等）"""
         try:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
@@ -166,15 +164,14 @@ class ChatAuto(BaseInstance):
                 "stream": False
             }
             
-            # print(f"[{datetime.now()}] [ChatAuto] 请求 DeepSeek: {query[:20]}...")
-            response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=data, timeout=30)
+            response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=data, timeout=60)
             
             if response.status_code == 200:
                 result = response.json()
                 if 'choices' in result and len(result['choices']) > 0:
                     return result['choices'][0]['message']['content'].strip()
                 else:
-                    return "DeepSeek 返回了空结果"
+                    return "API 返回了空结果"
             else:
                 return f"API 请求失败: {response.status_code} - {response.text}"
         except Exception as e:
@@ -203,8 +200,8 @@ class ChatAuto(BaseInstance):
             api_key=config.get('api_key'),
             base_url=config.get('base_url', "https://api.deepseek.com"),
             model=config.get('model', "deepseek-chat"),
-            system_prompt=config.get('system_prompt', "你是DeepSeek智能助手。"),
-            trigger_prefix=config.get('trigger_prefix', "@bot"),
+            system_prompt=config.get('system_prompt', ""),
+            trigger_prefix=config.get('trigger_prefix', ""),
             allowed_users=config.get('allowed_users', []),
             allowed_groups=config.get('allowed_groups', [])
         )

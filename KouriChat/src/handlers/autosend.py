@@ -66,6 +66,33 @@ class AutoSendHandler:
             user_id = random.choice(self.listen_list)
             self.unanswered_count += 1
             reply_content = f"{self.config.behavior.auto_message.content}"
+            
+            # 根据聊天对象查找对应的人设配置
+            avatar_path = None
+            
+            # 先查找群聊配置
+            for group_config in self.config.group_chat_config:
+                if group_config.groupName == user_id:
+                    avatar_path = group_config.avatar
+                    logger.info(f"[自动发送] 群聊 {user_id} 使用人设：{avatar_path}")
+                    break
+            
+            # 如果没找到群聊配置，查找私聊配置
+            if not avatar_path:
+                for private_config in self.config.private_chat_config:
+                    if private_config.friendName == user_id:
+                        avatar_path = private_config.avatar
+                        logger.info(f"[自动发送] 私聊 {user_id} 使用人设：{avatar_path}")
+                        break
+            
+            # 如果找到了人设配置，临时切换人设
+            if avatar_path and hasattr(self.message_handler, 'switch_avatar_temporarily'):
+                try:
+                    self.message_handler.switch_avatar_temporarily(avatar_path)
+                    logger.info(f"[自动发送] 已临时切换人设：{avatar_path}")
+                except Exception as e:
+                    logger.error(f"[自动发送] 切换人设失败：{e}")
+            
             logger.info(f"自动发送消息到 {user_id}: {reply_content}")
             try:
                 self.message_handler.add_to_queue(
@@ -77,7 +104,7 @@ class AutoSendHandler:
                 )
                 self.start_countdown()
             except Exception as e:
-                logger.error(f"自动发送消息失败: {str(e)}")
+                logger.error(f"自动发送消息失败：{str(e)}")
                 self.start_countdown()
         else:
             logger.error("没有可用的聊天对象")

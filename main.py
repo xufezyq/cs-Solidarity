@@ -2,12 +2,17 @@ import json
 import threading
 import queue
 import time
+import sys
 from datetime import datetime, time as dt_time
 from pathlib import Path
 from core import init_wechat
 from core import wechat_instance
 from core import get_instance_from_item
 from core import BaseInstance
+
+# 强制 UTF-8 输出，避免 Windows GBK 编码遇到 emoji 崩溃
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 # 调试模式标志
 DEBUG_MODE = False
@@ -26,17 +31,42 @@ def is_maintenance_time():
 
 def process_send_message(name, message, orig_senders):
     """处理发送消息的逻辑"""
-    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 准备发送消息: name={name}, message={message}")
+    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 准备发送消息：name={name}, message={message}")
     try:
         sender = orig_senders.get(name)
         if sender:
-            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 调用发送方法: {name}")
+            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 调用发送方法：{name}")
             sender(message)
             print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 消息发送成功")
         else:
             print(f"未知来源的消息：{name}，已跳过")
     except Exception as e:
-        print(f"发送来自 {name} 的消息失败: {e}")
+        print(f"发送来自 {name} 的消息失败：{e}")
+
+
+def route_message_to_instances(msg_content, instances):
+    """
+    根据消息内容路由到目标实例
+    
+    规则：
+    1. 如果消息包含某个实例的 trigger_prefix（如 /claw），只分发给该实例
+    2. 否则分发给所有没有 trigger_prefix 的实例
+    
+    Args:
+        msg_content: 消息内容
+        instances: 实例列表 [(name, instance), ...]
+        
+    Returns:
+        目标实例列表 [(name, instance), ...]
+    """
+    # 检查是否包含某个实例的 trigger_prefix
+    for name, inst in instances:
+        if hasattr(inst, 'trigger_prefix') and inst.trigger_prefix in msg_content:
+            # 消息包含触发词，只分发给这个实例
+            return [(name, inst)]
+    
+    # 没有匹配到触发词，分发给所有没有 trigger_prefix 的实例
+    return [(name, inst) for name, inst in instances if not hasattr(inst, 'trigger_prefix')]
 
 
 def process_receive_messages(instances):
@@ -44,29 +74,44 @@ def process_receive_messages(instances):
     print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 开始检查新消息...")
     try:
         new_msgs = wechat_instance.get_new_messages()
-        print(f"[DEBUG] get_new_messages() 返回: {new_msgs}")
+        print(f"[DEBUG] get_new_messages() 返回：{new_msgs}")
         
         if new_msgs:
             print(f"[DEBUG] 收到来自 {len(new_msgs)} 个聊天对象的消息:")
             for chat_name, msg_list in new_msgs.items():
-                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息, msg_list 类型: {type(msg_list)}")
+                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息，msg_list 类型：{type(msg_list)}")
                 for i, msg in enumerate(msg_list):
-                    print(f"[DEBUG]     消息 {i+1}: {msg}, 类型: {type(msg)}")
+                    print(f"[DEBUG]     消息 {i+1}: {msg}, 类型：{type(msg)}")
                     
             for chat_name, msg_list in new_msgs.items():
                 for msg in msg_list:
-                    for name, inst in instances:
+                    # 提取消息内容
+                    msg_content = ""
+                    if hasattr(msg, 'content'):
+                        msg_content = msg.content
+                    elif isinstance(msg, (list, tuple)) and len(msg) > 1:
+                        msg_content = msg[1]
+                    else:
+                        msg_content = str(msg)
+                    
+                    # 使用路由函数分发消息
+                    target_instances = route_message_to_instances(msg_content, instances)
+                    
+                    print(f"[DEBUG] [消息路由] '{msg_content[:20]}...' -> {[name for name, _ in target_instances]}")
+                    
+                    # 分发给目标实例
+                    for name, inst in target_instances:
                         try:
                             print(f"[DEBUG] 调用 {name}({type(inst).__name__}) 的 handle_message 方法")
-                            print(f"[DEBUG]   参数: chat_name={chat_name}, msg={msg}, msg 类型: {type(msg)}")
+                            print(f"[DEBUG]   参数：chat_name={chat_name}, msg={msg}, msg 类型：{type(msg)}")
                             inst.handle_message(chat_name, msg)
                             print(f"[DEBUG] {name} handle_message 执行完成")
                         except Exception as e:
-                            print(f"[ERROR] 实例 {name} 处理消息失败: {e}")
+                            print(f"[ERROR] 实例 {name} 处理消息失败：{e}")
         else:
             print(f"[DEBUG] 没有新消息")
     except Exception as e:
-        print(f"[ERROR] 获取/分发消息时出错: {e}")
+        print(f"[ERROR] 获取/分发消息时出错：{e}")
         import traceback
         traceback.print_exc()
 

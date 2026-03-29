@@ -1,5 +1,5 @@
 {
-  "debug_mode": true,
+  "debug_mode": false,
   "instances": [
     {
       "type": "daily",
@@ -10,8 +10,8 @@
       "config": "instconfig/korichat_config.json"
     },
     {
-      "type": "infopush",
-      "config": "instconfig/info_push_config.json"
+      "type": "chat",
+      "config": "instconfig/chat_openclaw.json"
     }
   ]
 }
