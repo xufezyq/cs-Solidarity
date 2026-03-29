@@ -235,15 +235,6 @@ class SteamAuto(BaseInstance):
         if not message or not message.strip():
             return
         
-        # 检查是否在维护时间
-        try:
-            from main import is_maintenance_time
-            if is_maintenance_time():
-                print(f"[{datetime.now()}] 当前时间在维护时段（00:15-08:00），跳过发送消息")
-                return
-        except Exception as e:
-            print(f"[WARNING] 检查维护时间失败：{e}，继续发送消息")
-        
         for group in self.wechat_groups:
             try:
                 wechat_instance.send_message(message, group)
