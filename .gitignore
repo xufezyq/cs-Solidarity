@@ -34,4 +34,7 @@ env/
 @AutomationLog.txt
 
 # Documentation
-docs/
+docs
+
+# TestCode
+tests

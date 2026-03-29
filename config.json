@@ -8,6 +8,10 @@
     {
       "type": "korichat",
       "config": "instconfig/korichat_config.json"
+    },
+    {
+      "type": "infopush",
+      "config": "instconfig/info_push_config.json"
     }
   ]
 }

@@ -164,6 +164,14 @@ class SteamAuto(BaseInstance):
         """从配置文件创建 SteamAuto 实例"""
         config = SteamAuto.load_config(config_path)
 
+        # 尝试从主配置文件读取 debug_mode
+        try:
+            with open('config.json', 'r', encoding='utf-8') as f:
+                master_config = json.load(f)
+                debug_mode = master_config.get('debug_mode', False)
+        except Exception:
+            debug_mode = False
+
         # 创建临时实例用于自动填充
         temp_instance = SteamAuto(
             steam_api_key=config.get('steam_api_key'),
@@ -180,8 +188,8 @@ class SteamAuto(BaseInstance):
         )
         
         # 首次执行一次消息
-        # 优先使用 debug_mode（从主 config.json 传递），其次使用 debug（本地配置）
-        is_debug = config.get('debug_mode', config.get('debug', False))
+        # 优先使用主配置的 debug_mode，其次使用本地配置的 debug，最后默认 False
+        is_debug = debug_mode or config.get('debug', False)
         if not is_debug:
             temp_instance.send_message(config.get('code_update_message', ''))
         

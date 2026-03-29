@@ -109,12 +109,6 @@ def create_instances(master_cfg):
     instances = []
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
-            # 将主配置的 debug_mode 传递到实例配置中
-            if isinstance(item, dict) and 'config' in item:
-                config = item['config']
-                if isinstance(config, dict):
-                    config['debug_mode'] = debug_mode
-            
             # 通过实例工厂解析并创建实例
             inst = get_instance_from_item(item)
             instances.append((f"instance_{idx}", inst))
@@ -147,6 +141,7 @@ def start_instances(instances):
         # 替换为入队函数（实例中调用 send_message 将只把消息放入队列）
         def make_enqueue(n):
             def enqueue(message):
+                print(f"[DEBUG] [enqueue] 消息入队：n={n}, message={message}")
                 msg_queue.put((n, message))
             return enqueue
         inst.send_message = make_enqueue(name)
@@ -160,10 +155,12 @@ def start_instances(instances):
 
     try:
         last_check_time = 0  # 上次检查消息的时间戳
+        print(f"[DEBUG] 主线程开始处理消息队列")
         while True:
             try:
                 # 尝试从队列获取消息，超时 1 秒
                 name, message = msg_queue.get(timeout=1)
+                print(f"[DEBUG] 主线程从队列获取到消息：name={name}, message={message}")
                 
                 # 检查是否在维护时间，如果是则跳过发送
                 if is_maintenance_time():
@@ -176,7 +173,7 @@ def start_instances(instances):
                 msg_queue.task_done()
             
             except queue.Empty:
-                # 队列空闲时，检查并分发新消息（每60秒一次）
+                # 队列空闲时，检查并分发新消息（每 60 秒一次）
                 current_time = time.time()
                 if current_time - last_check_time >= 60:
                     # 检查是否在维护时间，如果是则跳过接收消息

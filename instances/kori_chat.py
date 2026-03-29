@@ -398,9 +398,10 @@ class KoriChatInstance(BaseInstance):
                 # 不再强制设置 sender，保持从消息对象中提取的原始值
             elif isinstance(message, str):
                 content = message
-                sender = chat_name
+                # 优先尝试从消息对象获取 sender，避免字符串消息分类错误
+                sender = getattr(message, 'sender', chat_name)
                 msg_id = None
-                print(f"[DEBUG] 消息是字符串格式")
+                print(f"[DEBUG] 消息是字符串格式，sender={sender}")
             elif isinstance(message, (list, tuple)) and len(message) >= 2:
                 # wxauto 格式：[sender, content, id]
                 sender = message[0]

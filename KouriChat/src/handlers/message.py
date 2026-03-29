@@ -358,7 +358,7 @@ class MessageHandler:
             logger.error(f"查找特殊关系失败: {str(e)}")
             return ""
 
-    def save_message(self, sender_id: str, sender_name: str, message: str, reply: str, is_system_message: bool = False):
+    def save_message(self, sender_id: str, sender_name: str, message: str, reply: str, is_system_message: bool = False, avatar_name: str = None):
         """保存聊天记录到数据库和短期记忆"""
         try:
             # 清理回复中的@前缀，防止幻觉
@@ -378,9 +378,10 @@ class MessageHandler:
             session.commit()
             session.close()
 
-            avatar_name = self.current_avatar
+            # 使用传入的 avatar_name，如果没有传入则使用当前的 current_avatar
+            current_avatar = avatar_name if avatar_name is not None else self.current_avatar
             # 添加到记忆，传递系统消息标志和用户ID
-            self.memory_service.add_conversation(avatar_name, message, clean_reply, sender_id, is_system_message)
+            self.memory_service.add_conversation(current_avatar, message, clean_reply, sender_id, is_system_message)
 
         except Exception as e:
             logger.error(f"保存消息失败: {str(e)}")
@@ -874,11 +875,13 @@ class MessageHandler:
         # 异步保存消息记录
         # 保存实际用户发送的内容，群聊中保留发送者信息
         save_content = api_content if is_group else content
+        # 传入当前的 avatar_name，确保异步线程使用正确的人设
+        current_avatar = self.current_avatar
         threading.Thread(target=self.save_message,
-                         args=(chat_id, sender_name, save_content, reply, is_system_message)).start()
+                         args=(chat_id, sender_name, save_content, reply, is_system_message, current_avatar)).start()
         if is_system_message:
             threading.Thread(target=self.save_message,
-                             args=(chat_id, chat_id, "……", reply, False)).start()
+                             args=(chat_id, chat_id, "……", reply, False, current_avatar)).start()
         return reply
 
     def _add_to_system_prompt(self, chat_id: str, content: str) -> None:
