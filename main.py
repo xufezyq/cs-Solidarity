@@ -18,7 +18,7 @@ sys.stderr.reconfigure(encoding='utf-8')
 DEBUG_MODE = False
 
 def is_maintenance_time():
-    """检查当前时间是否在维护时间（00:30-06:00）"""
+    """检查当前时间是否在维护时间（00:15-08:00）"""
     # 如果是调试模式，直接返回 False（不进入维护时间）
     if DEBUG_MODE:
         return False

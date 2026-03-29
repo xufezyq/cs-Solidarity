@@ -187,12 +187,6 @@ class SteamAuto(BaseInstance):
             config_path=config_path
         )
         
-        # 首次执行一次消息
-        # 优先使用主配置的 debug_mode，其次使用本地配置的 debug，最后默认 False
-        is_debug = debug_mode or config.get('debug', False)
-        if not is_debug:
-            temp_instance.send_message(config.get('code_update_message', ''))
-        
         # 首次执行时且好友信息为空，自动填充好友信息
         temp_instance.auto_fill_monitored_friends(config_path)
         
@@ -240,6 +234,15 @@ class SteamAuto(BaseInstance):
         """
         if not message or not message.strip():
             return
+        
+        # 检查是否在维护时间
+        try:
+            from main import is_maintenance_time
+            if is_maintenance_time():
+                print(f"[{datetime.now()}] 当前时间在维护时段（00:15-08:00），跳过发送消息")
+                return
+        except Exception as e:
+            print(f"[WARNING] 检查维护时间失败：{e}，继续发送消息")
         
         for group in self.wechat_groups:
             try:
@@ -1108,6 +1111,15 @@ class SteamAuto(BaseInstance):
         """
         启动定时检查（检查间隔来源于实例配置 self.check_interval）
         """
+        # 首次启动时发送更新消息（非调试模式）
+        # 注意：此时 send_message 已被主框架替换为入队函数，会受维护时间检查控制
+        if self.code_update_message and not self.debug:
+            print(f"[{datetime.now()}] 准备发送启动更新消息")
+            self.send_message(self.code_update_message)
+            print(f"[{datetime.now()}] 启动更新消息已加入队列")
+            # 等待一小段时间让主线程处理队列
+            time.sleep(2)
+        
         check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")

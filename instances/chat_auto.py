@@ -164,7 +164,7 @@ class ChatAuto(BaseInstance):
                 "stream": False
             }
             
-            response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=data, timeout=60)
+            response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=data)  # timeout=None 无限等待
             
             if response.status_code == 200:
                 result = response.json()
