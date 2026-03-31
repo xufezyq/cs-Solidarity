@@ -29,6 +29,17 @@ def is_maintenance_time():
     return start_time <= now < end_time
 
 
+# 暴露给实例模块使用的维护时间检查函数
+def check_maintenance():
+    """供外部模块调用的维护时间检查"""
+    return is_maintenance_time()
+
+
+# 注册到 core 包，方便实例导入
+import core
+core.check_maintenance = check_maintenance
+
+
 def process_send_message(name, message, orig_senders):
     """处理发送消息的逻辑"""
     print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 准备发送消息：name={name}, message={message}")

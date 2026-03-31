@@ -64,9 +64,19 @@ class DailyAuto(BaseInstance):
             time.sleep(2)
             return
         
+        # 维护时间检查：发送前确认不在维护时段
+        def safe_send():
+            try:
+                from core import check_maintenance
+                if check_maintenance():
+                    print(f"[{datetime.now()}] DailyAuto: 当前在维护时段，跳过发送")
+                    return
+            except (ImportError, AttributeError):
+                pass
+            self.send_message(self.message)
+        
         print(f"[{datetime.now()}] DailyAuto 启动，计划每天 {self.send_time} 发送固定消息")
-        # 每天固定时刻发送
-        schedule.every().day.at(self.send_time).do(lambda: self.send_message(self.message))
+        schedule.every().day.at(self.send_time).do(safe_send)
 
         try:
             while True:
