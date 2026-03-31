@@ -10,14 +10,16 @@ from core.base_instance import BaseInstance
 from cs2_pw.request import PerfectWorldApi
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json'):
+    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
         self.steam = SteamAPI(steam_api_key)
         self.steam_id = steam_id
         self.config_path = config_path # 保存配置文件路径
+        self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
-        self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, "max_deaths": 0, "min_deaths": 999, "max_rating": 0, "min_rating": 999, "max_pw_rating": 0, "min_pw_rating": 999, "max_we": 0, "min_we": 999, "max_score": 0, "min_score": 9999}}
+        self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
+        self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
         self.check_interval = check_interval
@@ -212,7 +214,7 @@ class SteamAuto(BaseInstance):
         print("=" * 50)
 
         # 创建最终实例
-        return SteamAuto(
+        instance = SteamAuto(
             steam_api_key=config.get('steam_api_key'),
             steam_id=config.get('steam_id'),
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
@@ -224,8 +226,12 @@ class SteamAuto(BaseInstance):
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
-            config_path=config_path
+            config_path=config_path,
+            debug=debug_mode
         )
+        # 加载已保存的排行榜数据
+        instance.friend_pw_leaderboard = config.get('friend_pw_leaderboard', {})
+        return instance
 
     def send_message(self, message):
         """
@@ -283,6 +289,15 @@ class SteamAuto(BaseInstance):
         """检查 CS2 是否有新新闻，如果有则发送通知"""
         if not self.enable_news_check:
             return
+        
+        # 维护时间检查
+        try:
+            from core import check_maintenance
+            if check_maintenance():
+                print(f"[{datetime.now()}] 当前在维护时段，跳过新闻检查")
+                return
+        except (ImportError, AttributeError):
+            pass
         
         try:
             # 获取最新 5 条新闻
@@ -555,23 +570,40 @@ class SteamAuto(BaseInstance):
         # 按WE排序（从高到低）
         all_players.sort(key=lambda x: x[1].get('we', 0), reverse=True)
         
-        # 生成合并的消息
+        # 生成消息：按 match_id 分组（同一局只发一次）
         messages = []
         if all_players:
-            # 按地图分组
-            map_groups = {}
+            # 按 match_id 分组
+            match_msg_groups = {}
             for steam_id, data, map_name, score1, score2, nickname, result in all_players:
-                if map_name not in map_groups:
-                    map_groups[map_name] = []
-                map_groups[map_name].append((steam_id, data, score1, score2, nickname, result))
-            
-            # 为每个地图生成消息
-            for map_name, players in map_groups.items():
-                score1 = players[0][2]
-                score2 = players[0][3]
-                msg = f"🏆 完美平台战报 - {map_name} ({score1}:{score2})\n"
-                
-                for steam_id, data, _, _, nickname, result in players:
+                match_id = data.get('matchId', f'{map_name}_{score1}_{score2}')
+                if match_id not in match_msg_groups:
+                    match_msg_groups[match_id] = {
+                        'map_name': map_name,
+                        'score1': score1,
+                        'score2': score2,
+                        'players': []
+                    }
+                match_msg_groups[match_id]['players'].append((steam_id, data, nickname, result))
+
+            for match_id, match_info in match_msg_groups.items():
+                map_name = match_info['map_name']
+                score1 = match_info['score1']
+                score2 = match_info['score2']
+                players = match_info['players']
+
+                # 判断总体胜负（取多数人的结果）
+                wins = sum(1 for _, _, _, r in players if r == '胜利')
+                losses = sum(1 for _, _, _, r in players if r == '失败')
+                result_emoji = '✅' if wins > losses else ('❌' if losses > wins else '🤝')
+
+                msg = f"{result_emoji} {map_name}  {score1}:{score2}\n"
+                msg += f"{'─' * 14}\n"
+
+                # 按 WE 排序本场玩家
+                players_sorted = sorted(players, key=lambda x: x[1].get('we', 0), reverse=True)
+
+                for steam_id, data, nickname, result in players_sorted:
                     kills = data.get('kill', 0)
                     deaths = data.get('death', 0)
                     assists = data.get('assist', 0)
@@ -580,23 +612,53 @@ class SteamAuto(BaseInstance):
                     we = data.get('we', 0)
                     pvpScore = data.get('pvpScore', 0)
                     score_change = data.get('pvpScoreChange', 0)
-                    score_change_str = f"+{score_change}" if score_change > 0 else f"{score_change}"
-                    
-                    msg += f"👤 {nickname}: {result} | Score: {pvpScore} ({score_change_str})\n"
-                    msg += f"   K/D/A: {kills}/{deaths}/{assists} | RT: {rating} | PW RT: {pwRating} | WE: {we}\n"
-                
+                    score_sign = '+' if score_change >= 0 else ''
+                    is_mvp = data.get('pvpMvp', False)
+                    mvp_tag = ' ⭐MVP' if is_mvp else ''
+
+                    # 结果 emoji
+                    r_emoji = '🟢' if result == '胜利' else ('🔴' if result == '失败' else '🟡')
+
+                    msg += f"{r_emoji} {nickname}{mvp_tag}\n"
+                    msg += f"  {kills}/{deaths}/{assists}  pwRT:{pwRating:.2f}  WE:{we:.1f}\n"
+                    msg += f"  分数:{pvpScore} ({score_sign}{score_change})\n"
+
                 messages.append(msg)
-                
+
+        # 检查排行榜变化并记录通知
+        record_notifications = []
+        try:
+            record_notifications = self.check_and_report_records()
+        except Exception as e:
+            print(f"[{datetime.now()}] 检查排行榜变化失败: {e}")
+
         # 保存历史战绩统计到配置文件
         try:
             self.save_history_stats()
         except Exception as e:
             print(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
-        
+
+        # 如果有记录刷新通知，附加到最后一条战报后面
+        if record_notifications and messages:
+            record_msg = "🏆 记录刷新！\n" + "\n".join(record_notifications)
+            messages[-1] = messages[-1] + "\n" + record_msg
+        elif record_notifications:
+            record_msg = "🏆 记录刷新！\n" + "\n".join(record_notifications)
+            messages.append(record_msg)
+
         return messages
 
     def check_status_changes(self):
         """检查好友游戏状态变化，并累计今日游玩时长"""
+        # 维护时间检查：避免在 00:15-08:00 进行状态检查和消息发送
+        try:
+            from core import check_maintenance
+            if check_maintenance():
+                print(f"[{datetime.now()}] 当前在维护时段，跳过游戏状态检查")
+                return
+        except (ImportError, AttributeError):
+            pass
+        
         friend_status_list = self.get_steam_friend_status()
         
         if not friend_status_list:
@@ -689,18 +751,14 @@ class SteamAuto(BaseInstance):
         # 生成游戏开始消息（按游戏合并）
         for game_name, nicknames in game_start_messages.items():
             if len(nicknames) == 1:
-                messages.append(f"🎮 好友 {nicknames[0]} 开始游玩 {game_name} 了！")
+                messages.append(f"🎮 {nicknames[0]} → {game_name}")
             else:
-                messages.append(f"🎮 好友 {', '.join(nicknames)} 开始游玩 {game_name} 了！")
+                messages.append(f"🎮 {', '.join(nicknames)} → {game_name}")
         
         # 生成游戏停止消息（按游戏合并）
         for game_name, stop_info in game_stop_messages.items():
-            if len(stop_info) == 1:
-                nickname, duration_str = stop_info[0]
-                messages.append(f"👋 好友 {nickname} 停止了游戏 {game_name}，时长：{duration_str}。")
-            else:
-                players_text = ', '.join([f"{nickname}({duration_str})" for nickname, duration_str in stop_info])
-                messages.append(f"👋 好友 {players_text} 停止了游戏 {game_name}。")
+            parts = [f"{nick}({dur})" for nick, dur in stop_info]
+            messages.append(f"👋 {', '.join(parts)} 离开{game_name}")
 
         # 查询完美战绩
         if stopped_cs2_friends:
@@ -712,11 +770,24 @@ class SteamAuto(BaseInstance):
             except Exception as e:
                 print(f"[{datetime.now()}] 查询完美战绩失败: {e}")
 
-        # 如果有需要通知的消息，一次性合并并发送
+        # 合并所有消息，限制单条长度避免微信截断
         if messages:
             combined = "\n".join(messages)
-            print(f"[{datetime.now()}] 发送合并消息：\n{combined}")
-            self.send_message(combined)
+            # 微信单条消息建议不超过 2000 字符，超过则分批发送
+            max_len = 1800
+            if len(combined) <= max_len:
+                self.send_message(combined)
+            else:
+                # 按消息拆分发送
+                batch = ""
+                for msg in messages:
+                    if len(batch) + len(msg) + 1 > max_len and batch:
+                        self.send_message(batch)
+                        batch = msg
+                    else:
+                        batch = batch + "\n" + msg if batch else msg
+                if batch:
+                    self.send_message(batch)
 
     def get_friend_game_stats(self):
         """获取好友今天的游玩统计信息"""
@@ -772,31 +843,101 @@ class SteamAuto(BaseInstance):
     
     def save_history_stats(self, config_path=None):
         """保存历史战绩统计到配置文件"""
-        # 使用传入的路径或实例保存的配置文件路径
         target_config_path = config_path or self.config_path
-        
         config = self.load_config(target_config_path)
         config['friend_pw_history_stats'] = self.friend_pw_history_stats
         self.save_config(config, target_config_path)
         print(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
 
+    def save_leaderboard(self, config_path=None):
+        """保存排行榜持有者到配置文件"""
+        target_config_path = config_path or self.config_path
+        config = self.load_config(target_config_path)
+        config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
+        self.save_config(config, target_config_path)
+        print(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
+
+    def check_and_report_records(self):
+        """检查排行榜变化，返回刷新记录的通知消息列表"""
+        if not self.friend_pw_history_stats:
+            return []
+
+        notifications = []
+        valid_players = {sid: d for sid, d in self.friend_pw_history_stats.items()
+                        if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0 or d.get('max_we', 0) > 0}
+        if not valid_players:
+            return []
+
+        # 定义所有排行榜类别：(key_name, display_name, emoji, data_field, is_max)
+        categories = [
+            ('max_kills', '击杀王', '🔫', 'max_kills', True),
+            ('min_kills', '精神支持', '🫡', 'min_kills', False),
+            ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
+            ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
+            ('max_rating', 'RT之神', '📊', 'max_rating', True),
+            ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
+            ('max_pw_rating', 'PW RT之神', '⚡', 'max_pw_rating', True),
+            ('max_we', 'WE之神', '💪', 'max_we', True),
+            ('min_we', '不懂装懂', '😅', 'min_we', False),
+            ('max_score', '得分王', '🎯', 'max_score', True),
+            ('min_score', '吊车尾', '📉', 'min_score', False),
+        ]
+
+        for cat_key, cat_name, emoji, field, is_max in categories:
+            # 找出当前该类别的最佳/最差玩家
+            if is_max:
+                candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
+                if not candidates:
+                    continue
+                best_sid, best_val = max(candidates, key=lambda x: x[1])
+            else:
+                candidates = [(sid, d.get(field, 9999)) for sid, d in valid_players.items() if 0 < d.get(field, 9999) < 9999]
+                if not candidates:
+                    continue
+                best_sid, best_val = min(candidates, key=lambda x: x[1])
+
+            best_nick = valid_players[best_sid].get('nickname', '未知')
+            old = self.friend_pw_leaderboard.get(cat_key)
+
+            if not old or old.get('steamid') != best_sid or old.get('value') != best_val:
+                # 记录刷新了
+                if old and old.get('steamid') != best_sid:
+                    old_nick = old.get('nickname', '未知')
+                    old_val = old.get('value', 0)
+                    notifications.append(f"{emoji} {cat_name}易主！{old_nick}({old_val}) → {best_nick}({best_val})")
+                elif old and old.get('value') != best_val:
+                    old_val = old.get('value', 0)
+                    notifications.append(f"{emoji} {cat_name}刷新！{best_nick}: {old_val} → {best_val}")
+                elif not old:
+                    notifications.append(f"{emoji} {cat_name}诞生！{best_nick} ({best_val})")
+
+                self.friend_pw_leaderboard[cat_key] = {
+                    'steamid': best_sid,
+                    'nickname': best_nick,
+                    'value': best_val
+                }
+
+        if notifications:
+            self.save_leaderboard()
+
+        return notifications
+
     def format_pw_daily_stats_message(self, pw_stats_data):
-        """格式化今日完美平台战绩统计信息为消息字符串"""
+        """格式化今日完美平台战绩统计信息"""
         if not pw_stats_data:
-            return "今日还没有完美平台对战记录"
+            return None
         
-        today = datetime.now().strftime("%Y年%m月%d日")
-        message = f"⚔️ 【完美平台今日战绩统计 - {today}】\n\n"
-        
+        today = datetime.now().strftime("%m月%d日")
+        lines = [f"⚔️ 完美平台日报 {today}", ""]
+
         sorted_friends = sorted(pw_stats_data.items(), key=lambda x: x[1]['match_count'], reverse=True)
-        
+
         for steam_id, stats in sorted_friends:
             nickname = stats.get('nickname', '未知好友')
             match_count = stats.get('match_count', 0)
-            
             if match_count == 0:
                 continue
-            
+
             wins = stats.get('wins', 0)
             losses = stats.get('losses', 0)
             total_score_change = stats.get('total_score_change', 0)
@@ -804,221 +945,74 @@ class SteamAuto(BaseInstance):
             total_deaths = stats.get('total_deaths', 0)
             total_assists = stats.get('total_assists', 0)
             total_rating = stats.get('total_rating', 0.0)
-            total_pw_rating = stats.get('total_pw_rating', 0.0)
             total_we = stats.get('total_we', 0)
-            
-            avg_kills = total_kills / match_count if match_count > 0 else 0
-            avg_deaths = total_deaths / match_count if match_count > 0 else 0
-            avg_assists = total_assists / match_count if match_count > 0 else 0
+
             avg_rating = total_rating / match_count if match_count > 0 else 0
-            avg_pw_rating = total_pw_rating / match_count if match_count > 0 else 0
             avg_we = total_we / match_count if match_count > 0 else 0
-            
-            score_change_str = f"+{total_score_change}" if total_score_change > 0 else f"{total_score_change}"
-            
-            message += f"👤 {nickname}: {match_count}场 | 胜{wins}负{losses} | 分数：{score_change_str}\n"
-            message += f"   K/D/A: {avg_kills:.1f}/{avg_deaths:.1f}/{avg_assists:.1f}\n"
-            message += f"   平均 RT: {avg_rating:.2f} | 平均 PW RT: {avg_pw_rating:.2f} | 平均 WE: {avg_we:.1f}\n\n"
-        
-        if message == f"⚔️ 【完美平台今日战绩统计 - {today}】\n\n":
-            return "今日还没有完美平台对战记录"
-        
-        return message
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+
+            score_sign = '+' if total_score_change >= 0 else ''
+            win_rate = wins / match_count * 100 if match_count > 0 else 0
+
+            # 胜率颜色指示
+            wr_emoji = '🟢' if win_rate >= 60 else ('🟡' if win_rate >= 40 else '🔴')
+
+            lines.append(f"👤 {nickname}  {match_count}场")
+            lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+            lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  WE: {avg_we:.1f}")
+            lines.append("")
+
+        if len(lines) <= 2:
+            return None
+
+        return "\n".join(lines)
 
     def format_pw_leaderboard_message(self, history_stats_data):
-        """格式化完美平台历史最佳战绩排行榜
-        
-        如果某个排行榜没有有效数据，则跳过该排行榜。
-        如果所有排行榜都没有数据，返回 None 表示不发送消息。
-        """
+        """格式化完美平台历史战绩排行榜（紧凑版）"""
         if not history_stats_data:
             return None
-        
-        # 过滤掉所有数据都为0或无效的玩家
-        valid_players = {}
-        for sid, data in history_stats_data.items():
-            # 检查是否有任何有效数据（使用.get()避免KeyError）
-            has_valid_data = (
-                data.get('max_kills', 0) > 0 or
-                data.get('max_deaths', 0) > 0 or
-                data.get('max_rating', 0) > 0 or
-                data.get('max_pw_rating', 0) > 0 or
-                data.get('max_we', 0) > 0 or
-                data.get('max_score', 0) > 0
-            )
-            if has_valid_data:
-                valid_players[sid] = data
-        
+
+        valid_players = {sid: d for sid, d in history_stats_data.items()
+                        if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0 or d.get('max_we', 0) > 0}
         if not valid_players:
             return None
-        
-        sections = []
-        
-        # 击杀排行榜
-        kills_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_kills', 0) > 0],
-            key=lambda x: x[1].get('max_kills', 0),
-            reverse=True
-        )
-        if kills_leaderboard:
-            section = "🔫【击杀王】\n"
-            max_player = kills_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_kills = max_player[1].get('max_kills', 0)
-            section += f"  {nickname_max} ({max_kills}杀)\n"
-            
-            # 精神支持（最少击杀）
-            min_kills_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_kills', 999) < 999],
-                key=lambda x: x[1].get('min_kills', 999)
-            )
-            if min_kills_list:
-                section += "\n🔫【精神支持】\n"
-                min_player = min_kills_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_kills = min_player[1].get('min_kills', 0)
-                section += f"  {nickname_min} ({min_kills}杀)\n"
-            sections.append(section)
-        
-        # 死亡排行榜
-        deaths_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_deaths', 0) > 0],
-            key=lambda x: x[1].get('max_deaths', 0),
-            reverse=True
-        )
-        if deaths_leaderboard:
-            section = "💀【唐宋八大家】\n"
-            max_player = deaths_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_deaths = max_player[1].get('max_deaths', 0)
-            section += f"  {nickname_max} ({max_deaths}死)\n"
-            
-            # 怯战蜥蜴（最少死亡）
-            min_deaths_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_deaths', 999) < 999],
-                key=lambda x: x[1].get('min_deaths', 999)
-            )
-            if min_deaths_list:
-                section += "\n💀【怯战蜥蜴】\n"
-                min_player = min_deaths_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_deaths = min_player[1].get('min_deaths', 0)
-                section += f"  {nickname_min} ({min_deaths}死)\n"
-            sections.append(section)
-        
-        # Rating 排行榜
-        rating_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_rating', 0) > 0],
-            key=lambda x: x[1].get('max_rating', 0),
-            reverse=True
-        )
-        if rating_leaderboard:
-            section = "📊【Rating 之神】\n"
-            max_player = rating_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_rating = max_player[1].get('max_rating', 0)
-            section += f"  {nickname_max} ({max_rating:.2f})\n"
-            
-            # 团队吉祥物（最低Rating）
-            min_rating_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_rating', 999) < 999],
-                key=lambda x: x[1].get('min_rating', 999)
-            )
-            if min_rating_list:
-                section += "\n📊【团队吉祥物】\n"
-                min_player = min_rating_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_rating = min_player[1].get('min_rating', 0)
-                section += f"  {nickname_min} ({min_rating:.2f})\n"
-            sections.append(section)
-        
-        # PW Rating 排行榜
-        pw_rating_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_pw_rating', 0) > 0],
-            key=lambda x: x[1].get('max_pw_rating', 0),
-            reverse=True
-        )
-        if pw_rating_leaderboard:
-            section = "⚡【PW Rating 之神】\n"
-            max_player = pw_rating_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_pw_rating = max_player[1].get('max_pw_rating', 0)
-            section += f"  {nickname_max} ({max_pw_rating:.2f})\n"
-            
-            # 纯路人（最低PW Rating）
-            min_pw_rating_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_pw_rating', 999) < 999],
-                key=lambda x: x[1].get('min_pw_rating', 999)
-            )
-            if min_pw_rating_list:
-                section += "\n⚡【纯路人】\n"
-                min_player = min_pw_rating_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_pw_rating = min_player[1].get('min_pw_rating', 0)
-                section += f"  {nickname_min} ({min_pw_rating:.2f})\n"
-            sections.append(section)
-        
-        # WE 排行榜
-        we_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_we', 0) > 0],
-            key=lambda x: x[1].get('max_we', 0),
-            reverse=True
-        )
-        if we_leaderboard:
-            section = "💪【WE 之神】\n"
-            max_player = we_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_we = max_player[1].get('max_we', 0)
-            section += f"  {nickname_max} ({max_we})\n"
-            
-            # 不懂装懂（最低WE）
-            min_we_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_we', 999) < 999],
-                key=lambda x: x[1].get('min_we', 999)
-            )
-            if min_we_list:
-                section += "\n💪【不懂装懂】\n"
-                min_player = min_we_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_we = min_player[1].get('min_we', 0)
-                section += f"  {nickname_min} ({min_we})\n"
-            sections.append(section)
-        
-        # 得分排行榜
-        score_leaderboard = sorted(
-            [(sid, data) for sid, data in valid_players.items() if data.get('max_score', 0) > 0],
-            key=lambda x: x[1].get('max_score', 0),
-            reverse=True
-        )
-        if score_leaderboard:
-            section = "🎯【得分王】\n"
-            max_player = score_leaderboard[0]
-            nickname_max = max_player[1].get('nickname', '未知好友')
-            max_score = max_player[1].get('max_score', 0)
-            section += f"  {nickname_max} ({max_score}分)\n"
-            
-            # 吊车尾（最低得分）
-            min_score_list = sorted(
-                [(sid, data) for sid, data in valid_players.items() if data.get('min_score', 9999) < 9999],
-                key=lambda x: x[1].get('min_score', 9999)
-            )
-            if min_score_list:
-                section += "\n🎯【吊车尾】\n"
-                min_player = min_score_list[0]
-                nickname_min = min_player[1].get('nickname', '未知好友')
-                min_score = min_player[1].get('min_score', 0)
-                section += f"  {nickname_min} ({min_score}分)\n"
-            sections.append(section)
-        
-        # 如果没有有效排行榜，返回 None
-        if not sections:
+
+        # 定义排行榜类别
+        categories = [
+            ('🔫 击杀王',   'max_kills',   True,  '杀'),
+            ('🫡 精神支持', 'min_kills',   False, '杀'),
+            ('💀 唐宋八大家','max_deaths', True,  '死'),
+            ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
+            ('📊 RT之神',   'max_rating',  True,  ''),
+            ('🧸 吉祥物',   'min_rating',  False, ''),
+            ('⚡ PW RT之神','max_pw_rating',True, ''),
+            ('💪 WE之神',   'max_we',      True,  ''),
+            ('😅 不懂装懂', 'min_we',      False, ''),
+            ('🎯 得分王',   'max_score',   True,  '分'),
+            ('📉 吊车尾',   'min_score',   False, '分'),
+        ]
+
+        lines = ["🏆 历史战绩排行榜", ""]
+        for label, field, is_max, unit in categories:
+            if is_max:
+                candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
+                if not candidates:
+                    continue
+                best_sid, best_val = max(candidates, key=lambda x: x[1])
+            else:
+                candidates = [(sid, d.get(field, 9999)) for sid, d in valid_players.items() if 0 < d.get(field, 9999) < 9999]
+                if not candidates:
+                    continue
+                best_sid, best_val = min(candidates, key=lambda x: x[1])
+
+            nick = valid_players[best_sid].get('nickname', '?')
+            val_str = f"{best_val:.2f}" if isinstance(best_val, float) and not unit else str(int(best_val))
+            lines.append(f"  {label}  {nick} {val_str}{unit}")
+
+        if len(lines) <= 2:
             return None
-        
-        # 组合消息
-        message = "🏆 【完美平台历史战绩排行榜】\n\n"
-        message += "\n".join(sections)
-        
-        return message
+
+        return "\n".join(lines)
 
     def reset_daily_stats(self):
         """重置每日游玩统计（在每天 0 点调用）"""
@@ -1027,46 +1021,66 @@ class SteamAuto(BaseInstance):
         self.friend_pw_daily_stats = {}
 
     def send_daily_stats(self):
-        """发送每日游玩统计（包含 Steam 时长和完美平台战绩）"""
+        """发送每日游玩统计（日报 + 排行榜，分条发送）"""
         print(f"[{datetime.now()}] 执行每日统计任务...")
-        messages = []
         
+        # 1. Steam 今日游玩时长
         try:
-            # 1. 发送 Steam 游玩时长统计
             stats_data = self.get_friend_game_stats()
             if stats_data:
-                message = self.format_game_stats_message(stats_data)
-                if message:
-                    messages.append(message)
-            else:
-                print(f"[{datetime.now()}] 今日无 Steam 游玩记录")
+                msg = self.format_game_stats_message(stats_data)
+                if msg:
+                    self.send_message(msg)
+                    time.sleep(1)  # 间隔 1 秒避免消息太快
         except Exception as e:
-            print(f"[{datetime.now()}] 发送 Steam 统计失败：{e}")
+            print(f"[{datetime.now()}] Steam 统计失败：{e}")
         
+        # 2. 完美平台今日战绩
         try:
-            # 2. 发送完美平台今日战绩统计
             pw_stats_data = self.get_friend_pw_stats()
             if pw_stats_data:
-                message = self.format_pw_daily_stats_message(pw_stats_data)
-                if message:
-                    messages.append(message)
-            else:
-                print(f"[{datetime.now()}] 今日无完美平台战绩记录")
+                msg = self.format_pw_daily_stats_message(pw_stats_data)
+                if msg:
+                    self.send_message(msg)
+                    time.sleep(1)
         except Exception as e:
-            print(f"[{datetime.now()}] 发送完美平台统计失败：{e}")
-        
-        # 发送所有消息
-        if messages:
-            for msg in messages:
-                self.send_message(msg)
-            # 统计发送完毕后，重置计数器
-            self.reset_daily_stats()
-        else:
-            print(f"[{datetime.now()}] 今日暂无任何统计记录")
+            print(f"[{datetime.now()}] 完美平台统计失败：{e}")
+
+        # 3. 完整历史排行榜
+        try:
+            history_stats_data = self.get_friend_pw_history_stats()
+            if history_stats_data:
+                msg = self.format_pw_leaderboard_message(history_stats_data)
+                if msg:
+                    self.send_message(msg)
+        except Exception as e:
+            print(f"[{datetime.now()}] 排行榜生成失败：{e}")
+
+        self.reset_daily_stats()
+        print(f"[{datetime.now()}] 每日统计任务完成")
 
     def send_leaderboard(self):
-        """发送历史最佳战绩排行榜"""
-        print(f"[{datetime.now()}] 执行排行榜发送任务...")
+        """检查排行榜变化并播报（排行榜已合并到每日统计中）"""
+        # 维护时间检查
+        try:
+            from core import check_maintenance
+            if check_maintenance():
+                print(f"[{datetime.now()}] 当前在维护时段，跳过排行榜检查")
+                return
+        except (ImportError, AttributeError):
+            pass
+        
+        print(f"[{datetime.now()}] 执行排行榜检查...")
+        try:
+            notifications = self.check_and_report_records()
+            if notifications:
+                msg = "🏆 记录刷新！\n" + "\n".join(notifications)
+                self.send_message(msg)
+                print(f"[{datetime.now()}] 已播报 {len(notifications)} 条记录变化")
+            else:
+                print(f"[{datetime.now()}] 排行榜无变化")
+        except Exception as e:
+            print(f"[{datetime.now()}] 排行榜检查失败：{e}")
         try:
             history_stats_data = self.get_friend_pw_history_stats()
             if history_stats_data:
@@ -1079,11 +1093,20 @@ class SteamAuto(BaseInstance):
             print(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
 
     def daily_update_tasks(self):
-        """封装每天 00:00 需要执行的任务集合。
+        """封装每天需要执行的任务集合。
 
         包含：发送每日统计、清理/刷新需要每天更新的缓存或计数器等。
         如需添加其他每日任务，可在此处扩展。
         """
+        # 维护时间检查：避免在 00:15-08:00 发送消息
+        try:
+            from core import check_maintenance
+            if check_maintenance():
+                print(f"[{datetime.now()}] 当前在维护时段，跳过每日统计发送")
+                return
+        except (ImportError, AttributeError):
+            pass
+        
         print(f"[{datetime.now()}] 执行每日更新任务...")
         try:
             # 发送并重置每日统计（内部已包含重置逻辑）
@@ -1114,8 +1137,8 @@ class SteamAuto(BaseInstance):
         check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
-        print(f"[{datetime.now()}] 每天 00:00 将发送好友游玩统计")
-        print(f"[{datetime.now()}] 每天 09:00 将发送历史战绩排行榜")
+        print(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计（避开维护时段）")
+        print(f"[{datetime.now()}] 每天 00:05 将发送日报+完整排行榜")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
@@ -1123,11 +1146,8 @@ class SteamAuto(BaseInstance):
         # 设置定时任务：每 check_interval 秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
-        # 设置每日定时任务：每天 0 点执行封装的每日更新任务
-        schedule.every().day.at("00:00").do(self.daily_update_tasks)
-        
-        # 设置每日定时任务：每天 09:00 发送历史最佳战绩排行榜
-        schedule.every().day.at("09:00").do(self.send_leaderboard)
+        # 设置每日定时任务：每天 00:05 执行每日更新任务（维护时段 00:15 开始，有 10 分钟窗口）
+        schedule.every().day.at("00:05").do(self.daily_update_tasks)
         
         # 设置定时任务：定期检查 CS2 新闻（如果启用）
         if self.enable_news_check:
