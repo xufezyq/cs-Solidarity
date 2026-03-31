@@ -1,0 +1,13 @@
+uiautomation
+Pillow
+pywin32
+psutil
+pyperclip
+requests
+schedule
+emoji
+pyautogui
+pywinauto
+pycaw
+comtypes
+httpx

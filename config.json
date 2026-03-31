@@ -1,0 +1,21 @@
+{
+  "debug_mode": false,
+  "instances": [
+    {
+      "type": "steam",
+      "config": "instconfig/steam_account.json"
+    },
+    {
+      "type": "daily",
+      "config": "instconfig/daily_morning.json"
+    },
+    {
+      "type": "korichat",
+      "config": "instconfig/korichat_config.json"
+    },
+    {
+      "type": "chat",
+      "config": "instconfig/chat_openclaw.json"
+    }
+  ]
+}

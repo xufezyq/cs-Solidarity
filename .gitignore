@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg-info/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.env/
+
+# Pytest cache
+.pytest_cache/
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+
+# batch files
+*.bat
+
+# @AutomationLog.txt
+@AutomationLog.txt
+
+# Documentation
+docs
+
+# TestCode
+tests
