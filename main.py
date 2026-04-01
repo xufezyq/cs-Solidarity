@@ -5,255 +5,330 @@ import time
 import sys
 from datetime import datetime, time as dt_time
 from pathlib import Path
-from core import init_wechat
-from core import wechat_instance
-from core import get_instance_from_item
-from core import BaseInstance
+from core import init_wechat, wechat_instance, get_instance_from_item, BaseInstance
+from utils.human_sim import human_delay, human_action_delay, random_poll_interval
 
-# 强制 UTF-8 输出，避免 Windows GBK 编码遇到 emoji 崩溃
+# 强制 UTF-8 输出
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-# 调试模式标志
 DEBUG_MODE = False
 
+# ============================================================
+# 维护时间
+# ============================================================
 def is_maintenance_time():
-    """检查当前时间是否在维护时间（00:15-08:00）"""
-    # 如果是调试模式，直接返回 False（不进入维护时间）
     if DEBUG_MODE:
         return False
-    
     now = datetime.now().time()
-    start_time = dt_time(0, 15)
-    end_time = dt_time(8, 0)
-    return start_time <= now < end_time
+    return dt_time(0, 15) <= now < dt_time(8, 0)
 
-
-# 暴露给实例模块使用的维护时间检查函数
 def check_maintenance():
-    """供外部模块调用的维护时间检查"""
     return is_maintenance_time()
 
-
-# 注册到 core 包，方便实例导入
 import core
 core.check_maintenance = check_maintenance
 
 
-def process_send_message(name, message, orig_senders):
-    """处理发送消息的逻辑"""
-    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 准备发送消息：name={name}, message={message}")
+# ============================================================
+# 微信窗口控制
+# ============================================================
+def _get_wechat_hwnd():
+    import win32gui
+    return win32gui.FindWindow('WeChatMainWndForPC', None)
+
+def minimize_wechat():
+    """最小化微信窗口"""
     try:
+        import win32gui
+        hwnd = _get_wechat_hwnd()
+        if hwnd:
+            win32gui.ShowWindow(hwnd, 2)  # SW_MINIMIZE
+            print(f"[DEBUG] [窗口] 微信已最小化")
+    except Exception as e:
+        print(f"[ERROR] [窗口] 最小化失败: {e}")
+
+def restore_wechat():
+    """恢复微信窗口并置前"""
+    try:
+        import win32gui
+        hwnd = _get_wechat_hwnd()
+        if hwnd:
+            win32gui.ShowWindow(hwnd, 9)   # SW_RESTORE
+            win32gui.SetForegroundWindow(hwnd)
+            human_delay(300, 600)
+            print(f"[DEBUG] [窗口] 微信已恢复")
+    except Exception as e:
+        print(f"[ERROR] [窗口] 恢复失败: {e}")
+
+
+# ============================================================
+# 消息处理
+# ============================================================
+def process_send_message(name, message, orig_senders, instances=None):
+    """发送消息并处理发送期间捕获的新消息"""
+    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 发送: name={name}, message={message}")
+    try:
+        human_action_delay()
         sender = orig_senders.get(name)
         if sender:
-            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 调用发送方法：{name}")
-            sender(message)
-            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 消息发送成功")
+            # 发送并获取发送期间的新消息
+            caught_msgs = sender(message)
+            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 发送完成")
+            
+            # 处理捕获的新消息
+            # message 是 {"target": "群名", "content": "..."} 或字符串
+            if caught_msgs and instances:
+                target_chat = message.get("target") if isinstance(message, dict) else name
+                print(f"[INFO] 捕获到 {len(caught_msgs)} 条来自 {target_chat} 的新消息")
+                for msg in caught_msgs:
+                    msg_content = msg.content if hasattr(msg, 'content') else (msg[1] if isinstance(msg, (list, tuple)) and len(msg) > 1 else str(msg))
+                    targets = route_message_to_instances(msg_content, instances)
+                    for inst_name, inst in targets:
+                        try:
+                            inst.handle_message(target_chat, msg)
+                        except Exception as e:
+                            print(f"[ERROR] {inst_name} 处理失败: {e}")
         else:
-            print(f"未知来源的消息：{name}，已跳过")
+            print(f"未知来源: {name}，已跳过")
     except Exception as e:
-        print(f"发送来自 {name} 的消息失败：{e}")
+        print(f"发送失败 ({name}): {e}")
+
+def process_all_pending_messages(msg_queue, orig_senders, instances=None):
+    """一次性处理队列中所有待发送消息，然后切回文件传输助手并最小化
+    
+    发送期间微信已在前台，每个消息都会自动捕获发送期间的新消息。
+    """
+    sent_any = False
+    while True:
+        try:
+            name, message = msg_queue.get_nowait()
+            if is_maintenance_time():
+                print(f"[INFO] 维护时段，跳过发送")
+                msg_queue.task_done()
+                continue
+            process_send_message(name, message, orig_senders, instances)
+            sent_any = True
+            msg_queue.task_done()
+            human_delay(500, 1500)  # 消息间随机延迟
+        except queue.Empty:
+            break
+
+    if sent_any:
+        # 切回文件传输助手 → 最小化
+        wx = wechat_instance.get_wechat()
+        if wx:
+            try:
+                human_delay(300, 600)
+                wx.ChatWith('文件传输助手')
+                print(f"[DEBUG] [窗口] 已切换到文件传输助手")
+            except Exception as e:
+                print(f"[DEBUG] [窗口] 切换失败: {e}")
+        human_action_delay()
+        minimize_wechat()
+
+    return sent_any
 
 
 def route_message_to_instances(msg_content, instances):
-    """
-    根据消息内容路由到目标实例
-    
-    规则：
-    1. 如果消息包含某个实例的 trigger_prefix（如 /claw），只分发给该实例
-    2. 否则分发给所有没有 trigger_prefix 的实例
-    
-    Args:
-        msg_content: 消息内容
-        instances: 实例列表 [(name, instance), ...]
-        
-    Returns:
-        目标实例列表 [(name, instance), ...]
-    """
-    # 检查是否包含某个实例的 trigger_prefix
     for name, inst in instances:
         if hasattr(inst, 'trigger_prefix') and inst.trigger_prefix in msg_content:
-            # 消息包含触发词，只分发给这个实例
             return [(name, inst)]
-    
-    # 没有匹配到触发词，分发给所有没有 trigger_prefix 的实例
     return [(name, inst) for name, inst in instances if not hasattr(inst, 'trigger_prefix')]
 
 
 def process_receive_messages(instances):
-    """处理接收和分发新消息的逻辑"""
-    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 开始检查新消息...")
+    """收消息 + 分发，返回收到的消息数量"""
+    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 收取消息...")
+    total_count = 0
     try:
         new_msgs = wechat_instance.get_new_messages()
-        print(f"[DEBUG] get_new_messages() 返回：{new_msgs}")
-        
         if new_msgs:
-            print(f"[DEBUG] 收到来自 {len(new_msgs)} 个聊天对象的消息:")
+            print(f"[INFO] 收到 {len(new_msgs)} 个聊天的消息")
             for chat_name, msg_list in new_msgs.items():
-                print(f"[DEBUG]   - {chat_name}: {len(msg_list)} 条消息，msg_list 类型：{type(msg_list)}")
-                for i, msg in enumerate(msg_list):
-                    print(f"[DEBUG]     消息 {i+1}: {msg}, 类型：{type(msg)}")
-                    
-            for chat_name, msg_list in new_msgs.items():
+                total_count += len(msg_list)
                 for msg in msg_list:
-                    # 提取消息内容
-                    msg_content = ""
-                    if hasattr(msg, 'content'):
-                        msg_content = msg.content
-                    elif isinstance(msg, (list, tuple)) and len(msg) > 1:
-                        msg_content = msg[1]
-                    else:
-                        msg_content = str(msg)
-                    
-                    # 使用路由函数分发消息
-                    target_instances = route_message_to_instances(msg_content, instances)
-                    
-                    print(f"[DEBUG] [消息路由] '{msg_content[:20]}...' -> {[name for name, _ in target_instances]}")
-                    
-                    # 分发给目标实例
-                    for name, inst in target_instances:
+                    msg_content = msg.content if hasattr(msg, 'content') else (msg[1] if isinstance(msg, (list, tuple)) and len(msg) > 1 else str(msg))
+                    targets = route_message_to_instances(msg_content, instances)
+                    for name, inst in targets:
                         try:
-                            print(f"[DEBUG] 调用 {name}({type(inst).__name__}) 的 handle_message 方法")
-                            print(f"[DEBUG]   参数：chat_name={chat_name}, msg={msg}, msg 类型：{type(msg)}")
                             inst.handle_message(chat_name, msg)
-                            print(f"[DEBUG] {name} handle_message 执行完成")
                         except Exception as e:
-                            print(f"[ERROR] 实例 {name} 处理消息失败：{e}")
+                            print(f"[ERROR] {name} 处理失败: {e}")
+            print(f"[INFO] 共处理 {total_count} 条消息")
         else:
-            print(f"[DEBUG] 没有新消息")
+            print(f"[DEBUG] 无新消息")
     except Exception as e:
-        print(f"[ERROR] 获取/分发消息时出错：{e}")
+        print(f"[ERROR] 收消息失败: {e}")
         import traceback
         traceback.print_exc()
+    return total_count
 
 
+# ============================================================
+# 通知检测
+# ============================================================
+def detect_flash():
+    """检测微信是否有未读通知（托盘图标 tooltip）"""
+    try:
+        from utils.flash_detector import is_wechat_flashing
+        return is_wechat_flashing()
+    except:
+        return None
+
+
+# ============================================================
+# 配置
+# ============================================================
 def load_master_config(config_file):
-    """加载主配置，读取失败或格式不对时返回空字典。"""
     global DEBUG_MODE
-    
     if not Path(config_file).exists():
         return {}
-
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
-            master_cfg = json.load(f)
-    except Exception as e:
+            cfg = json.load(f)
+    except:
         return {}
-
-    if not isinstance(master_cfg, dict) or 'instances' not in master_cfg:
+    if not isinstance(cfg, dict) or 'instances' not in cfg:
         return {}
-
-    if not master_cfg.get('instances'):
+    if not cfg.get('instances'):
         return {}
-    
-    # 读取调试模式配置
-    DEBUG_MODE = master_cfg.get('debug_mode', False)
-    if DEBUG_MODE:
-        print(f"[DEBUG] 调试模式已启用，维护时间检查将被忽略")
-
-    return master_cfg
-
+    DEBUG_MODE = cfg.get('debug_mode', False)
+    return cfg
 
 def create_instances(master_cfg):
-    """根据主配置创建实例列表，失败的项只打印错误并跳过。"""
     if not master_cfg:
         return []
-    
-    # 将主配置的 debug_mode 传递到所有实例配置中
-    debug_mode = master_cfg.get('debug_mode', False)
-
     instances = []
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
-            # 通过实例工厂解析并创建实例
-            inst = get_instance_from_item(item)
-            instances.append((f"instance_{idx}", inst))
+            instances.append((f"instance_{idx}", get_instance_from_item(item)))
         except Exception as e:
-            print(f"创建实例 {idx} 失败：{e}")
-            continue
-
+            print(f"创建实例 {idx} 失败: {e}")
     return instances
 
 
+# ============================================================
+# 主循环 —— 闪烁驱动
+# ============================================================
 def start_instances(instances):
-    """使用队列模式：后台线程负责检测并将消息入队，主线程负责出队并调用原始发送方法。"""
+    """闪烁驱动主循环：
+    
+    1. 启动时最小化微信
+    2. 循环检测闪烁（explorer hook 或截图）
+    3. 闪烁 → 恢复窗口 → 收消息 → 处理 → 最小化
+    4. 无闪烁 → 只处理发送队列
+    5. 每次操作后切到文件传输助手再最小化
+    """
     if not instances:
         return
 
     msg_queue = queue.Queue()
-    threads = []
     orig_senders = {}
 
     for name, inst in instances:
-        # 校验类型，确保是 BaseInstance 子类
         if not isinstance(inst, BaseInstance):
-            print(f"实例 {name} 不是 BaseInstance 子类，已跳过：{type(inst).__name__}")
             continue
-        print(f"准备实例 {name} -> 类型: {type(inst).__name__}")
-
-        # 保存原始发送方法，以便在主线程中调用
         orig_senders[name] = inst.send_message
 
-        # 替换为入队函数（实例中调用 send_message 将只把消息放入队列）
         def make_enqueue(n):
             def enqueue(message):
-                print(f"[DEBUG] [enqueue] 消息入队：n={n}, message={message}")
                 msg_queue.put((n, message))
             return enqueue
         inst.send_message = make_enqueue(name)
 
-        # 启动实例的调度循环于后台线程（守护线程）
-        t = threading.Thread(target=inst.start, daemon=True)
-        t.start()
-        threads.append((name, t))
+        threading.Thread(target=inst.start, daemon=True).start()
+        print(f"[INFO] 实例 {name} ({type(inst).__name__}) 已启动")
 
-    print("已启动所有实例的检测线程，主线程将消费消息队列并在主线程执行发送操作。")
+    # 启动时最小化
+    human_action_delay()
+    minimize_wechat()
+
+    poll_base = 0.3        # 轮询基础间隔
+    poll_jitter = 0.15     # 轮询抖动（±秒）
+    last_poll_time = 0
+    last_flash_time = 0
+    wx_is_minimized = True
+
+    print(f"[INFO] 主循环启动（轮询间隔 {poll_base}±{poll_jitter}s，随机抖动）")
 
     try:
-        last_check_time = 0  # 上次检查消息的时间戳
-        print(f"[DEBUG] 主线程开始处理消息队列")
         while True:
-            try:
-                # 尝试从队列获取消息，超时 1 秒
-                name, message = msg_queue.get(timeout=1)
-                print(f"[DEBUG] 主线程从队列获取到消息：name={name}, message={message}")
-                
-                # 检查是否在维护时间，如果是则跳过发送
-                if is_maintenance_time():
-                    print(f"[INFO] 当前时间在维护时段（00:15-08:00），跳过发送消息")
-                    msg_queue.task_done()
-                    continue
-                
-                # 处理发送消息的任务
-                process_send_message(name, message, orig_senders)
-                msg_queue.task_done()
-            
-            except queue.Empty:
-                # 队列空闲时，检查并分发新消息（每 60 秒一次）
-                current_time = time.time()
-                if current_time - last_check_time >= 60:
-                    # 检查是否在维护时间，如果是则跳过接收消息
-                    if is_maintenance_time():
-                        print(f"[INFO] 当前时间在维护时段（00:15-08:00），跳过检查新消息")
-                        last_check_time = current_time
-                        continue
-                    
-                    # 处理接收和分发新消息
-                    process_receive_messages(instances)
-                    last_check_time = current_time
-                
+            now = time.time()
+
+            # ── 发送队列 ──
+            if not msg_queue.empty():
+                if wx_is_minimized:
+                    # 恢复前随机等待，模拟"回来操作"的节奏
+                    human_delay(200, 800)
+                    restore_wechat()
+                    wx_is_minimized = False
+                # 发送 + 顺带检查新消息
+                process_all_pending_messages(msg_queue, orig_senders, instances)
+                wx_is_minimized = True
+                last_flash_time = time.time()
+                continue
+
+            # ── 维护时间 ──
+            if is_maintenance_time():
+                if not wx_is_minimized:
+                    minimize_wechat()
+                    wx_is_minimized = True
+                time.sleep(5)
+                continue
+
+            # ── 随机轮询间隔 ──
+            current_interval = random_poll_interval(poll_base, poll_jitter)
+            if now - last_poll_time < current_interval:
+                time.sleep(0.05)
+                continue
+            last_poll_time = now
+
+            # ── 闪烁检测 ──
+            is_flashing = detect_flash()
+
+            if is_flashing:
+                last_flash_time = now
+                print(f"[INFO] 检测到微信闪烁，开始收消息...")
+
+                if wx_is_minimized:
+                    human_delay(100, 500)  # 响应前随机延迟
+                    restore_wechat()
+                    wx_is_minimized = False
+
+                # 收消息
+                process_receive_messages(instances)
+
+                # 切到文件传输助手 → 最小化
+                wx = wechat_instance.get_wechat()
+                if wx:
+                    try:
+                        wx.ChatWith('文件传输助手')
+                    except:
+                        pass
+                human_action_delay()
+                minimize_wechat()
+                wx_is_minimized = True
+
+            else:
+                # 无闪烁：窗口没最小化且空闲久了，最小化
+                idle = now - last_flash_time
+                idle_timeout = random.uniform(10, 20)  # 随机空闲超时
+                if not wx_is_minimized and idle > idle_timeout and msg_queue.empty():
+                    minimize_wechat()
+                    wx_is_minimized = True
+
     except KeyboardInterrupt:
-        print("\n收到中断，主进程退出，守护线程将随之终止")
-
-    return
+        print("\n收到中断，退出")
 
 
+# ============================================================
+# 入口
+# ============================================================
 def main():
-    config_file = 'config.json'
-
     init_wechat()
-    
-    master_cfg = load_master_config(config_file)
+
+    master_cfg = load_master_config('config.json')
     instances = create_instances(master_cfg)
     if not instances:
         return
@@ -261,7 +336,7 @@ def main():
     try:
         start_instances(instances)
     except KeyboardInterrupt:
-        print("\n收到中断，主进程退出")
+        print("\n退出")
 
 
 if __name__ == "__main__":
