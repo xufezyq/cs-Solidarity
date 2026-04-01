@@ -874,10 +874,11 @@ class SteamAuto(BaseInstance):
             ('min_kills', '精神支持', '🫡', 'min_kills', False),
             ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
             ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
-            ('max_rating', 'RT之神', '📊', 'max_rating', True),
+            ('max_rating', 'RT 之神', '📊', 'max_rating', True),
             ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
-            ('max_pw_rating', 'PW RT之神', '⚡', 'max_pw_rating', True),
-            ('max_we', 'WE之神', '💪', 'max_we', True),
+            ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
+            ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
+            ('max_we', 'WE 之神', '💪', 'max_we', True),
             ('min_we', '不懂装懂', '😅', 'min_we', False),
             ('max_score', '得分王', '🎯', 'max_score', True),
             ('min_score', '吊车尾', '📉', 'min_score', False),
@@ -983,17 +984,36 @@ class SteamAuto(BaseInstance):
             ('🫡 精神支持', 'min_kills',   False, '杀'),
             ('💀 唐宋八大家','max_deaths', True,  '死'),
             ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
-            ('📊 RT之神',   'max_rating',  True,  ''),
+            ('📊 RT 之神',   'max_rating',  True,  ''),
             ('🧸 吉祥物',   'min_rating',  False, ''),
-            ('⚡ PW RT之神','max_pw_rating',True, ''),
-            ('💪 WE之神',   'max_we',      True,  ''),
+            ('⚡ PW RT 之神','max_pw_rating',True, ''),
+            ('👤 纯路人',   'min_pw_rating',False, ''),
+            ('💪 WE 之神',   'max_we',      True,  ''),
             ('😅 不懂装懂', 'min_we',      False, ''),
             ('🎯 得分王',   'max_score',   True,  '分'),
             ('📉 吊车尾',   'min_score',   False, '分'),
         ]
 
         lines = ["🏆 历史战绩排行榜", ""]
+        category_groups = [
+            ['🔫', '🫡'],      # 击杀类
+            ['💀', '🦎'],      # 死亡类
+            ['📊', '🧸'],      # Rating 类
+            ['⚡' , '👤'],      # PW Rating
+            ['💪', '😅'],      # WE 类
+            ['🎯', '📉'],      # 得分类
+        ]
+        
+        current_group = 0
         for label, field, is_max, unit in categories:
+            emoji = label.split()[0]
+            
+            # 检查是否需要切换到下一组
+            while current_group < len(category_groups) and emoji not in category_groups[current_group]:
+                current_group += 1
+                if current_group < len(category_groups):
+                    lines.append("")  # 在组之间添加空行
+            
             if is_max:
                 candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
                 if not candidates:
@@ -1138,7 +1158,7 @@ class SteamAuto(BaseInstance):
         print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
         print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
         print(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计（避开维护时段）")
-        print(f"[{datetime.now()}] 每天 00:05 将发送日报+完整排行榜")
+        print(f"[{datetime.now()}] 每天 23:55 将发送日报+完整排行榜")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
@@ -1147,7 +1167,7 @@ class SteamAuto(BaseInstance):
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
         # 设置每日定时任务：每天 00:05 执行每日更新任务（维护时段 00:15 开始，有 10 分钟窗口）
-        schedule.every().day.at("00:05").do(self.daily_update_tasks)
+        schedule.every().day.at("23:55").do(self.daily_update_tasks)
         
         # 设置定时任务：定期检查 CS2 新闻（如果启用）
         if self.enable_news_check:

@@ -12,14 +12,21 @@
     {
       "groupName": "【CS】团结友爱",
       "avatar": "data/avatars/MONO",
-      "triggers": [],
+      "triggers": ["MONO", "mono", "Mono", "莫诺"],
       "enableAtTrigger": true,
       "replyMode": "at_only"
     },
     {
       "groupName": "代号粽",
       "avatar": "data/avatars/MONO",
-      "triggers": [],
+      "triggers": ["MONO", "mono", "Mono", "莫诺"],
+      "enableAtTrigger": true,
+      "replyMode": "at_only"
+    },
+    {
+      "groupName": "临时作战组",
+      "avatar": "data/avatars/MONO",
+      "triggers": ["MONO", "mono", "Mono", "莫诺"],
       "enableAtTrigger": true,
       "replyMode": "at_only"
     }

@@ -9,7 +9,7 @@
   "check_interval": 60,
   "enable_news_check": true,
   "check_news_interval": 3600,
-  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.3.0\n\n更新内容：\n - 重构KoriChat实例配置与消息处理逻辑\n - 人设替换为MONO\n - 接入OpenClaw",
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.3.1\n\n更新内容：\n - 优化OpenClaw上下文管理\n - 优化排行榜功能与消息格式",
   "wechat_groups": [
     "【CS】团结友爱"
   ],
@@ -295,6 +295,63 @@
       "min_score": 1784,
       "max_deaths": 18,
       "min_deaths": 11
+    }
+  },
+  "friend_pw_leaderboard": {
+    "max_kills": {
+      "steamid": "76561198324071323",
+      "nickname": "Oopy",
+      "value": 36
+    },
+    "min_kills": {
+      "steamid": "76561198324071323",
+      "nickname": "Oopy",
+      "value": 5
+    },
+    "max_deaths": {
+      "steamid": "76561198986231197",
+      "nickname": "大宝贝",
+      "value": 34
+    },
+    "min_deaths": {
+      "steamid": "76561198324071323",
+      "nickname": "Oopy",
+      "value": 6
+    },
+    "max_rating": {
+      "steamid": "76561199009839689",
+      "nickname": "难念的经",
+      "value": 1.91
+    },
+    "min_rating": {
+      "steamid": "76561198126298848",
+      "nickname": "旧颜",
+      "value": 0.28
+    },
+    "max_pw_rating": {
+      "steamid": "76561198324071323",
+      "nickname": "Oopy",
+      "value": 1.69
+    },
+    "max_we": {
+      "steamid": "76561199009839689",
+      "nickname": "难念的经",
+      "value": 13.914
+    },
+    "min_we": {
+      "steamid": "76561199262650715",
+      "nickname": "electronic",
+      "value": 2.0012
+    },
+    "max_score": {
+      "steamid": "76561198324071323",
+      "nickname": "Oopy",
+      "value": 2367
+    },
+    "min_score": {
+      "steamid": "76561199103253412",
+      "nickname": "贼眉鼠眼",
+      "value": 1531
     }
   }
 }
