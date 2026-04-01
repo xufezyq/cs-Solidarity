@@ -4,20 +4,22 @@
 """
 import time
 import json
+import logging
 import requests
 import schedule
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from core.base_instance import BaseInstance
-from core.wechat_instance import *
-from pywechat.WechatAuto import Messages
+from core.wechat_instance import get_wechat
+
+log = logging.getLogger(__name__)
 
 
 class InfoPush(BaseInstance):
     """信息推送实例：定时推送金价、股票、新闻等信息"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  wechat_groups: List[str] = None,
                  push_times: List[str] = None,
                  group_configs: Dict[str, Dict] = None,
@@ -25,18 +27,6 @@ class InfoPush(BaseInstance):
                  retry_count: int = 3,
                  retry_interval: int = 60,
                  debug: bool = False):
-        """
-        初始化信息推送实例
-        
-        :param wechat_groups: 默认推送的微信群/个人列表
-        :param push_times: 推送时间点列表，格式：["08:00", "18:00"]
-        :param group_configs: 群聊差异化配置 {群名：{enable_gold: True, enable_stock: True, ...}}
-        :param api_configs: API 配置 {gold_api_key: "", stock_api_key: "", news_api_key: ""}
-        :param retry_count: 失败重试次数
-        :param retry_interval: 重试间隔（秒）
-        :param debug: 调试模式
-        """
-        # 配置接收消息的微信群/个人
         self.wechat_groups = []
         if wechat_groups:
             if isinstance(wechat_groups, list):
@@ -45,53 +35,37 @@ class InfoPush(BaseInstance):
                 self.wechat_groups = [wechat_groups]
         else:
             self.wechat_groups = ['文件传输助手']
-        
-        # 推送时间点
+
         self.push_times = push_times or ["08:00"]
-        
-        # 群聊差异化配置
         self.group_configs = group_configs or {}
-        
-        # API 配置
         self.api_configs = api_configs or {}
-        
-        # 重试配置
         self.retry_count = retry_count
         self.retry_interval = retry_interval
-        
-        # 调试模式
         self.debug = debug
-        
-        # 缓存数据
+
         self.gold_price_cache = {}
         self.stock_cache = {}
         self.news_cache = []
         self.last_fetch_time = 0
-    
+
     def fetch_gold_price(self) -> Optional[Dict]:
         """获取金价数据"""
         try:
-            # 使用缓存（5 分钟内有效）
             current_time = time.time()
             if self.gold_price_cache and (current_time - self.last_fetch_time) < 300:
-                print(f"[DEBUG] [InfoPush] 使用金价缓存数据")
+                log.debug("[InfoPush] 使用金价缓存数据")
                 return self.gold_price_cache
-            
-            # 调用 API 获取金价
+
             api_key = self.api_configs.get('gold_api_key', '')
             if api_key:
                 url = f"https://gold-api.cn/api/v1/gold/realtime?api_key={api_key}&variety=Au9999"
                 response = requests.get(url, timeout=10)
                 response.raise_for_status()
                 data = response.json()
-                
-                # 检查 API 返回状态 - 支持两种格式
+
                 if data.get('code') == '0' or data.get('success') == '1':
-                    # 新格式：success='1', result 包含数据
                     if 'result' in data and 'dtList' in data['result']:
-                        # 从嵌套结构中提取数据
                         dt_list = data['result']['dtList']
-                        # 获取第一个品种的数据
                         for key in dt_list:
                             item = dt_list[key]
                             gold_data = {
@@ -103,7 +77,6 @@ class InfoPush(BaseInstance):
                                 'update_time': item.get('updateTime', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                             }
                             break
-                    # 旧格式：data 包含数据
                     elif 'data' in data:
                         gold_data = {
                             'price': float(data.get('data', {}).get('price', 0)),
@@ -114,144 +87,118 @@ class InfoPush(BaseInstance):
                             'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         }
                     else:
-                        print(f"[ERROR] [InfoPush] 金价 API 返回数据格式未知：{data}")
+                        log.error(f"[InfoPush] 金价 API 返回数据格式未知：{data}")
                         return None
                 else:
-                    print(f"[ERROR] [InfoPush] 金价 API 返回错误：{data.get('msg', data.get('message', '未知错误'))}")
+                    log.error(f"[InfoPush] 金价 API 返回错误：{data.get('msg', data.get('message', '未知错误'))}")
                     return None
             else:
-                print(f"[WARN] [InfoPush] 未配置金价 API Key，跳过金价获取")
+                log.warning("[InfoPush] 未配置金价 API Key，跳过金价获取")
                 return None
-            
-            # 更新缓存
+
             self.gold_price_cache = gold_data
             self.last_fetch_time = current_time
-            
-            print(f"[DEBUG] [InfoPush] 获取金价成功：{gold_data['price']} 元/克")
+            log.debug(f"[InfoPush] 获取金价成功：{gold_data['price']} 元/克")
             return gold_data
-            
+
         except Exception as e:
-            print(f"[ERROR] [InfoPush] 获取金价失败：{e}")
+            log.error(f"[InfoPush] 获取金价失败：{e}")
             return None
-    
+
     def fetch_stock_data(self, stock_codes: List[str] = None) -> List[Dict]:
         """获取股票数据"""
         if not stock_codes:
             stock_codes = self.api_configs.get('stock_codes', [])
-        
         if not stock_codes:
             return []
-        
+
         results = []
         for code in stock_codes:
             try:
-                # 使用缓存（10 分钟内有效）
                 current_time = time.time()
                 cache_key = f"stock_{code}"
                 if cache_key in self.stock_cache and (current_time - self.last_fetch_time) < 600:
-                    print(f"[DEBUG] [InfoPush] 使用股票 {code} 缓存数据")
+                    log.debug(f"[InfoPush] 使用股票 {code} 缓存数据")
                     results.append(self.stock_cache[cache_key])
                     continue
-                
-                # 调用新浪财经 API 获取股票数据
+
                 market = "sh" if code.startswith('6') or code.startswith('9') else "sz"
                 url = f"http://hq.sinajs.cn/list={market}{code}"
                 response = requests.get(url, timeout=10)
                 response.raise_for_status()
-                
-                # 解析股票数据
+
                 stock_data = self._parse_stock_response(response.text, code)
                 if stock_data:
                     results.append(stock_data)
                     self.stock_cache[cache_key] = stock_data
                     self.last_fetch_time = current_time
-                    print(f"[DEBUG] [InfoPush] 获取股票 {code} 成功")
-                    
+                    log.debug(f"[InfoPush] 获取股票 {code} 成功")
+
             except Exception as e:
-                print(f"[ERROR] [InfoPush] 获取股票 {code} 失败：{e}")
+                log.error(f"[InfoPush] 获取股票 {code} 失败：{e}")
                 results.append({
-                    'code': code,
-                    'name': '获取失败',
-                    'price': 0,
-                    'change': 0,
-                    'change_percent': 0,
-                    'error': str(e)
+                    'code': code, 'name': '获取失败', 'price': 0,
+                    'change': 0, 'change_percent': 0, 'error': str(e)
                 })
-        
+
         return results
-    
+
     def _parse_stock_response(self, response_text: str, code: str) -> Optional[Dict]:
         """解析股票 API 响应"""
         try:
-            # 新浪财经格式：var hq_str_sh600519="贵州茅台，1234.56,..."
             if '=' in response_text:
                 parts = response_text.split('=')
                 if len(parts) >= 2:
                     content = parts[1].strip().strip('"')
                     fields = content.split(',')
-                    
                     if len(fields) >= 4:
                         name = fields[0]
                         current_price = float(fields[3]) if fields[3] else 0
                         last_close = float(fields[2]) if fields[2] else 0
                         change = current_price - last_close
                         change_percent = (change / last_close * 100) if last_close else 0
-                        
                         return {
-                            'code': code,
-                            'name': name,
-                            'price': current_price,
-                            'change': change,
-                            'change_percent': change_percent,
+                            'code': code, 'name': name, 'price': current_price,
+                            'change': change, 'change_percent': change_percent,
                             'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         }
         except Exception as e:
-            print(f"[ERROR] [InfoPush] 解析股票数据失败：{e}")
-        
+            log.error(f"[InfoPush] 解析股票数据失败：{e}")
         return None
-    
+
     def fetch_news(self) -> List[Dict]:
         """获取新闻数据"""
         try:
-            # 使用缓存（15 分钟内有效）
             current_time = time.time()
             if self.news_cache and (current_time - self.last_fetch_time) < 900:
-                print(f"[DEBUG] [InfoPush] 使用新闻缓存数据")
+                log.debug("[InfoPush] 使用新闻缓存数据")
                 return self.news_cache
-            
-            # 使用备用新闻（配置文件中配置的）
+
             backup_news = self.api_configs.get('backup_news', [])
             if backup_news:
                 news_list = backup_news[:5]
                 self.news_cache = news_list
                 self.last_fetch_time = current_time
-                print(f"[DEBUG] [InfoPush] 使用备用新闻，共 {len(news_list)} 条")
+                log.debug(f"[InfoPush] 使用备用新闻，共 {len(news_list)} 条")
                 return news_list
-            
+
             return []
-            
+
         except Exception as e:
-            print(f"[ERROR] [InfoPush] 获取新闻失败：{e}")
+            log.error(f"[InfoPush] 获取新闻失败：{e}")
             return []
-    
+
     def format_message(self, group_name: str = None) -> str:
         """格式化推送消息"""
-        # 获取群配置
         group_config = self.group_configs.get(group_name, {})
-        
-        # 默认启用所有功能
         enable_gold = group_config.get('enable_gold', True)
         enable_stock = group_config.get('enable_stock', True)
         enable_news = group_config.get('enable_news', True)
-        
-        # 构建消息
+
         message_parts = []
-        
-        # 头部
         message_parts.append(f"【信息早报】{datetime.now().strftime('%Y年%m月%d日 %H:%M')}")
         message_parts.append("=" * 40)
-        
-        # 金价信息
+
         if enable_gold:
             gold_data = self.fetch_gold_price()
             if gold_data:
@@ -259,8 +206,7 @@ class InfoPush(BaseInstance):
                 message_parts.append(f"💰 金价：{gold_data['price']} {gold_data['currency']}/{gold_data['unit']}")
                 message_parts.append(f"   {change_symbol} {abs(gold_data['change']):.2f} ({abs(gold_data['change_percent']):.2f}%)")
                 message_parts.append("")
-        
-        # 股票信息
+
         if enable_stock:
             stock_codes = group_config.get('stock_codes', self.api_configs.get('stock_codes', []))
             if stock_codes:
@@ -277,8 +223,7 @@ class InfoPush(BaseInstance):
                                 f"{change_symbol}{abs(stock['change']):.2f}({abs(stock['change_percent']):.2f}%)"
                             )
                     message_parts.append("")
-        
-        # 新闻信息
+
         if enable_news:
             news_list = self.fetch_news()
             if news_list:
@@ -288,79 +233,63 @@ class InfoPush(BaseInstance):
                     if news.get('summary'):
                         message_parts.append(f"      {news['summary'][:50]}...")
                 message_parts.append("")
-        
-        # 尾部
+
         message_parts.append("=" * 40)
         message_parts.append(f"更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        
+
         return "\n".join(message_parts)
-    
+
     def send_message(self, message: str):
         """发送消息到所有配置的群"""
         if not message or not message.strip():
-            print(f"[DEBUG] [InfoPush] 消息为空，跳过发送")
+            log.debug("[InfoPush] 消息为空，跳过发送")
             return
-        
-        print(f"[DEBUG] [InfoPush] 开始发送消息到 {len(self.wechat_groups)} 个群组/个人")
+
+        log.debug(f"[InfoPush] 开始发送消息到 {len(self.wechat_groups)} 个群组/个人")
         for group in self.wechat_groups:
             try:
-                if is_using_wxauto():
-                    get_wechat().SendMsg(message, group)
-                else:
-                    Messages.send_messages_to_friend(friend=group, messages=[message], delay=0.2, tickle=False, search_pages=0)
-                
-                print(f"[{datetime.now()}] [InfoPush] 消息已发送到：{group}")
+                get_wechat().SendMsg(message, group)
+                log.info(f"[InfoPush] 消息已发送到：{group}")
             except Exception as e:
-                print(f"[{datetime.now()}] [InfoPush] 发送消息到 {group} 失败：{e}")
+                log.error(f"[InfoPush] 发送消息到 {group} 失败：{e}")
                 import traceback
-                traceback.print_exc()
-    
+                log.debug(traceback.format_exc())
+
     def push_to_all_groups(self):
         """向所有群聊推送消息"""
-        print(f"[{datetime.now()}] [InfoPush] 开始推送消息到所有群聊")
-        
-        # 生成消息（使用第一个群的配置，因为现在所有群发的消息都一样）
+        log.info("[InfoPush] 开始推送消息到所有群聊")
         group_name = self.wechat_groups[0] if self.wechat_groups else None
         message = self.format_message(group_name)
-        
-        # 发送消息（会发送到所有配置的群）
         self.send_message(message)
-        
-        print(f"[{datetime.now()}] [InfoPush] 推送完成")
-    
+        log.info("[InfoPush] 推送完成")
+
     def start(self):
         """启动定时推送任务"""
         if self.debug:
-            print(f"[{datetime.now()}] InfoPush 启动 (DEBUG 模式)，立即推送一次")
+            log.info("[InfoPush] DEBUG 模式，立即推送一次")
             self.push_to_all_groups()
-            # 等待一小段时间让主线程处理队列
             time.sleep(2)
             return
-        
-        print(f"[{datetime.now()}] InfoPush 启动，计划推送时间：{', '.join(self.push_times)}")
-        
-        # 注册定时任务
+
+        log.info(f"[InfoPush] 启动，计划推送时间：{', '.join(self.push_times)}")
         for push_time in self.push_times:
             schedule.every().day.at(push_time).do(self.push_to_all_groups)
-            print(f"[DEBUG] [InfoPush] 已注册定时任务：{push_time}")
-        
-        # 运行定时任务
+            log.debug(f"[InfoPush] 已注册定时任务：{push_time}")
+
         try:
             while True:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            print(f"\n[{datetime.now()}] InfoPush 程序已停止")
-    
+            log.info("[InfoPush] 程序已停止")
+
     @classmethod
     def create_from_config(cls, config_path: str):
         """从配置文件创建实例"""
         if not Path(config_path).exists():
             raise FileNotFoundError(f"配置文件 {config_path} 不存在")
-        
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
-        
         return cls(
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             push_times=config.get('push_times', ['08:00']),
@@ -370,22 +299,20 @@ class InfoPush(BaseInstance):
             retry_interval=config.get('retry_interval', 60),
             debug=config.get('debug', False)
         )
-    
+
     @classmethod
     def create_from_data(cls, data: dict):
         """从字典数据创建实例"""
         if not isinstance(data, dict):
             raise TypeError("InfoPush.create_from_data 需要传入字典数据")
-        
-        # 尝试从主配置文件读取 debug_mode
+
         try:
             with open('config.json', 'r', encoding='utf-8') as f:
                 master_config = json.load(f)
                 debug_mode = master_config.get('debug_mode', False)
         except Exception:
             debug_mode = False
-        
-        # 如果 data 中包含 config 路径，先加载配置文件
+
         if 'config' in data:
             config_path = data['config']
             if not Path(config_path).exists():
@@ -394,7 +321,7 @@ class InfoPush(BaseInstance):
                 config = json.load(f)
         else:
             config = data
-        
+
         return cls(
             wechat_groups=config.get("wechat_groups", []),
             push_times=config.get("push_times", ["08:00"]),

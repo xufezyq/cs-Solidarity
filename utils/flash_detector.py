@@ -7,7 +7,10 @@
 import ctypes
 import ctypes.wintypes as wintypes
 import time
+import logging
 from PIL import ImageGrab, ImageChops
+
+log = logging.getLogger(__name__)
 
 
 def _find_taskbar_rect():
@@ -32,8 +35,6 @@ def is_wechat_flashing():
     if not taskbar:
         return None
 
-    # 采样 3 次，间隔 200ms，检测交替变化
-    # 闪烁模式: 变化, 无变化, 变化 (或反过来)
     changes = []
     for _ in range(3):
         img1 = ImageGrab.grab(bbox=taskbar, all_screens=True)
@@ -44,11 +45,10 @@ def is_wechat_flashing():
         c = sum(1 for px in diff.getdata() if any(v > 5 for v in px[:3]))
         changes.append(c)
 
-    # 闪烁 = 任意一次采样检测到像素变化
     flash_count = sum(1 for c in changes if c > 10)
     is_flashing = flash_count >= 1
 
-    # print(f"[DEBUG] 变化: {changes} → {'有消息' if is_flashing else '正常'}")
+    log.debug(f"变化: {changes} → {'有消息' if is_flashing else '正常'}")
     return is_flashing
 
 
@@ -61,20 +61,21 @@ def has_wechat_notification():
 # 测试
 # ============================================================
 if __name__ == "__main__":
-    print("=== 通知检测测试 ===\n")
+    import logging as _log
+    _log.basicConfig(level=_log.DEBUG, format="%(message)s")
 
     hwnd = ctypes.windll.user32.FindWindowW("WeChatMainWndForPC", None)
     minimized = ctypes.windll.user32.IsIconic(hwnd) if hwnd else False
     taskbar = _find_taskbar_rect()
 
-    print(f"微信窗口: {'存在' if hwnd else '未找到'}")
-    print(f"最小化: {'是' if minimized else '否'}")
-    print(f"任务栏: {taskbar}")
+    log.info(f"微信窗口: {'存在' if hwnd else '未找到'}")
+    log.info(f"最小化: {'是' if minimized else '否'}")
+    log.info(f"任务栏: {taskbar}")
 
     if hwnd and minimized and taskbar:
-        print(f"\n采样检测（请让微信闪烁）...\n")
+        log.info("\n采样检测（请让微信闪烁）...\n")
         for i in range(10):
             r = is_wechat_flashing()
             time.sleep(0.2)
     else:
-        print("\n请将微信最小化后重试")
+        log.info("\n请将微信最小化后重试")

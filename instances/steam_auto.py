@@ -8,6 +8,9 @@ from pathlib import Path
 from core import wechat_instance
 from core.base_instance import BaseInstance
 from cs2_pw.request import PerfectWorldApi
+import logging
+
+log = logging.getLogger(__name__)
 
 class SteamAuto(BaseInstance):
     def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
@@ -98,7 +101,7 @@ class SteamAuto(BaseInstance):
             try:
                 self.cached_friend_list = self.steam.get_friend_list(self.steam_id)
             except Exception as e:
-                print(f"[{datetime.now()}] 获取好友列表失败: {e}")
+                log.info(f"[{datetime.now()}] 获取好友列表失败: {e}")
                 self.cached_friend_list = None
         return self.cached_friend_list
 
@@ -120,13 +123,13 @@ class SteamAuto(BaseInstance):
         if not need_fill:
             return
         
-        print(f"[{datetime.now()}] 首次执行，正在获取所有好友信息...")
+        log.info(f"[{datetime.now()}] 首次执行，正在获取所有好友信息...")
         
         try:
             # 获取好友列表（使用缓存，必要时可强制刷新）
             friend_list = self.get_cached_friend_list()
             if not friend_list:
-                print(f"[{datetime.now()}] 未获取到好友列表")
+                log.info(f"[{datetime.now()}] 未获取到好友列表")
                 return
             
             # 获取好友的详细信息
@@ -135,7 +138,7 @@ class SteamAuto(BaseInstance):
             friend_status_list = self.steam.get_friend_status(friend_ids)
             
             if not friend_status_list:
-                print(f"[{datetime.now()}] 未获取到好友详细信息")
+                log.info(f"[{datetime.now()}] 未获取到好友详细信息")
                 return
             
             # 构建好友列表配置
@@ -154,12 +157,12 @@ class SteamAuto(BaseInstance):
             # 保存配置
             self.save_config(config, config_path)
             
-            print(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
+            log.info(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
             for friend in friends_config:
-                print(f"  - {friend['nickname']} ({friend['steamid']})")
+                log.debug(f"  - {friend['nickname']} ({friend['steamid']})")
             
         except Exception as e:
-            print(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
+            log.info(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
     
     @staticmethod
     def create_from_config(config_path='config.json'):
@@ -196,22 +199,22 @@ class SteamAuto(BaseInstance):
         config = SteamAuto.load_config(config_path)
         
         # 显示配置信息
-        print("=" * 50)
-        print("配置信息：")
-        print(f"配置文件: {config_path}")
-        print(f"WeChat 群组/个人数量: {len(config.get('wechat_groups', ['文件传输助手']))}")
+        log.debug("=" * 50)
+        log.debug("配置信息：")
+        log.debug(f"配置文件: {config_path}")
+        log.debug(f"WeChat 群组/个人数量: {len(config.get('wechat_groups', ['文件传输助手']))}")
         for idx, group in enumerate(config.get('wechat_groups', ['文件传输助手']), 1):
-            print(f"  {idx}. {group}")
-        print(f"监听全部好友: {config.get('enable_all_friends', True)}")
+            log.debug(f"  {idx}. {group}")
+        log.debug(f"监听全部好友: {config.get('enable_all_friends', True)}")
         if not config.get('enable_all_friends', True):
-            print(f"监听的好友数量: {len(config.get('monitored_friends', []))}")
+            log.debug(f"监听的好友数量: {len(config.get('monitored_friends', []))}")
         if config.get('perfect_world_config'):
-             print(f"完美平台配置已启用: UID={config['perfect_world_config'].get('uid')}")
+             log.debug(f"完美平台配置已启用: UID={config['perfect_world_config'].get('uid')}")
         else:
-             print("完美平台配置未启用")
+             log.debug("完美平台配置未启用")
         if config.get('friend_pw_history_stats'):
-            print(f"历史战绩统计已加载: {len(config['friend_pw_history_stats'])} 位好友")
-        print("=" * 50)
+            log.debug(f"历史战绩统计已加载: {len(config['friend_pw_history_stats'])} 位好友")
+        log.debug("=" * 50)
 
         # 创建最终实例
         instance = SteamAuto(
@@ -244,9 +247,9 @@ class SteamAuto(BaseInstance):
         for group in self.wechat_groups:
             try:
                 wechat_instance.send_message(message, group)
-                print(f"[{datetime.now()}] 消息已发送到: {group}")
+                log.info(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
-                print(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
+                log.info(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
     
     def format_duration(self, seconds):
         """将秒数格式化为可读的时间格式"""
@@ -265,7 +268,7 @@ class SteamAuto(BaseInstance):
         """获取Steam好友列表及其游戏状态"""
         friend_list = self.get_cached_friend_list()
         if not friend_list:
-            print(f"[{datetime.now()}] 未获取到好友列表")
+            log.info(f"[{datetime.now()}] 未获取到好友列表")
             return []
         
         # 如果启用了所有好友监听，则监听全部；否则只监听指定的好友
@@ -275,10 +278,10 @@ class SteamAuto(BaseInstance):
             friend_steam_ids = [friend["steamid"] for friend in friend_list if friend["steamid"] in self.monitored_friends]
         
         if not friend_steam_ids:
-            print(f"[{datetime.now()}] 没有要监听的好友")
+            log.info(f"[{datetime.now()}] 没有要监听的好友")
             return []
         
-        print(f"[{datetime.now()}] 正在检查 {len(friend_steam_ids)} 位好友的状态...")
+        log.info(f"[{datetime.now()}] 正在检查 {len(friend_steam_ids)} 位好友的状态...")
         
         # 批量查询好友状态
         friend_steam_ids.append(self.steam_id)  # 把自己的状态也添加进去
@@ -294,7 +297,7 @@ class SteamAuto(BaseInstance):
         try:
             from core import check_maintenance
             if check_maintenance():
-                print(f"[{datetime.now()}] 当前在维护时段，跳过新闻检查")
+                log.info(f"[{datetime.now()}] 当前在维护时段，跳过新闻检查")
                 return
         except (ImportError, AttributeError):
             pass
@@ -304,7 +307,7 @@ class SteamAuto(BaseInstance):
             news_items = self.steam.get_steam_news(app_id=730, count=5)
             
             if not news_items or len(news_items) == 0:
-                print(f"[{datetime.now()}] 未获取到 CS2 新闻")
+                log.info(f"[{datetime.now()}] 未获取到 CS2 新闻")
                 return
             
             # 初始化缓存（如果还没有）
@@ -315,7 +318,7 @@ class SteamAuto(BaseInstance):
             if len(self.cached_news_gids) == 0:
                 current_gids = set(news.get('gid', '') for news in news_items)
                 self.cached_news_gids = current_gids
-                print(f"[{datetime.now()}] 首次运行，已初始化新闻缓存，当前缓存 {len(self.cached_news_gids)} 条")
+                log.info(f"[{datetime.now()}] 首次运行，已初始化新闻缓存，当前缓存 {len(self.cached_news_gids)} 条")
                 return
             
             # 提取当前新闻的 gid 集合
@@ -332,7 +335,7 @@ class SteamAuto(BaseInstance):
             
             # 如果有新新闻，全部发送
             if new_news_list:
-                print(f"[{datetime.now()}] 发现 {len(new_news_list)} 条新新闻")
+                log.info(f"[{datetime.now()}] 发现 {len(new_news_list)} 条新新闻")
                 
                 # 按时间倒序排序（最新的在前）
                 # 注意：API 返回的已经是按时间倒序，新新闻应该也是倒序
@@ -353,17 +356,17 @@ class SteamAuto(BaseInstance):
                     message += f"{contents}\n\n"
                     message += f"原文链接：{url}"
                     
-                    print(f"[{datetime.now()}] 发送新新闻：{title}")
+                    log.info(f"[{datetime.now()}] 发送新新闻：{title}")
                     self.send_message(message)
                 
                 # 更新缓存：保留最新的 5 条 gid
                 self.cached_news_gids = current_gids
-                print(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
+                log.info(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
             else:
-                print(f"[{datetime.now()}] 无新新闻，最新 5 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
+                log.info(f"[{datetime.now()}] 无新新闻，最新 5 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
                 
         except Exception as e:
-            print(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
+            log.info(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
 
     async def _fetch_pw_stats_async(self, steam_ids):
         """异步获取完美平台战绩"""
@@ -372,7 +375,7 @@ class SteamAuto(BaseInstance):
         
         match_groups = {} # match_id -> list of (steam_id, match_data)
         
-        print(f"[{datetime.now()}] 开始查询 {len(steam_ids)} 位好友的完美平台战绩: {steam_ids}")
+        log.info(f"[{datetime.now()}] 开始查询 {len(steam_ids)} 位好友的完美平台战绩: {steam_ids}")
         
         for steam_id in steam_ids:
             try:
@@ -399,24 +402,24 @@ class SteamAuto(BaseInstance):
                     # 简单检查：如果在过去 30 分钟内结束
                     time_diff = (datetime.now() - end_time).total_seconds()
                     if time_diff > 1800:
-                         print(f"[{datetime.now()}] {steam_id} 最近一场比赛 ({match_id}) 结束于 {end_time_str}，已超过30分钟 ({int(time_diff/60)}分钟)，忽略")
+                         log.info(f"[{datetime.now()}] {steam_id} 最近一场比赛 ({match_id}) 结束于 {end_time_str}，已超过30分钟 ({int(time_diff/60)}分钟)，忽略")
                          # 比赛结束太久了，忽略
                          continue
                     else:
-                         print(f"[{datetime.now()}] {steam_id} 发现最近比赛: {match_id}, 结束时间: {end_time_str}")
+                         log.info(f"[{datetime.now()}] {steam_id} 发现最近比赛: {match_id}, 结束时间: {end_time_str}")
                 
                 if match_id not in match_groups:
                     match_groups[match_id] = []
                 match_groups[match_id].append((steam_id, last_match))
                 
             except Exception as e:
-                print(f"[{datetime.now()}] 查询完美战绩出错 ({steam_id}): {e}")
+                log.info(f"[{datetime.now()}] 查询完美战绩出错 ({steam_id}): {e}")
         
         if not match_groups:
-            print(f"[{datetime.now()}] 本次查询未发现有效的新比赛")
+            log.info(f"[{datetime.now()}] 本次查询未发现有效的新比赛")
             return []
 
-        print(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
+        log.info(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
         
         # 收集所有玩家的数据，用于合并和排序
         all_players = []  # [(steam_id, data, map_name, score1, score2), ...]
@@ -565,7 +568,7 @@ class SteamAuto(BaseInstance):
                     all_players.append((steam_id, data, map_name, score1, score2, nickname, result))
                 
             except Exception as e:
-                print(f"[{datetime.now()}] 处理比赛数据出错 ({match_id}): {e}")
+                log.info(f"[{datetime.now()}] 处理比赛数据出错 ({match_id}): {e}")
         
         # 按WE排序（从高到低）
         all_players.sort(key=lambda x: x[1].get('we', 0), reverse=True)
@@ -630,13 +633,13 @@ class SteamAuto(BaseInstance):
         try:
             record_notifications = self.check_and_report_records()
         except Exception as e:
-            print(f"[{datetime.now()}] 检查排行榜变化失败: {e}")
+            log.info(f"[{datetime.now()}] 检查排行榜变化失败: {e}")
 
         # 保存历史战绩统计到配置文件
         try:
             self.save_history_stats()
         except Exception as e:
-            print(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
+            log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
 
         # 如果有记录刷新通知，附加到最后一条战报后面
         if record_notifications and messages:
@@ -654,7 +657,7 @@ class SteamAuto(BaseInstance):
         try:
             from core import check_maintenance
             if check_maintenance():
-                print(f"[{datetime.now()}] 当前在维护时段，跳过游戏状态检查")
+                log.info(f"[{datetime.now()}] 当前在维护时段，跳过游戏状态检查")
                 return
         except (ImportError, AttributeError):
             pass
@@ -762,13 +765,13 @@ class SteamAuto(BaseInstance):
 
         # 查询完美战绩
         if stopped_cs2_friends:
-            print(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
+            log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
             try:
                 pw_messages = asyncio.run(self._fetch_pw_stats_async(stopped_cs2_friends))
                 if pw_messages:
                     messages.extend(pw_messages)
             except Exception as e:
-                print(f"[{datetime.now()}] 查询完美战绩失败: {e}")
+                log.info(f"[{datetime.now()}] 查询完美战绩失败: {e}")
 
         # 合并所有消息，限制单条长度避免微信截断
         if messages:
@@ -847,7 +850,7 @@ class SteamAuto(BaseInstance):
         config = self.load_config(target_config_path)
         config['friend_pw_history_stats'] = self.friend_pw_history_stats
         self.save_config(config, target_config_path)
-        print(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
+        log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
 
     def save_leaderboard(self, config_path=None):
         """保存排行榜持有者到配置文件"""
@@ -855,7 +858,7 @@ class SteamAuto(BaseInstance):
         config = self.load_config(target_config_path)
         config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
         self.save_config(config, target_config_path)
-        print(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
+        log.info(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
 
     def check_and_report_records(self):
         """检查排行榜变化，返回刷新记录的通知消息列表"""
@@ -1036,13 +1039,13 @@ class SteamAuto(BaseInstance):
 
     def reset_daily_stats(self):
         """重置每日游玩统计（在每天 0 点调用）"""
-        print(f"[{datetime.now()}] 重置每日游玩统计")
+        log.info(f"[{datetime.now()}] 重置每日游玩统计")
         self.friend_daily_stats = {}
         self.friend_pw_daily_stats = {}
 
     def send_daily_stats(self):
         """发送每日游玩统计（日报 + 排行榜，分条发送）"""
-        print(f"[{datetime.now()}] 执行每日统计任务...")
+        log.info(f"[{datetime.now()}] 执行每日统计任务...")
         
         # 1. Steam 今日游玩时长
         try:
@@ -1053,7 +1056,7 @@ class SteamAuto(BaseInstance):
                     self.send_message(msg)
                     time.sleep(1)  # 间隔 1 秒避免消息太快
         except Exception as e:
-            print(f"[{datetime.now()}] Steam 统计失败：{e}")
+            log.info(f"[{datetime.now()}] Steam 统计失败：{e}")
         
         # 2. 完美平台今日战绩
         try:
@@ -1064,7 +1067,7 @@ class SteamAuto(BaseInstance):
                     self.send_message(msg)
                     time.sleep(1)
         except Exception as e:
-            print(f"[{datetime.now()}] 完美平台统计失败：{e}")
+            log.info(f"[{datetime.now()}] 完美平台统计失败：{e}")
 
         # 3. 完整历史排行榜
         try:
@@ -1074,10 +1077,10 @@ class SteamAuto(BaseInstance):
                 if msg:
                     self.send_message(msg)
         except Exception as e:
-            print(f"[{datetime.now()}] 排行榜生成失败：{e}")
+            log.info(f"[{datetime.now()}] 排行榜生成失败：{e}")
 
         self.reset_daily_stats()
-        print(f"[{datetime.now()}] 每日统计任务完成")
+        log.info(f"[{datetime.now()}] 每日统计任务完成")
 
     def send_leaderboard(self):
         """检查排行榜变化并播报（排行榜已合并到每日统计中）"""
@@ -1085,22 +1088,22 @@ class SteamAuto(BaseInstance):
         try:
             from core import check_maintenance
             if check_maintenance():
-                print(f"[{datetime.now()}] 当前在维护时段，跳过排行榜检查")
+                log.info(f"[{datetime.now()}] 当前在维护时段，跳过排行榜检查")
                 return
         except (ImportError, AttributeError):
             pass
         
-        print(f"[{datetime.now()}] 执行排行榜检查...")
+        log.info(f"[{datetime.now()}] 执行排行榜检查...")
         try:
             notifications = self.check_and_report_records()
             if notifications:
                 msg = "🏆 记录刷新！\n" + "\n".join(notifications)
                 self.send_message(msg)
-                print(f"[{datetime.now()}] 已播报 {len(notifications)} 条记录变化")
+                log.info(f"[{datetime.now()}] 已播报 {len(notifications)} 条记录变化")
             else:
-                print(f"[{datetime.now()}] 排行榜无变化")
+                log.info(f"[{datetime.now()}] 排行榜无变化")
         except Exception as e:
-            print(f"[{datetime.now()}] 排行榜检查失败：{e}")
+            log.info(f"[{datetime.now()}] 排行榜检查失败：{e}")
         try:
             history_stats_data = self.get_friend_pw_history_stats()
             if history_stats_data:
@@ -1108,9 +1111,9 @@ class SteamAuto(BaseInstance):
                 if message:
                     self.send_message(message)
             else:
-                print(f"[{datetime.now()}] 无历史战绩记录")
+                log.info(f"[{datetime.now()}] 无历史战绩记录")
         except Exception as e:
-            print(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
+            log.info(f"[{datetime.now()}] 发送历史排行榜失败：{e}")
 
     def daily_update_tasks(self):
         """封装每天需要执行的任务集合。
@@ -1122,24 +1125,24 @@ class SteamAuto(BaseInstance):
         try:
             from core import check_maintenance
             if check_maintenance():
-                print(f"[{datetime.now()}] 当前在维护时段，跳过每日统计发送")
+                log.info(f"[{datetime.now()}] 当前在维护时段，跳过每日统计发送")
                 return
         except (ImportError, AttributeError):
             pass
         
-        print(f"[{datetime.now()}] 执行每日更新任务...")
+        log.info(f"[{datetime.now()}] 执行每日更新任务...")
         try:
             # 发送并重置每日统计（内部已包含重置逻辑）
             self.send_daily_stats()
         except Exception as e:
-            print(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
+            log.info(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
 
         try:
             # 每天刷新好友列表缓存，确保次日拉取到最新好友变更
             self.invalidate_friend_list_cache()
-            print(f"[{datetime.now()}] 好友列表缓存已失效，将在下一次访问时刷新")
+            log.info(f"[{datetime.now()}] 好友列表缓存已失效，将在下一次访问时刷新")
         except Exception as e:
-            print(f"[{datetime.now()}] 清理好友列表缓存失败: {e}")
+            log.info(f"[{datetime.now()}] 清理好友列表缓存失败: {e}")
 
     def start(self):
         """
@@ -1148,17 +1151,17 @@ class SteamAuto(BaseInstance):
         # 首次启动时发送更新消息（非调试模式）
         # 注意：此时 send_message 已被主框架替换为入队函数，会受维护时间检查控制
         if self.code_update_message and not self.debug:
-            print(f"[{datetime.now()}] 准备发送启动更新消息")
+            log.info(f"[{datetime.now()}] 准备发送启动更新消息")
             self.send_message(self.code_update_message)
-            print(f"[{datetime.now()}] 启动更新消息已加入队列")
+            log.info(f"[{datetime.now()}] 启动更新消息已加入队列")
             # 等待一小段时间让主线程处理队列
             time.sleep(2)
         
         check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
-        print(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
-        print(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
-        print(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计（避开维护时段）")
-        print(f"[{datetime.now()}] 每天 23:55 将发送日报+完整排行榜")
+        log.info(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
+        log.info(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
+        log.info(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计（避开维护时段）")
+        log.info(f"[{datetime.now()}] 每天 23:55 将发送日报+完整排行榜")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
@@ -1172,7 +1175,7 @@ class SteamAuto(BaseInstance):
         # 设置定时任务：定期检查 CS2 新闻（如果启用）
         if self.enable_news_check:
             check_news_interval = int(self.check_news_interval) if isinstance(self.check_news_interval, (int, float, str)) else 3600
-            print(f"[{datetime.now()}] 已启用新闻检查，将每 {check_news_interval} 秒检查一次 CS2 新闻")
+            log.info(f"[{datetime.now()}] 已启用新闻检查，将每 {check_news_interval} 秒检查一次 CS2 新闻")
             schedule.every(check_news_interval).seconds.do(self.check_cs2_news)
         
         try:
@@ -1180,4 +1183,4 @@ class SteamAuto(BaseInstance):
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            print(f"\n[{datetime.now()}] 程序已停止")
+            log.debug(f"\n[{datetime.now()}] 程序已停止")

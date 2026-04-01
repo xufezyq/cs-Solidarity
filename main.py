@@ -3,14 +3,18 @@ import threading
 import queue
 import time
 import sys
+import random
 from datetime import datetime, time as dt_time
 from pathlib import Path
 from core import init_wechat, wechat_instance, get_instance_from_item, BaseInstance
 from utils.human_sim import human_delay, human_action_delay, random_poll_interval
+from utils.logger import setup_logger, info, debug, error, warning
+
+import logging
 
 # 强制 UTF-8 输出
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
 
 DEBUG_MODE = False
 
@@ -44,9 +48,9 @@ def minimize_wechat():
         hwnd = _get_wechat_hwnd()
         if hwnd:
             win32gui.ShowWindow(hwnd, 2)  # SW_MINIMIZE
-            print(f"[DEBUG] [窗口] 微信已最小化")
+            debug("[窗口] 微信已最小化")
     except Exception as e:
-        print(f"[ERROR] [窗口] 最小化失败: {e}")
+        error(f"[窗口] 最小化失败: {e}")
 
 def restore_wechat():
     """恢复微信窗口并置前"""
@@ -57,9 +61,9 @@ def restore_wechat():
             win32gui.ShowWindow(hwnd, 9)   # SW_RESTORE
             win32gui.SetForegroundWindow(hwnd)
             human_delay(300, 600)
-            print(f"[DEBUG] [窗口] 微信已恢复")
+            debug("[窗口] 微信已恢复")
     except Exception as e:
-        print(f"[ERROR] [窗口] 恢复失败: {e}")
+        error(f"[窗口] 恢复失败: {e}")
 
 
 # ============================================================
@@ -67,20 +71,19 @@ def restore_wechat():
 # ============================================================
 def process_send_message(name, message, orig_senders, instances=None):
     """发送消息并处理发送期间捕获的新消息"""
-    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 发送: name={name}, message={message}")
+    debug(f"发送: name={name}, message={message}")
     try:
         human_action_delay()
         sender = orig_senders.get(name)
         if sender:
             # 发送并获取发送期间的新消息
             caught_msgs = sender(message)
-            print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 发送完成")
-            
+            debug("发送完成")
+
             # 处理捕获的新消息
-            # message 是 {"target": "群名", "content": "..."} 或字符串
             if caught_msgs and instances:
                 target_chat = message.get("target") if isinstance(message, dict) else name
-                print(f"[INFO] 捕获到 {len(caught_msgs)} 条来自 {target_chat} 的新消息")
+                info(f"捕获到 {len(caught_msgs)} 条来自 {target_chat} 的新消息")
                 for msg in caught_msgs:
                     msg_content = msg.content if hasattr(msg, 'content') else (msg[1] if isinstance(msg, (list, tuple)) and len(msg) > 1 else str(msg))
                     targets = route_message_to_instances(msg_content, instances)
@@ -88,15 +91,15 @@ def process_send_message(name, message, orig_senders, instances=None):
                         try:
                             inst.handle_message(target_chat, msg)
                         except Exception as e:
-                            print(f"[ERROR] {inst_name} 处理失败: {e}")
+                            error(f"{inst_name} 处理失败: {e}")
         else:
-            print(f"未知来源: {name}，已跳过")
+            warning(f"未知来源: {name}，已跳过")
     except Exception as e:
-        print(f"发送失败 ({name}): {e}")
+        error(f"发送失败 ({name}): {e}")
 
 def process_all_pending_messages(msg_queue, orig_senders, instances=None):
     """一次性处理队列中所有待发送消息，然后切回文件传输助手并最小化
-    
+
     发送期间微信已在前台，每个消息都会自动捕获发送期间的新消息。
     """
     sent_any = False
@@ -104,7 +107,7 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
         try:
             name, message = msg_queue.get_nowait()
             if is_maintenance_time():
-                print(f"[INFO] 维护时段，跳过发送")
+                info("维护时段，跳过发送")
                 msg_queue.task_done()
                 continue
             process_send_message(name, message, orig_senders, instances)
@@ -121,9 +124,9 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
             try:
                 human_delay(300, 600)
                 wx.ChatWith('文件传输助手')
-                print(f"[DEBUG] [窗口] 已切换到文件传输助手")
+                debug("[窗口] 已切换到文件传输助手")
             except Exception as e:
-                print(f"[DEBUG] [窗口] 切换失败: {e}")
+                debug(f"[窗口] 切换失败: {e}")
         human_action_delay()
         minimize_wechat()
 
@@ -139,12 +142,12 @@ def route_message_to_instances(msg_content, instances):
 
 def process_receive_messages(instances):
     """收消息 + 分发，返回收到的消息数量"""
-    print(f"[DEBUG] [{time.strftime('%H:%M:%S')}] 收取消息...")
+    debug("收取消息...")
     total_count = 0
     try:
         new_msgs = wechat_instance.get_new_messages()
         if new_msgs:
-            print(f"[INFO] 收到 {len(new_msgs)} 个聊天的消息")
+            info(f"收到 {len(new_msgs)} 个聊天的消息")
             for chat_name, msg_list in new_msgs.items():
                 total_count += len(msg_list)
                 for msg in msg_list:
@@ -154,12 +157,12 @@ def process_receive_messages(instances):
                         try:
                             inst.handle_message(chat_name, msg)
                         except Exception as e:
-                            print(f"[ERROR] {name} 处理失败: {e}")
-            print(f"[INFO] 共处理 {total_count} 条消息")
+                            error(f"{name} 处理失败: {e}")
+            info(f"共处理 {total_count} 条消息")
         else:
-            print(f"[DEBUG] 无新消息")
+            debug("无新消息")
     except Exception as e:
-        print(f"[ERROR] 收消息失败: {e}")
+        error(f"收消息失败: {e}")
         import traceback
         traceback.print_exc()
     return total_count
@@ -203,8 +206,9 @@ def create_instances(master_cfg):
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
             instances.append((f"instance_{idx}", get_instance_from_item(item)))
+            info(f"实例 {idx} 创建成功 ({item.get('type', 'unknown')})")
         except Exception as e:
-            print(f"创建实例 {idx} 失败: {e}")
+            error(f"创建实例 {idx} 失败: {e}")
     return instances
 
 
@@ -213,7 +217,7 @@ def create_instances(master_cfg):
 # ============================================================
 def start_instances(instances):
     """闪烁驱动主循环：
-    
+
     1. 启动时最小化微信
     2. 循环检测闪烁（explorer hook 或截图）
     3. 闪烁 → 恢复窗口 → 收消息 → 处理 → 最小化
@@ -238,7 +242,7 @@ def start_instances(instances):
         inst.send_message = make_enqueue(name)
 
         threading.Thread(target=inst.start, daemon=True).start()
-        print(f"[INFO] 实例 {name} ({type(inst).__name__}) 已启动")
+        info(f"实例 {name} ({type(inst).__name__}) 已启动")
 
     # 启动时最小化
     human_action_delay()
@@ -250,7 +254,7 @@ def start_instances(instances):
     last_flash_time = 0
     wx_is_minimized = True
 
-    print(f"[INFO] 主循环启动（轮询间隔 {poll_base}±{poll_jitter}s，随机抖动）")
+    info(f"主循环启动（轮询间隔 {poll_base}±{poll_jitter}s，随机抖动）")
 
     try:
         while True:
@@ -289,7 +293,7 @@ def start_instances(instances):
 
             if is_flashing:
                 last_flash_time = now
-                print(f"[INFO] 检测到微信闪烁，开始收消息...")
+                info("检测到微信闪烁，开始收消息...")
 
                 if wx_is_minimized:
                     human_delay(100, 500)  # 响应前随机延迟
@@ -319,24 +323,31 @@ def start_instances(instances):
                     wx_is_minimized = True
 
     except KeyboardInterrupt:
-        print("\n收到中断，退出")
+        info("收到中断，退出")
 
 
 # ============================================================
 # 入口
 # ============================================================
 def main():
+    # 初始化日志
+    setup_logger(log_dir="logs", level=logging.DEBUG)
+    info("=" * 50)
+    info("cs-Solidarity 启动")
+    info("=" * 50)
+
     init_wechat()
 
     master_cfg = load_master_config('config.json')
     instances = create_instances(master_cfg)
     if not instances:
+        warning("没有可用实例，退出")
         return
 
     try:
         start_instances(instances)
     except KeyboardInterrupt:
-        print("\n退出")
+        info("退出")
 
 
 if __name__ == "__main__":
