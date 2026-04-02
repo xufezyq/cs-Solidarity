@@ -3,6 +3,7 @@ import time
 import schedule
 import json
 import asyncio
+import threading
 from datetime import datetime
 from pathlib import Path
 from core import wechat_instance
@@ -11,6 +12,9 @@ from cs2_pw.request import PerfectWorldApi
 import logging
 
 log = logging.getLogger(__name__)
+
+# 配置文件读写锁，防止后台线程和 Web 面板同时写入导致损坏
+_config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
     def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
@@ -80,20 +84,39 @@ class SteamAuto(BaseInstance):
     
     @staticmethod
     def load_config(config_path='config.json'):
-        """从配置文件加载配置"""
+        """从配置文件加载配置（线程安全）"""
         if not Path(config_path).exists():
             raise FileNotFoundError(f"配置文件 {config_path} 不存在")
-        
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        
+
+        with _config_lock:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+
         return config
-    
+
     @staticmethod
     def save_config(config, config_path='config.json'):
-        """保存配置到文件"""
-        with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
+        """保存配置到文件（线程安全）"""
+        with _config_lock:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _run_async_safe(coro):
+        """安全地运行异步协程，兼容已有事件循环的情况"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # 已有事件循环在运行，用新线程执行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result()
+        else:
+            return asyncio.run(coro)
 
     def get_cached_friend_list(self, force_refresh=False):
         """返回缓存的好友列表；若无缓存或 force_refresh=True 则从 API 拉取并缓存"""
@@ -496,6 +519,8 @@ class SteamAuto(BaseInstance):
                             'nickname': nickname,
                             'max_kills': 0,
                             'min_kills': 999,
+                            'max_deaths': 0,
+                            'min_deaths': 999,
                             'max_rating': 0.0,
                             'min_rating': 999.0,
                             'max_pw_rating': 0.0,
@@ -504,8 +529,6 @@ class SteamAuto(BaseInstance):
                             'min_we': 999,
                             'max_score': 0,
                             'min_score': 9999,
-                            'max_deaths': 0,
-                            'min_deaths': 999
                         }
                     
                     hist = self.friend_pw_history_stats[steam_id]
@@ -525,8 +548,6 @@ class SteamAuto(BaseInstance):
                         'min_we': 999,
                         'max_score': 0,
                         'min_score': 9999,
-                        'max_deaths': 0,
-                        'min_deaths': 999
                     }
                     
                     for field, default in required_fields.items():
@@ -767,7 +788,7 @@ class SteamAuto(BaseInstance):
         if stopped_cs2_friends:
             log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
             try:
-                pw_messages = asyncio.run(self._fetch_pw_stats_async(stopped_cs2_friends))
+                pw_messages = self._run_async_safe(self._fetch_pw_stats_async(stopped_cs2_friends))
                 if pw_messages:
                     messages.extend(pw_messages)
             except Exception as e:

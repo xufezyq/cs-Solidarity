@@ -176,7 +176,7 @@ def detect_flash():
     try:
         from utils.flash_detector import is_wechat_flashing
         return is_wechat_flashing()
-    except:
+    except Exception:
         return None
 
 
@@ -190,7 +190,7 @@ def load_master_config(config_file):
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
-    except:
+    except Exception:
         return {}
     if not isinstance(cfg, dict) or 'instances' not in cfg:
         return {}
@@ -294,7 +294,7 @@ def start_instances(instances):
                         if wx:
                             try:
                                 wx.ChatWith('文件传输助手')
-                            except:
+                            except Exception:
                                 pass
                         human_action_delay()
                         minimize_wechat()
@@ -321,7 +321,7 @@ def start_instances(instances):
                 if wx:
                     try:
                         wx.ChatWith('文件传输助手')
-                    except:
+                    except Exception:
                         pass
                 human_action_delay()
                 minimize_wechat()
@@ -337,7 +337,7 @@ def start_instances(instances):
                         if wx:
                             try:
                                 wx.ChatWith('文件传输助手')
-                            except:
+                            except Exception:
                                 pass
                         human_action_delay()
                         minimize_wechat()

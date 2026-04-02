@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from core.base_instance import BaseInstance
-from core.wechat_instance import get_wechat
+from core.wechat_instance import send_message as wx_send_message
 
 log = logging.getLogger(__name__)
 
@@ -240,7 +240,7 @@ class InfoPush(BaseInstance):
         return "\n".join(message_parts)
 
     def send_message(self, message: str):
-        """发送消息到所有配置的群"""
+        """发送消息到所有配置的群（走 wechat_instance.send_message 确保一致）"""
         if not message or not message.strip():
             log.debug("[InfoPush] 消息为空，跳过发送")
             return
@@ -248,12 +248,10 @@ class InfoPush(BaseInstance):
         log.debug(f"[InfoPush] 开始发送消息到 {len(self.wechat_groups)} 个群组/个人")
         for group in self.wechat_groups:
             try:
-                get_wechat().SendMsg(message, group)
+                wx_send_message(message, group)
                 log.info(f"[InfoPush] 消息已发送到：{group}")
             except Exception as e:
                 log.error(f"[InfoPush] 发送消息到 {group} 失败：{e}")
-                import traceback
-                log.debug(traceback.format_exc())
 
     def push_to_all_groups(self):
         """向所有群聊推送消息"""

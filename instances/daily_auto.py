@@ -5,7 +5,7 @@ from datetime import datetime
 import schedule
 from pathlib import Path
 from core.base_instance import BaseInstance
-from core.wechat_instance import get_wechat, is_using_wxauto
+from core import wechat_instance
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +26,12 @@ class DailyAuto(BaseInstance):
         self.debug = debug
 
     def send_message(self, message):
-        """发送消息到所有配置的微信群/个人"""
+        """发送消息到所有配置的微信群/个人
+
+        注意：此方法在 start_instances 中会被替换为入队函数。
+        但如果在其他场景直接调用，这里也走 wechat_instance.send_message
+        而非直接调 wx.SendMsg，确保 ChatWith 和消息捕获逻辑一致。
+        """
         if not message or not message.strip():
             log.debug("[DailyAuto] 消息为空，跳过发送")
             return
@@ -34,13 +39,10 @@ class DailyAuto(BaseInstance):
         log.debug(f"[DailyAuto] 开始发送消息到 {len(self.wechat_groups)} 个群/个人")
         for group in self.wechat_groups:
             try:
-                wx = get_wechat()
-                wx.SendMsg(message, group)
+                wechat_instance.send_message(message, group)
                 log.info(f"[DailyAuto] 消息已发送到：{group}")
             except Exception as e:
                 log.error(f"[DailyAuto] 发送消息到 {group} 失败：{e}")
-                import traceback
-                log.debug(traceback.format_exc())
 
     def start(self):
         """启动每日定时发送"""
