@@ -219,10 +219,11 @@ def start_instances(instances):
     """闪烁驱动主循环：
 
     1. 启动时最小化微信
-    2. 循环检测闪烁（explorer hook 或截图）
-    3. 闪烁 → 恢复窗口 → 收消息 → 处理 → 最小化
-    4. 无闪烁 → 只处理发送队列
-    5. 每次操作后切到文件传输助手再最小化
+    2. 有发送任务 → 先处理所有发送（send_message 内部已预捕获未读消息）
+    3. 再检测闪烁 → 收消息 → 分发
+    4. 每次操作后切到文件传输助手再最小化
+
+    关键：发送在收消息之前处理，避免 ChatWith 清掉其他聊天的闪烁状态。
     """
     if not instances:
         return
@@ -260,19 +261,6 @@ def start_instances(instances):
         while True:
             now = time.time()
 
-            # ── 发送队列 ──
-            if not msg_queue.empty():
-                if wx_is_minimized:
-                    # 恢复前随机等待，模拟"回来操作"的节奏
-                    human_delay(200, 800)
-                    restore_wechat()
-                    wx_is_minimized = False
-                # 发送 + 顺带检查新消息
-                process_all_pending_messages(msg_queue, orig_senders, instances)
-                wx_is_minimized = True
-                last_flash_time = time.time()
-                continue
-
             # ── 维护时间 ──
             if is_maintenance_time():
                 if not wx_is_minimized:
@@ -281,14 +269,40 @@ def start_instances(instances):
                 time.sleep(5)
                 continue
 
-            # ── 随机轮询间隔 ──
+            # ── 第一步：处理发送队列（在收消息之前）──
+            # send_message 内部会在 ChatWith 之前预捕获目标聊天的未读消息，
+            # 所以先发再收不会丢消息。
+            if not msg_queue.empty():
+                if wx_is_minimized:
+                    human_delay(200, 800)
+                    restore_wechat()
+                    wx_is_minimized = False
+                process_all_pending_messages(msg_queue, orig_senders, instances)
+                last_flash_time = time.time()
+                # 不 continue——继续往下做闪烁检测，同一轮完成收发
+
+            # ── 第二步：闪烁检测 → 收消息 ──
+            # 此时所有 ChatWith 都已完成，闪烁状态干净
             current_interval = random_poll_interval(poll_base, poll_jitter)
             if now - last_poll_time < current_interval:
+                # 还没到轮询间隔，但窗口已打开 → 空闲超时再最小化
+                if not wx_is_minimized:
+                    idle = now - last_flash_time
+                    idle_timeout = random.uniform(10, 20)
+                    if idle > idle_timeout and msg_queue.empty():
+                        wx = wechat_instance.get_wechat()
+                        if wx:
+                            try:
+                                wx.ChatWith('文件传输助手')
+                            except:
+                                pass
+                        human_action_delay()
+                        minimize_wechat()
+                        wx_is_minimized = True
                 time.sleep(0.05)
                 continue
             last_poll_time = now
 
-            # ── 闪烁检测 ──
             is_flashing = detect_flash()
 
             if is_flashing:
@@ -296,11 +310,10 @@ def start_instances(instances):
                 info("检测到微信闪烁，开始收消息...")
 
                 if wx_is_minimized:
-                    human_delay(100, 500)  # 响应前随机延迟
+                    human_delay(100, 500)
                     restore_wechat()
                     wx_is_minimized = False
 
-                # 收消息
                 process_receive_messages(instances)
 
                 # 切到文件传输助手 → 最小化
@@ -316,11 +329,19 @@ def start_instances(instances):
 
             else:
                 # 无闪烁：窗口没最小化且空闲久了，最小化
-                idle = now - last_flash_time
-                idle_timeout = random.uniform(10, 20)  # 随机空闲超时
-                if not wx_is_minimized and idle > idle_timeout and msg_queue.empty():
-                    minimize_wechat()
-                    wx_is_minimized = True
+                if not wx_is_minimized:
+                    idle = now - last_flash_time
+                    idle_timeout = random.uniform(10, 20)
+                    if idle > idle_timeout and msg_queue.empty():
+                        wx = wechat_instance.get_wechat()
+                        if wx:
+                            try:
+                                wx.ChatWith('文件传输助手')
+                            except:
+                                pass
+                        human_action_delay()
+                        minimize_wechat()
+                        wx_is_minimized = True
 
     except KeyboardInterrupt:
         info("收到中断，退出")
