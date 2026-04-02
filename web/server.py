@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from web.auth import init_users
+from web.auth import decode_token
 from web.bridge import bridge
 from web.api import auth, users, config, status, logs, control
 
@@ -112,7 +113,8 @@ async def websocket_agent(ws: WebSocket):
     # 认证通过，建立连接
     await ws.accept()
     await bridge.connect(ws)
-    log.info("Agent WebSocket 连接已建立")
+    conn_id = bridge.connection_id  # 记录当前连接 ID
+    log.info(f"Agent WebSocket 连接已建立 (conn_id={conn_id[:8]}...)")
 
     async def _ping_loop():
         """定期 ping 检测 Agent 是否存活"""
@@ -139,7 +141,7 @@ async def websocket_agent(ws: WebSocket):
             await ping_task
         except asyncio.CancelledError:
             pass
-        await bridge.disconnect()
+        await bridge.disconnect(conn_id)
 
 
 # ── 静态文件和前端 ──
@@ -158,6 +160,30 @@ async def serve_index():
 # 如果 static 目录存在，挂载静态文件
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+# ── WebSocket 日志推送（直接注册到 app，避免 router 冲突）──
+@app.websocket("/ws/logs")
+async def websocket_logs(ws: WebSocket):
+    """WebSocket 实时日志推送"""
+    from fastapi import WebSocketDisconnect
+    token = ws.query_params.get("token", "")
+    payload = decode_token(token)
+    if not payload:
+        await ws.close(code=4001, reason="认证失败")
+        return
+
+    await ws.accept()
+    bridge.subscribe_logs(ws)
+    try:
+        while True:
+            data = await ws.receive_text()
+            if data == "ping":
+                await ws.send_text("pong")
+    except WebSocketDisconnect:
+        pass
+    finally:
+        bridge.unsubscribe_logs(ws)
 
 
 # ── 健康检查 ──

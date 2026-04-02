@@ -22,7 +22,7 @@ import websockets
 # 添加项目根目录到 path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from shared.protocol import make_response, make_push, make_ping, parse_message
+from shared.protocol import make_response, make_push, make_ping, make_pong, parse_message
 from agent.handler import AgentHandler
 from agent.watcher import LogWatcher
 

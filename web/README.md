@@ -4,6 +4,8 @@
 
 cs-Solidarity Web 控制面板是一个基于 WebSocket 的远程管理工具，用于管理运行在内网 Windows 机器上的微信机器人。采用 Agent-Server 架构，用户通过浏览器访问公网服务器，服务器通过 Agent 远程操作内网机器。
 
+> 📘 运维操作（启动/关闭/清理）详见 [OPS.md](./OPS.md)
+
 ## 快速开始
 
 ### 环境要求

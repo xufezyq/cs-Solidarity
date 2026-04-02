@@ -39,3 +39,8 @@ docs
 
 # TestCode
 tests
+
+# Web 面板隐私文件
+web/users.json
+web/.secret_key
+web/backups/

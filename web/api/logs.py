@@ -3,10 +3,9 @@ Web API — 日志查看
 """
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
 from typing import Optional
 
-from web.auth import User, get_current_user, decode_token
+from web.auth import User, get_current_user
 from web.bridge import bridge
 
 router = APIRouter(tags=["日志"])
@@ -60,27 +59,3 @@ async def _read_log(date: str, level: str, keyword: str, page: int, page_size: i
     if not result.get("success"):
         return {"success": True, "data": {"lines": [], "total": 0, "date": date}}
     return {"success": True, "data": result.get("data", {})}
-
-
-@router.websocket("/ws/logs")
-async def websocket_logs(ws: WebSocket):
-    """WebSocket 实时日志推送"""
-    # 从 query 参数获取 token
-    token = ws.query_params.get("token", "")
-    payload = decode_token(token)
-    if not payload:
-        await ws.close(code=4001, reason="认证失败")
-        return
-
-    await ws.accept()
-    bridge.subscribe_logs(ws)
-    try:
-        while True:
-            # 保持连接，等待客户端消息（心跳）
-            data = await ws.receive_text()
-            if data == "ping":
-                await ws.send_text("pong")
-    except WebSocketDisconnect:
-        pass
-    finally:
-        bridge.unsubscribe_logs(ws)

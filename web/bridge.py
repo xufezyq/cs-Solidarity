@@ -25,6 +25,7 @@ class AgentBridge:
         self.agent_ws: Optional[WebSocket] = None
         self.connected_at: Optional[datetime] = None
         self.hostname: str = ""
+        self.connection_id: str = ""  # 每次连接的唯一 ID，防止竞态断开
         self._pending_requests: Dict[str, asyncio.Future] = {}
         self._lock = asyncio.Lock()
         self._log_subscribers: list = []  # 实例变量，非类变量
@@ -46,14 +47,26 @@ class AgentBridge:
 
             self.agent_ws = ws
             self.connected_at = datetime.now()
+            self.connection_id = str(uuid.uuid4())  # 生成新连接 ID
             log.info("✅ Agent 已连接")
 
-    async def disconnect(self):
-        """Agent 断开连接"""
+    async def disconnect(self, conn_id: str = ""):
+        """Agent 断开连接
+
+        Args:
+            conn_id: 可选的连接 ID。如果提供了且与当前连接 ID 不同，则忽略这次断开请求。
+                     这防止了旧连接的 finally 块误断新连接。
+        """
         async with self._lock:
+            # 安全检查：如果调用者提供了 connection_id，必须匹配当前连接
+            if conn_id and conn_id != self.connection_id:
+                log.debug(f"忽略旧连接 (conn_id={conn_id[:8]}...) 的断开请求，当前连接为 {self.connection_id[:8]}...")
+                return
+
             self.agent_ws = None
             self.connected_at = None
             self.hostname = ""
+            self.connection_id = ""
 
             # 取消所有待处理的请求
             for req_id, future in self._pending_requests.items():
