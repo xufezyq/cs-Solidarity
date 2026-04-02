@@ -46,13 +46,15 @@ class InfoPush(BaseInstance):
         self.gold_price_cache = {}
         self.stock_cache = {}
         self.news_cache = []
-        self.last_fetch_time = 0
+        self._last_gold_fetch = 0
+        self._last_stock_fetch = {}  # 每只股票独立时间戳
+        self._last_news_fetch = 0
 
     def fetch_gold_price(self) -> Optional[Dict]:
         """获取金价数据"""
         try:
             current_time = time.time()
-            if self.gold_price_cache and (current_time - self.last_fetch_time) < 300:
+            if self.gold_price_cache and (current_time - self._last_gold_fetch) < 300:
                 log.debug("[InfoPush] 使用金价缓存数据")
                 return self.gold_price_cache
 
@@ -97,7 +99,7 @@ class InfoPush(BaseInstance):
                 return None
 
             self.gold_price_cache = gold_data
-            self.last_fetch_time = current_time
+            self._last_gold_fetch = current_time
             log.debug(f"[InfoPush] 获取金价成功：{gold_data['price']} 元/克")
             return gold_data
 
@@ -117,7 +119,8 @@ class InfoPush(BaseInstance):
             try:
                 current_time = time.time()
                 cache_key = f"stock_{code}"
-                if cache_key in self.stock_cache and (current_time - self.last_fetch_time) < 600:
+                last_fetch = self._last_stock_fetch.get(code, 0)
+                if cache_key in self.stock_cache and (current_time - last_fetch) < 600:
                     log.debug(f"[InfoPush] 使用股票 {code} 缓存数据")
                     results.append(self.stock_cache[cache_key])
                     continue
@@ -131,7 +134,7 @@ class InfoPush(BaseInstance):
                 if stock_data:
                     results.append(stock_data)
                     self.stock_cache[cache_key] = stock_data
-                    self.last_fetch_time = current_time
+                    self._last_stock_fetch[code] = current_time
                     log.debug(f"[InfoPush] 获取股票 {code} 成功")
 
             except Exception as e:
@@ -170,7 +173,7 @@ class InfoPush(BaseInstance):
         """获取新闻数据"""
         try:
             current_time = time.time()
-            if self.news_cache and (current_time - self.last_fetch_time) < 900:
+            if self.news_cache and (current_time - self._last_news_fetch) < 900:
                 log.debug("[InfoPush] 使用新闻缓存数据")
                 return self.news_cache
 
@@ -178,7 +181,7 @@ class InfoPush(BaseInstance):
             if backup_news:
                 news_list = backup_news[:5]
                 self.news_cache = news_list
-                self.last_fetch_time = current_time
+                self._last_news_fetch = current_time
                 log.debug(f"[InfoPush] 使用备用新闻，共 {len(news_list)} 条")
                 return news_list
 
@@ -304,12 +307,22 @@ class InfoPush(BaseInstance):
         if not isinstance(data, dict):
             raise TypeError("InfoPush.create_from_data 需要传入字典数据")
 
+        # 从主配置读取 debug_mode
+        debug_mode = False
         try:
-            with open('config.json', 'r', encoding='utf-8') as f:
+            if 'config' in data:
+                cfg_path = Path(data['config'])
+                if cfg_path.parent.name == 'instconfig':
+                    main_cfg_path = cfg_path.parent.parent / 'config.json'
+                else:
+                    main_cfg_path = cfg_path.parent / 'config.json'
+            else:
+                main_cfg_path = Path('config.json')
+            with open(main_cfg_path, 'r', encoding='utf-8') as f:
                 master_config = json.load(f)
                 debug_mode = master_config.get('debug_mode', False)
         except Exception:
-            debug_mode = False
+            pass
 
         if 'config' in data:
             config_path = data['config']

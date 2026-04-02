@@ -192,9 +192,14 @@ class SteamAuto(BaseInstance):
         """从配置文件创建 SteamAuto 实例"""
         config = SteamAuto.load_config(config_path)
 
-        # 尝试从主配置文件读取 debug_mode
+        # 读取主配置文件的 debug_mode（从实例配置路径推导主配置位置）
         try:
-            with open('config.json', 'r', encoding='utf-8') as f:
+            cfg_path = Path(config_path)
+            if cfg_path.parent.name == 'instconfig':
+                main_cfg_path = cfg_path.parent.parent / 'config.json'
+            else:
+                main_cfg_path = cfg_path.parent / 'config.json'
+            with open(main_cfg_path, 'r', encoding='utf-8') as f:
                 master_config = json.load(f)
                 debug_mode = master_config.get('debug_mode', False)
         except Exception:
@@ -216,6 +221,7 @@ class SteamAuto(BaseInstance):
         )
         
         # 首次执行时且好友信息为空，自动填充好友信息
+        # 注意：这会修改配置文件，是首次运行的一次性副作用
         temp_instance.auto_fill_monitored_friends(config_path)
         
         # 重新加载配置（可能已被更新）

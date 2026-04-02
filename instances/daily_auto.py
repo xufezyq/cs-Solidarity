@@ -96,12 +96,23 @@ class DailyAuto(BaseInstance):
         if not isinstance(data, dict):
             raise TypeError("DailyAuto.create_from_data 需要传入字典数据")
 
+        # 从主配置读取 debug_mode
+        debug_mode = False
         try:
-            with open('config.json', 'r', encoding='utf-8') as f:
+            # 从实例配置路径推导主配置位置
+            if 'config' in data:
+                cfg_path = Path(data['config'])
+                if cfg_path.parent.name == 'instconfig':
+                    main_cfg_path = cfg_path.parent.parent / 'config.json'
+                else:
+                    main_cfg_path = cfg_path.parent / 'config.json'
+            else:
+                main_cfg_path = Path('config.json')
+            with open(main_cfg_path, 'r', encoding='utf-8') as f:
                 master_config = json.load(f)
                 debug_mode = master_config.get('debug_mode', False)
         except Exception:
-            debug_mode = False
+            pass
 
         if 'config' in data:
             config_path = data['config']

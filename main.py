@@ -9,6 +9,7 @@ from pathlib import Path
 from core import init_wechat, wechat_instance, get_instance_from_item, BaseInstance
 from utils.human_sim import human_delay, human_action_delay, random_poll_interval
 from utils.logger import setup_logger, info, debug, error, warning
+import win32gui
 
 import logging
 
@@ -38,13 +39,11 @@ core.check_maintenance = check_maintenance
 # 微信窗口控制
 # ============================================================
 def _get_wechat_hwnd():
-    import win32gui
     return win32gui.FindWindow('WeChatMainWndForPC', None)
 
 def minimize_wechat():
     """最小化微信窗口"""
     try:
-        import win32gui
         hwnd = _get_wechat_hwnd()
         if hwnd:
             win32gui.ShowWindow(hwnd, 2)  # SW_MINIMIZE
@@ -55,7 +54,6 @@ def minimize_wechat():
 def restore_wechat():
     """恢复微信窗口并置前"""
     try:
-        import win32gui
         hwnd = _get_wechat_hwnd()
         if hwnd:
             win32gui.ShowWindow(hwnd, 9)   # SW_RESTORE
@@ -71,7 +69,8 @@ def restore_wechat():
 # ============================================================
 def process_send_message(name, message, orig_senders, instances=None):
     """发送消息并处理发送期间捕获的新消息"""
-    debug(f"发送: name={name}, message={message}")
+    target = message.get("target", name) if isinstance(message, dict) else name
+    debug(f"发送: name={name}, target={target}")
     try:
         human_action_delay()
         sender = orig_senders.get(name)

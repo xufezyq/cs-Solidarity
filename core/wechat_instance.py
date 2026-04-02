@@ -2,12 +2,14 @@
 全局WeChat实例管理
 """
 import logging
+import threading
 from wxauto import WeChat
 from utils.human_sim import human_delay, human_action_delay
 
 log = logging.getLogger(__name__)
 
 _wx = None  # 全局WeChat单例对象，所有模块都可以导入使用
+_wx_lock = threading.Lock()  # 防止多线程同时初始化
 
 
 def _patch_wxauto_human_behavior():
@@ -190,10 +192,12 @@ def send_message(message, group):
 
 
 def get_wechat():
-    """获取WeChat实例，延迟初始化"""
+    """获取WeChat实例，延迟初始化（线程安全）"""
     global _wx
     if _wx is None:
-        _wx = WeChat()
+        with _wx_lock:
+            if _wx is None:
+                _wx = WeChat()
     return _wx
 
 
@@ -203,11 +207,13 @@ def is_using_wxauto():
 
 
 def init_wechat():
-    """显式初始化WeChat实例"""
+    """显式初始化WeChat实例（线程安全）"""
     global _wx
     if _wx is None:
-        _wx = WeChat()
-        _patch_wxauto_human_behavior()
+        with _wx_lock:
+            if _wx is None:
+                _wx = WeChat()
+                _patch_wxauto_human_behavior()
     return _wx
 
 

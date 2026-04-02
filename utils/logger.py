@@ -4,12 +4,13 @@
 """
 import logging
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 
 
 class _DateRotatingFileHandler(logging.FileHandler):
-    """按日期自动切换日志文件的 Handler"""
+    """按日期自动切换日志文件的 Handler（线程安全）"""
 
     def __init__(self, log_dir="logs", encoding="utf-8"):
         self.log_dir = Path(log_dir)
@@ -17,6 +18,7 @@ class _DateRotatingFileHandler(logging.FileHandler):
         self.encoding = encoding
         self._current_date = None
         self._filename = None
+        self._rotate_lock = threading.Lock()
         # 初始化时打开第一天的文件
         self._rotate()
         super().__init__(self._filename, encoding=self.encoding)
@@ -30,10 +32,18 @@ class _DateRotatingFileHandler(logging.FileHandler):
     def emit(self, record):
         # 每次写入前检查是否跨天
         self._rotate()
-        if self.baseFilename != self._filename:
-            self.close()
-            self.baseFilename = self._filename
-            self.stream = self._open()
+        with self._rotate_lock:
+            if self.baseFilename != self._filename:
+                old_stream = self.stream
+                self.close()
+                self.baseFilename = self._filename
+                self.stream = self._open()
+                # 安全关闭旧流（其他线程不再引用）
+                if old_stream:
+                    try:
+                        old_stream.close()
+                    except Exception:
+                        pass
         super().emit(record)
 
 
