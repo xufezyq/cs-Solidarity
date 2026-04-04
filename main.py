@@ -7,7 +7,7 @@ import random
 from datetime import datetime, time as dt_time
 from pathlib import Path
 from core import init_wechat, wechat_instance, get_instance_from_item, BaseInstance
-from utils.human_sim import human_delay, human_action_delay, random_poll_interval
+from utils.human_sim import human_delay, human_action_delay, random_poll_interval, random_human_pause
 from utils.logger import setup_logger, info, debug, error, warning
 import win32gui
 
@@ -248,13 +248,14 @@ def start_instances(instances):
     human_action_delay()
     minimize_wechat()
 
-    poll_base = 0.3        # 轮询基础间隔
-    poll_jitter = 0.15     # 轮询抖动（±秒）
+    poll_base = 2.0        # 轮询基础间隔（秒）— 从 0.3s 提高到 2s
+    poll_jitter = 1.5      # 轮询抖动幅度
     last_poll_time = 0
     last_flash_time = 0
     wx_is_minimized = True
+    idle_cycle_count = 0   # 连续空闲轮询次数
 
-    info(f"主循环启动（轮询间隔 {poll_base}±{poll_jitter}s，随机抖动）")
+    info(f"主循环启动（轮询间隔 {poll_base}s 对数正态分布）")
 
     try:
         while True:
@@ -265,7 +266,7 @@ def start_instances(instances):
                 if not wx_is_minimized:
                     minimize_wechat()
                     wx_is_minimized = True
-                time.sleep(5)
+                time.sleep(random.uniform(30, 120))  # 维护期间大幅降低检查频率
                 continue
 
             # ── 第一步：处理发送队列（在收消息之前）──
@@ -273,11 +274,12 @@ def start_instances(instances):
             # 所以先发再收不会丢消息。
             if not msg_queue.empty():
                 if wx_is_minimized:
-                    human_delay(200, 800)
+                    human_delay(300, 1200)
                     restore_wechat()
                     wx_is_minimized = False
                 process_all_pending_messages(msg_queue, orig_senders, instances)
                 last_flash_time = time.time()
+                idle_cycle_count = 0
                 # 不 continue——继续往下做闪烁检测，同一轮完成收发
 
             # ── 第二步：闪烁检测 → 收消息 ──
@@ -287,7 +289,7 @@ def start_instances(instances):
                 # 还没到轮询间隔，但窗口已打开 → 空闲超时再最小化
                 if not wx_is_minimized:
                     idle = now - last_flash_time
-                    idle_timeout = random.uniform(10, 20)
+                    idle_timeout = random.uniform(15, 30)
                     if idle > idle_timeout and msg_queue.empty():
                         wx = wechat_instance.get_wechat()
                         if wx:
@@ -298,18 +300,20 @@ def start_instances(instances):
                         human_action_delay()
                         minimize_wechat()
                         wx_is_minimized = True
-                time.sleep(0.05)
+                time.sleep(0.1)
                 continue
             last_poll_time = now
 
             is_flashing = detect_flash()
+            idle_cycle_count += 1
 
             if is_flashing:
                 last_flash_time = now
+                idle_cycle_count = 0
                 info("检测到微信闪烁，开始收消息...")
 
                 if wx_is_minimized:
-                    human_delay(100, 500)
+                    human_delay(200, 800)
                     restore_wechat()
                     wx_is_minimized = False
 
@@ -326,11 +330,15 @@ def start_instances(instances):
                 minimize_wechat()
                 wx_is_minimized = True
 
+                # 收到消息后，模拟人类"看一眼消息后思考"
+                if random.random() < 0.3:
+                    random_human_pause()
+
             else:
                 # 无闪烁：窗口没最小化且空闲久了，最小化
                 if not wx_is_minimized:
                     idle = now - last_flash_time
-                    idle_timeout = random.uniform(10, 20)
+                    idle_timeout = random.uniform(15, 30)
                     if idle > idle_timeout and msg_queue.empty():
                         wx = wechat_instance.get_wechat()
                         if wx:
@@ -341,6 +349,22 @@ def start_instances(instances):
                         human_action_delay()
                         minimize_wechat()
                         wx_is_minimized = True
+
+                # 连续空闲时，偶尔做一次长暂停（模拟人类去做别的事）
+                if idle_cycle_count > 0 and idle_cycle_count % random.randint(8, 20) == 0:
+                    pause = random.uniform(5, 15)
+                    info(f"模拟人类空闲暂停 {pause:.0f}s...")
+                    if not wx_is_minimized:
+                        wx = wechat_instance.get_wechat()
+                        if wx:
+                            try:
+                                wx.ChatWith('文件传输助手')
+                            except Exception:
+                                pass
+                        human_action_delay()
+                        minimize_wechat()
+                        wx_is_minimized = True
+                    time.sleep(pause)
 
     except KeyboardInterrupt:
         info("收到中断，退出")

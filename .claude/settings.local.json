@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; ast.parse\\(open\\('utils/human_sim.py'\\).read\\(\\)\\); ast.parse\\(open\\('utils/flash_detector.py'\\).read\\(\\)\\); ast.parse\\(open\\('core/wechat_instance.py'\\).read\\(\\)\\); ast.parse\\(open\\('main.py'\\).read\\(\\)\\); print\\('All files parse OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('utils/human_sim.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('utils/flash_detector.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('core/wechat_instance.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('All files parse OK'\\)\")",
+      "Bash(python3 -c \"import uiautomation; print\\(uiautomation.__file__\\)\")",
+      "Bash(python -c \"import uiautomation; print\\(uiautomation.__file__\\)\")",
+      "Bash(python -c \"import uiautomation as uia; print\\(dir\\(uia\\)\\)\")",
+      "Bash(python -c \"import uiautomation as uia; import inspect; print\\(inspect.getfile\\(uia.SendKeys\\)\\)\")"
+    ]
+  }
+}

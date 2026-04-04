@@ -13,8 +13,4 @@ def __getattr__(name):
         from .flash_detector import has_wechat_notification, is_wechat_flashing
         return locals()[name]
 
-    if name == "has_wechat_notification_tray":
-        from .notification_monitor import has_wechat_notification as has_wechat_notification_tray
-        return has_wechat_notification_tray
-
     raise AttributeError(f"module 'utils' has no attribute {name!r}")
