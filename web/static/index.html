@@ -41,29 +41,35 @@ input, textarea { font-family:inherit; }
 /* ═══════════════════════ 布局 ═══════════════════════ */
 #app { display:none; min-height:100vh; flex-direction:column; }
 #app.show { display:flex; }
-.sidebar { width:100%; background:var(--bg2); border-bottom:1px solid var(--border); padding:4px 8px; display:flex; flex-direction:row; flex-wrap:wrap; flex-shrink:0; }
+.sidebar {
+  width:100%; background:var(--bg2); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; overflow-x:auto; flex-shrink:0;
+}
 .sidebar .brand { display:none; }
-.sidebar .nav-item { padding:8px 12px; cursor:pointer; font-size:18px; display:flex; align-items:center; gap:8px; color:var(--text2); transition:all .15s; }
+.sidebar .nav-item { padding:10px 14px; cursor:pointer; font-size:20px; color:var(--text2); transition:all .15s; white-space:nowrap; }
 .sidebar .nav-item:hover { background:var(--bg3); color:var(--text); }
 .sidebar .nav-item.active { color:var(--accent); background:var(--bg3); }
-.sidebar .nav-item span { font-size:0; }
+.sidebar .nav-label { display:none; }
 .sidebar .spacer { display:none; }
-.sidebar .user-info { padding:8px 12px; font-size:13px; color:var(--text2); display:flex; justify-content:space-between; align-items:center; }
-.sidebar .user-info .role { font-size:11px; padding:2px 6px; border-radius:4px; background:var(--accent); color:#fff; }
-.sidebar .user-info .logout { cursor:pointer; color:var(--red); font-size:12px; }
-.sidebar .user-info span:not(.logout) { display:none; }
+.sidebar .user-info { margin-left:auto; padding:10px 14px; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text2); white-space:nowrap; }
+.sidebar .user-info .uname { display:none; }
+.sidebar .user-info .role { display:none; }
+.sidebar .user-info .logout { cursor:pointer; color:var(--red); font-size:13px; }
 .main { flex:1; padding:12px; }
 
 /* 桌面端布局 */
 @media(min-width:769px) {
   #app { flex-direction:row; }
-  .sidebar { width:200px; flex-direction:column; padding:16px 0; border-bottom:none; border-right:1px solid var(--border); }
+  .sidebar { width:200px; flex-direction:column; padding:16px 0; border-bottom:none; border-right:1px solid var(--border); align-items:stretch; overflow-x:visible; }
   .sidebar .brand { display:block; padding:0 16px 16px; font-size:15px; font-weight:700; border-bottom:1px solid var(--border); margin-bottom:8px; }
-  .sidebar .nav-item { padding:10px 16px; font-size:14px; }
-  .sidebar .nav-item span { font-size:14px; }
+  .sidebar .nav-item { padding:10px 16px; font-size:14px; white-space:normal; }
+  .sidebar .nav-icon { font-size:14px; }
+  .sidebar .nav-label { display:inline; }
   .sidebar .spacer { display:block; flex:1; }
-  .sidebar .user-info { padding:12px 16px; border-top:1px solid var(--border); }
-  .sidebar .user-info span:not(.logout) { display:inline; }
+  .sidebar .user-info { margin-left:0; padding:12px 16px; border-top:1px solid var(--border); flex-direction:column; align-items:stretch; gap:4px; }
+  .sidebar .user-info .uname { display:inline; }
+  .sidebar .user-info .role { display:inline; font-size:11px; padding:2px 6px; border-radius:4px; background:var(--accent); color:#fff; }
+  .sidebar .user-info .logout { font-size:12px; }
   .main { padding:24px; max-height:100vh; overflow-y:auto; }
 }
 
@@ -198,14 +204,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="brand">🔧 cs-Solidarity</div>
   <div class="nav-item" v-for="item in visibleNav" :key="item.key"
        :class="{active: currentPage===item.key}" @click="currentPage=item.key">
-    <span>{{ item.icon }} {{ item.label }}</span>
+    <span class="nav-icon">{{ item.icon }}</span><span class="nav-label">{{ item.label }}</span>
   </div>
   <div class="spacer"></div>
   <div class="user-info">
-    <div>
-      <span>{{ user.display_name || user.username }}</span>
-      <span class="role">{{ user.role }}</span>
-    </div>
+    <span class="uname">{{ user.display_name || user.username }}</span>
+    <span class="role">{{ user.role }}</span>
     <span class="logout" @click="doLogout">退出</span>
   </div>
 </div>
