@@ -14,7 +14,7 @@
       "avatar": "data/avatars/MONO",
       "triggers": ["MONO", "mono", "Mono", "莫诺"],
       "enableAtTrigger": true,
-      "replyMode": "at_only"
+      "replyMode": "all"
     },
     {
       "groupName": "代号粽",
