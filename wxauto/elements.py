@@ -4,6 +4,7 @@ from .utils import *
 from .color import *
 import datetime
 import time
+import random
 import os
 import re
 
@@ -145,6 +146,33 @@ class ChatWnd(WeChatBase):
             if self.editbox.GetValuePattern().Value:
                 break
         self.editbox.SendKeys('{Enter}')
+
+    def SendMsgs(self, msgs):
+        """批量发送多条消息（只调一次 _show）
+
+        Args:
+            msgs (list[str]): 要发送的消息列表
+        """
+        if not msgs:
+            return
+        if isinstance(msgs, str):
+            msgs = [msgs]
+        self._show()
+        if not self.editbox.HasKeyboardFocus:
+            self.editbox.Click(simulateMove=False)
+        for msg in msgs:
+            if not msg:
+                continue
+            t0 = time.time()
+            while True:
+                if time.time() - t0 > 10:
+                    raise TimeoutError(f'发送消息超时 --> {self.who} - {msg}')
+                SetClipboardText(msg)
+                self.editbox.SendKeys('{Ctrl}v')
+                if self.editbox.GetValuePattern().Value:
+                    break
+            self.editbox.SendKeys('{Enter}')
+            time.sleep(random.uniform(0.5, 2.0))
 
     def SendFiles(self, filepath):
         """向当前聊天窗口发送文件

@@ -213,21 +213,33 @@ def _patch_wxauto_human_behavior():
             log.warning(f"wxauto Click 注入失败: {e}")
 
         # ============================================================
-        # 6. Patch wxauto.WeChat._show（去掉 TOPMOST 切换）
+        # 6. Patch wxauto._show（去掉 TOPMOST + 操作锁）
         # ============================================================
         try:
             import wxauto.wxauto as wxmod
+            import wxauto.elements as elmod
             from wxauto.utils import FindWindow
             import win32gui
 
+            _wx_show_lock = threading.Lock()
+
             def _safe_show(self):
-                self.HWND = FindWindow(classname='WeChatMainWndForPC')
-                win32gui.ShowWindow(self.HWND, 1)
-                win32gui.SetForegroundWindow(self.HWND)
-                time.sleep(random.uniform(0.05, 0.15))
+                with _wx_show_lock:
+                    self.HWND = FindWindow(classname='WeChatMainWndForPC')
+                    win32gui.ShowWindow(self.HWND, 1)
+                    win32gui.SetForegroundWindow(self.HWND)
+                    time.sleep(random.uniform(0.05, 0.15))
+
+            def _safe_chatwnd_show(self):
+                with _wx_show_lock:
+                    self.HWND = FindWindow(name=self.who, classname='ChatWnd')
+                    win32gui.ShowWindow(self.HWND, 1)
+                    win32gui.SetForegroundWindow(self.HWND)
+                    time.sleep(random.uniform(0.05, 0.15))
 
             wxmod.WeChat._show = _safe_show
-            log.info("wxauto._show 已替换为安全版本（无 TOPMOST 切换）")
+            elmod.ChatWnd._show = _safe_chatwnd_show
+            log.info("wxauto._show 已替换为安全版本（操作锁 + 无 TOPMOST）")
         except Exception as e:
             log.warning(f"wxauto._show 注入失败: {e}")
 
@@ -385,6 +397,115 @@ def send_message(message, group):
             all_caught.append(msg)
         elif not mid:
             all_caught.append(msg)  # 没有 ID 的保守保留
+
+    return all_caught
+
+
+def send_messages(messages, group):
+    """批量发送多条消息到同一聊天（只切换一次窗口，捕获发送期间的新消息）"""
+    wx = get_wechat()
+    human_action_delay()
+
+    if not messages:
+        return []
+
+    if isinstance(messages, str):
+        messages = [messages]
+
+    # ── 预捕获未读消息 ──
+    pre_caught = []
+    try:
+        all_new = wx.GetAllNewMessage()
+        if all_new and group in all_new:
+            raw = all_new[group]
+            for msg in raw:
+                msg_type = msg.type if hasattr(msg, 'type') else None
+                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                if msg_type != 'self' and sender != 'Self':
+                    pre_caught.append(msg)
+            if pre_caught:
+                log.info(f"[send] 预捕获 {group} {len(pre_caught)} 条未读消息")
+    except Exception as e:
+        log.debug(f"[send] 预捕获失败（非致命）: {e}")
+
+    # ── 切换到目标聊天 ──
+    try:
+        wx.ChatWith(group)
+        human_delay(400, 900)
+    except Exception as e:
+        log.error(f"打开聊天 {group} 失败: {e}")
+        return pre_caught
+
+    # ── 记录发送前的消息快照 ──
+    last_id_before = None
+    try:
+        pre_msgs = wx.GetAllMessage()
+        if pre_msgs:
+            last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
+    except Exception as e:
+        log.debug(f"[send] 读取消息列表失败: {e}")
+
+    # ── 批量发送 ──
+    total_len = sum(len(m) if isinstance(m, str) else 20 for m in messages)
+    typing_time = min(5.0, max(0.8, total_len * 0.02 + random.uniform(0.5, 1.5)))
+    log.debug(f"[send] 模拟打字延迟 {typing_time:.1f}s ({len(messages)} 条消息)")
+    time.sleep(typing_time)
+
+    try:
+        wx.SendMsgs(messages, group)
+        log.debug(f"[send] 批量发送 {len(messages)} 条消息到 {group}")
+    except Exception as e:
+        log.error(f"[send] 批量发送失败: {e}")
+        return pre_caught
+
+    human_delay(400, 1000)
+
+    # ── 捕获发送期间到达的新消息 ──
+    send_caught = []
+    try:
+        post_msgs = wx.GetAllMessage()
+        if post_msgs and last_id_before:
+            found_idx = -1
+            for i, msg in enumerate(post_msgs):
+                msg_id = msg.id if hasattr(msg, 'id') else msg[-1]
+                if msg_id == last_id_before:
+                    found_idx = i
+                    break
+            if found_idx >= 0:
+                raw_new = post_msgs[found_idx + 1:]
+            else:
+                raw_new = post_msgs
+            for msg in raw_new:
+                msg_type = msg.type if hasattr(msg, 'type') else None
+                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                if msg_type != 'self' and sender != 'Self':
+                    send_caught.append(msg)
+            if send_caught:
+                log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息")
+        elif post_msgs and not last_id_before:
+            for msg in post_msgs:
+                msg_type = msg.type if hasattr(msg, 'type') else None
+                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                if msg_type != 'self' and sender != 'Self':
+                    send_caught.append(msg)
+            if send_caught:
+                log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息（首次）")
+    except Exception as e:
+        log.error(f"[send] 读取新消息失败: {e}")
+
+    # ── 合并去重 ──
+    all_caught = list(pre_caught)
+    seen_ids = set()
+    for msg in all_caught:
+        mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
+        if mid:
+            seen_ids.add(mid)
+    for msg in send_caught:
+        mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
+        if mid and mid not in seen_ids:
+            all_caught.append(msg)
+        elif not mid:
+            all_caught.append(msg)
 
     return all_caught
 

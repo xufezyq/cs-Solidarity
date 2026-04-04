@@ -729,33 +729,49 @@ class MessageHandler:
         if '$' in reply or '＄' in reply:
             parts = [p.strip() for p in reply.replace("＄", "$").split("$") if p.strip()]
 
+            # 收集所有文本片段，用批量发送（只切换一次窗口）
+            text_parts = []
+            emoji_queue = []  # (index, emotion_type) — 记录每个表情应该在第几条文本之后发送
+
             for part in parts:
-                # 检查当前部分是否包含表情标签
                 emotion_tags = self.emoji_handler.extract_emotion_tags(part)
                 if emotion_tags:
                     logger.debug(f"消息片段包含表情: {emotion_tags}")
 
-                # 清理表情标签并发送文本
                 clean_part = part
                 for tag in emotion_tags:
                     clean_part = clean_part.replace(f'[{tag}]', '')
 
                 if clean_part.strip():
-                    self.wx.SendMsg(msg=clean_part.strip(), who=chat_id)
-                    logger.debug(f"发送消息: {clean_part[:20]}...")
+                    text_parts.append(clean_part.strip())
 
-                # 发送该部分包含的表情
                 for emotion_type in emotion_tags:
-                    try:
-                        emoji_path = self.emoji_handler.get_emoji_for_emotion(emotion_type)
-                        if emoji_path:
-                            self.wx.SendFiles(filepath=emoji_path, who=chat_id)
-                            logger.debug(f"已发送表情: {emotion_type}")
-                            time.sleep(random.randint(1, 3))
-                    except Exception as e:
-                        logger.error(f"发送表情失败 - {emotion_type}: {str(e)}")
+                    emoji_queue.append((len(text_parts) - 1, emotion_type))
 
-                time.sleep(random.randint(4, 8))
+            # 批量发送文本（只调一次 ChatWith）
+            if text_parts:
+                try:
+                    self.wx.SendMsgs(text_parts, who=chat_id)
+                    logger.debug(f"批量发送 {len(text_parts)} 条消息到 {chat_id}")
+                except Exception as e:
+                    logger.error(f"批量发送失败，回退到逐条发送: {e}")
+                    for tp in text_parts:
+                        try:
+                            self.wx.SendMsg(msg=tp, who=chat_id)
+                            time.sleep(random.uniform(0.5, 2.0))
+                        except Exception:
+                            pass
+
+            # 逐个发送表情（在对应文本之后）
+            for idx, emotion_type in emoji_queue:
+                try:
+                    emoji_path = self.emoji_handler.get_emoji_for_emotion(emotion_type)
+                    if emoji_path:
+                        self.wx.SendFiles(filepath=emoji_path, who=chat_id)
+                        logger.debug(f"已发送表情: {emotion_type}")
+                        time.sleep(random.randint(1, 3))
+                except Exception as e:
+                    logger.error(f"发送表情失败 - {emotion_type}: {str(e)}")
         else:
             # 处理不包含分隔符的消息
             emotion_tags = self.emoji_handler.extract_emotion_tags(reply)

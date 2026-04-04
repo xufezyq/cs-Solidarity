@@ -12,6 +12,7 @@ from .errors import *
 from .color import *
 import datetime
 import time
+import random
 import os
 import re
 try:
@@ -259,7 +260,52 @@ class WeChat(WeChatBase):
             if editbox.GetValuePattern().Value:
                 break
         editbox.SendKeys('{Enter}')
-        
+
+    def SendMsgs(self, msgs, who=None):
+        """批量发送多条文本消息（只切换一次聊天窗口）
+
+        Args:
+            msgs (list[str]): 要发送的消息列表
+            who (str): 目标聊天名称，为None则发送到当前聊天
+        """
+        if not msgs:
+            return None
+        if isinstance(msgs, str):
+            msgs = [msgs]
+
+        # 只切换一次聊天窗口
+        if who:
+            try:
+                editbox = self.ChatBox.EditControl(searchDepth=10)
+                if who in self.CurrentChat() and who in editbox.Name:
+                    pass
+                else:
+                    self.ChatWith(who)
+                    editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
+            except:
+                self.ChatWith(who)
+                editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
+        else:
+            editbox = self.ChatBox.EditControl(searchDepth=10)
+
+        for msg in msgs:
+            if not msg:
+                continue
+            editbox.SendKeys('{Ctrl}a', waitTime=0)
+            self._show()
+            if not editbox.HasKeyboardFocus:
+                editbox.Click(simulateMove=False)
+            t0 = time.time()
+            while True:
+                if time.time() - t0 > 10:
+                    raise TimeoutError(f'发送消息超时 --> {editbox.Name} - {msg}')
+                SetClipboardText(msg)
+                editbox.SendKeys('{Ctrl}v')
+                if editbox.GetValuePattern().Value:
+                    break
+            editbox.SendKeys('{Enter}')
+            time.sleep(random.uniform(0.5, 2.0))
+
     def SendFiles(self, filepath, who=None):
         """向当前聊天窗口发送文件
         
