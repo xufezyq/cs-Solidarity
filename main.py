@@ -288,6 +288,10 @@ def start_instances(instances):
                 time.sleep(random.uniform(30, 120))  # 维护期间大幅降低检查频率
                 continue
 
+            # 用 Win32 API 检测窗口实际状态（不依赖本地变量，避免后台定时器恢复窗口后状态漂移）
+            _real_hwnd = win32gui.FindWindow('WeChatMainWndForPC', None)
+            wx_is_minimized = bool(win32gui.IsIconic(_real_hwnd)) if _real_hwnd else True
+
             # ── 第一步：处理发送队列（在收消息之前）──
             # send_message 内部会在 ChatWith 之前预捕获目标聊天的未读消息，
             # 所以先发再收不会丢消息。
@@ -309,7 +313,7 @@ def start_instances(instances):
                 # 还没到轮询间隔，但窗口已打开 → 空闲超时再最小化
                 if not wx_is_minimized:
                     idle = now - last_flash_time
-                    idle_timeout = random.uniform(15, 30)
+                    idle_timeout = random.uniform(5, 10)
                     if idle > idle_timeout and msg_queue.empty():
                         wx = wechat_instance.get_wechat()
                         if wx:
@@ -355,11 +359,13 @@ def start_instances(instances):
                     random_human_pause()
 
             else:
-                # 无闪烁：窗口没最小化且空闲久了，最小化
+                # 无闪烁：窗口没最小化 → 最小化
+                # 注意：后台定时器（如 KoriChat 的消息队列）可能在主循环之外恢复窗口，
+                # 所以每次迭代都用 IsIconic 检查真实状态，不依赖 wx_is_minimized 变量。
                 if not wx_is_minimized:
                     idle = now - last_flash_time
-                    idle_timeout = random.uniform(15, 30)
-                    if idle > idle_timeout and msg_queue.empty():
+                    # 空闲超过 5s 或没有待发消息时立即最小化（之前是 15-30s，太慢）
+                    if idle > 5 and msg_queue.empty():
                         wx = wechat_instance.get_wechat()
                         if wx:
                             try:
