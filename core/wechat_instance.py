@@ -1,5 +1,5 @@
 """
-全局WeChat实例管理
+全局 WeChat 实例管理
 """
 import logging
 import threading
@@ -8,6 +8,10 @@ import time
 import win32api
 from wxauto import WeChat
 from utils.human_sim import human_delay, human_action_delay
+
+# 隐藏 uiautomation 和 pywinauto 的 DEBUG 日志，避免输出大量 Release 信息
+logging.getLogger('uiautomation').setLevel(logging.WARNING)
+logging.getLogger('pywinauto').setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 

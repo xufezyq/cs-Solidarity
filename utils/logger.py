@@ -9,6 +9,12 @@ from datetime import datetime
 from pathlib import Path
 
 
+# 在导入时就过滤掉 uiautomation 和 pywinauto 的 DEBUG 日志
+# 这些库在导入时就会输出 Release 信息
+logging.getLogger('uiautomation').setLevel(logging.WARNING)
+logging.getLogger('pywinauto').setLevel(logging.WARNING)
+
+
 class _DateRotatingFileHandler(logging.FileHandler):
     """按日期自动切换日志文件的 Handler（线程安全）"""
 
@@ -59,10 +65,18 @@ class _ConsoleHandler(logging.StreamHandler):
                 pass
 
 
+class _UnkownFileFilter(logging.Filter):
+    """过滤掉 unknwn.py 的日志（uiautomation 库内部输出）"""
+    def filter(self, record):
+        # 如果文件名是 unknwn.py，过滤掉
+        return not (hasattr(record, 'filename') and record.filename == 'unknwn.py')
+
+
 # ============================================================
 # 格式
 # ============================================================
-_LOG_FMT = "[%(asctime)s] [%(levelname)s] %(message)s"
+# 使用 VS Code / Trae 可识别的格式：file:line 或 file(line)
+_LOG_FMT = "[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)d - %(message)s"
 _DATE_FMT = "%H:%M:%S"
 
 
@@ -88,12 +102,16 @@ def setup_logger(log_dir="logs", level=logging.DEBUG):
     fh = _DateRotatingFileHandler(log_dir=log_dir)
     fh.setLevel(level)
     fh.setFormatter(formatter)
+    # 添加过滤器，过滤掉 unknwn.py 的日志
+    fh.addFilter(_UnkownFileFilter())
     root.addHandler(fh)
 
     # 控制台 handler
     ch = _ConsoleHandler()
     ch.setLevel(level)
     ch.setFormatter(formatter)
+    # 添加过滤器，过滤掉 unknwn.py 的日志
+    ch.addFilter(_UnkownFileFilter())
     root.addHandler(ch)
 
     return root
