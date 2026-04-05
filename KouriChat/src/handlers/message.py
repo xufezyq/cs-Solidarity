@@ -718,6 +718,29 @@ class MessageHandler:
         text = re.sub(r'\s*</用户>', '', text)
         return text.strip()
 
+    def _send_via_framework(self, message: str, chat_id: str):
+        """通过主框架的 wechat_instance 发送消息（带完整保护）
+        
+        使用 wechat_instance.send_message 而不是直接调用 wx.SendMsg，
+        这样可以：
+        1. 获得 ChatWith 窗口切换保护
+        2. 获得发送期间的计数器保护（防止窗口被最小化）
+        3. 捕获发送期间的新消息
+        
+        Args:
+            message: 要发送的消息内容
+            chat_id: 目标聊天ID
+        """
+        try:
+            from core import wechat_instance
+            wechat_instance.send_message(message, chat_id)
+        except Exception as e:
+            logger.error(f"[框架发送] 失败: {e}，回退到直接发送")
+            try:
+                self.wx.SendMsg(msg=message, who=chat_id)
+            except Exception as e2:
+                logger.error(f"[直接发送] 也失败: {e2}")
+
     def _send_message_with_dollar(self, reply, chat_id):
         """以$为分隔符分批发送回复"""
         # 过滤用户标签
@@ -748,19 +771,15 @@ class MessageHandler:
                 for emotion_type in emotion_tags:
                     emoji_queue.append((len(text_parts) - 1, emotion_type))
 
-            # 批量发送文本（只调一次 ChatWith）
+            # 批量发送文本（通过框架，每条消息都有完整保护）
             if text_parts:
-                try:
-                    self.wx.SendMsgs(text_parts, who=chat_id)
-                    logger.debug(f"批量发送 {len(text_parts)} 条消息到 {chat_id}")
-                except Exception as e:
-                    logger.error(f"批量发送失败，回退到逐条发送: {e}")
-                    for tp in text_parts:
-                        try:
-                            self.wx.SendMsg(msg=tp, who=chat_id)
-                            time.sleep(random.uniform(0.5, 2.0))
-                        except Exception:
-                            pass
+                for tp in text_parts:
+                    try:
+                        self._send_via_framework(tp, chat_id)
+                        logger.debug(f"发送消息到 {chat_id}: {tp[:30]}...")
+                    except Exception as e:
+                        logger.error(f"发送失败: {e}")
+                    time.sleep(random.uniform(0.5, 2.0))
 
             # 逐个发送表情（在对应文本之后）
             for idx, emotion_type in emoji_queue:
@@ -783,7 +802,7 @@ class MessageHandler:
                 clean_reply = clean_reply.replace(f'[{tag}]', '')
 
             if clean_reply.strip():
-                self.wx.SendMsg(msg=clean_reply.strip(), who=chat_id)
+                self._send_via_framework(clean_reply.strip(), chat_id)
                 logger.debug(f"发送消息: {clean_reply[:20]}...")
 
             # 发送表情
@@ -819,13 +838,12 @@ class MessageHandler:
             for tag in emotion_tags:
                 clean_text = clean_text.replace(f'[{tag}]', '')
 
-            # 直接发送消息，只做必要的处理
+            # 直接发送消息（通过框架），只做必要的处理
             if clean_text:
                 clean_text = clean_text.replace('$', '')
                 clean_text = clean_text.replace('＄', '')  # 全角$符号
                 clean_text = clean_text.replace(r'\n', '\r\n\r\n')
-                # logger.info(clean_text)
-                self.wx.SendMsg(msg=clean_text, who=chat_id)
+                self._send_via_framework(clean_text, chat_id)
                 
                 # logger.info(f"已发送经过处理的文件内容: {file_content}")
 

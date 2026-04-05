@@ -19,6 +19,12 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 DEBUG_MODE = False
 
+# 消息发送锁，确保消息发送期间不最小化窗口
+_send_lock = threading.Lock()
+_last_send_time = 0  # 记录最后一次发送的时间
+_is_sending = False  # 是否正在发送消息的标志
+_sending_count = 0   # 正在发送的消息数量
+
 # ============================================================
 # 维护时间
 # ============================================================
@@ -131,7 +137,8 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
             process_send_message(name, message, orig_senders, instances)
             sent_any = True
             msg_queue.task_done()
-            human_delay(500, 1500)  # 消息间随机延迟
+            # 增加延迟，确保 KoriChat 等实例有足够时间完成消息发送
+            human_delay(1000, 2000)  # 消息间随机延迟（增加到 1-2 秒）
         except queue.Empty:
             break
 
@@ -263,10 +270,18 @@ def start_instances(instances):
         threading.Thread(target=inst.start, daemon=True).start()
         info(f"实例 {name} ({type(inst).__name__}) 已启动")
 
-    # 启动时最小化
+    # 启动时先切换到文件传输助手，然后最小化
+    wx = wechat_instance.get_wechat()
+    if wx:
+        try:
+            wx.ChatWith('文件传输助手')
+            info("已切换到文件传输助手")
+        except Exception as e:
+            warning(f"切换到文件传输助手失败：{e}")
     human_action_delay()
     minimize_wechat()
 
+    global _is_sending, _last_send_time, _sending_count
     poll_base = 2.0        # 轮询基础间隔（秒）— 从 0.3s 提高到 2s
     poll_jitter = 1.5      # 轮询抖动幅度
     last_poll_time = 0
@@ -300,10 +315,17 @@ def start_instances(instances):
                     human_delay(300, 1200)
                     restore_wechat()
                     wx_is_minimized = False
+                # 更新时间戳，确保 15 秒内不会最小化窗口
+                # 计数器由各个实例（如 KoriChat）自己管理
+                with _send_lock:
+                    _last_send_time = time.time()
                 process_all_pending_messages(msg_queue, orig_senders, instances)
                 last_flash_time = time.time()
                 idle_cycle_count = 0
-                wx_is_minimized = True  # process_all_pending_messages 内部已最小化
+                # 队列处理完成后，等待一小段时间确保所有后台发送完成
+                human_delay(500, 1000)
+                # 不立即设置 wx_is_minimized = True，因为 KoriChat 等实例可能还在发送消息
+                # 让后续的闪烁检测逻辑来处理窗口最小化
                 # 不 continue——继续往下做闪烁检测，同一轮完成收发
 
             # ── 第二步：闪烁检测 → 收消息 ──
@@ -313,17 +335,22 @@ def start_instances(instances):
                 # 还没到轮询间隔，但窗口已打开 → 空闲超时再最小化
                 if not wx_is_minimized:
                     idle = now - last_flash_time
-                    idle_timeout = random.uniform(5, 10)
-                    if idle > idle_timeout and msg_queue.empty():
-                        wx = wechat_instance.get_wechat()
-                        if wx:
-                            try:
-                                wx.ChatWith('文件传输助手')
-                            except Exception:
-                                pass
-                        human_action_delay()
-                        minimize_wechat()
-                        wx_is_minimized = True
+                    # 检查是否有消息正在发送（通过计数器和时间戳判断）
+                    recent_send = (now - _last_send_time) < 15  # 15 秒内有发送
+                    
+                    # 只有在没有发送、最近也没有发送、且队列为空时才考虑最小化
+                    if _sending_count <= 0 and not recent_send and msg_queue.empty():
+                        idle_timeout = random.uniform(5, 10)
+                        if idle > idle_timeout:
+                            wx = wechat_instance.get_wechat()
+                            if wx:
+                                try:
+                                    wx.ChatWith('文件传输助手')
+                                except Exception:
+                                    pass
+                            human_action_delay()
+                            minimize_wechat()
+                            wx_is_minimized = True
                 time.sleep(0.1)
                 continue
             last_poll_time = now

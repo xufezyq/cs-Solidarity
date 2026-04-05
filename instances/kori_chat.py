@@ -208,21 +208,27 @@ class KoriChatInstance(BaseInstance):
             raise
 
     def send_message(self, message: str):
-        """发送消息（由框架调度器调用）"""
+        """发送消息（由框架调度器调用）
+
+        注意：此方法不管理计数器，因为最终会通过 _send_via_framework
+        调用 wechat_instance.send_message，那里有完整的计数器保护。
+        """
         if not self._initialized:
             self._initialize_korichat()
 
+        log.debug(f"[KoriChat] 主动发送消息：{message[:50]}...")
+        if not self.listen_list:
+            log.warning("[KoriChat] 没有可用的聊天对象")
+            return
+
+        chat_id = self.listen_list[0]
+
         try:
-            log.debug(f"[KoriChat] 主动发送消息：{message[:50]}...")
-            if self.listen_list:
-                chat_id = self.listen_list[0]
-                self._message_handler.send_message(
-                    content=message, chat_id=chat_id,
-                    sender_name="System", is_group=False
-                )
-                log.info(f"[KoriChat] 消息已发送到 {chat_id}")
-            else:
-                log.warning("[KoriChat] 没有可用的聊天对象")
+            # 通过框架发送消息（wechat_instance.send_message 内部会自动管理计数器）
+            self._message_handler._send_via_framework(
+                message=message, chat_id=chat_id
+            )
+            log.info(f"[KoriChat] 消息已发送到 {chat_id}")
         except Exception as e:
             log.error(f"[KoriChat] 发送消息失败：{e}")
             import traceback
