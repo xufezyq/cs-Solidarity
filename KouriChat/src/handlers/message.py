@@ -691,7 +691,7 @@ class MessageHandler:
                 self.current_avatar = original_avatar_name
                 self.prompt_content = original_avatar_content
                 logger.info(f"[消息队列] 异常后恢复原始人设: {original_avatar_name}")
-            except:
+            except Exception:
                 pass
             return None
 

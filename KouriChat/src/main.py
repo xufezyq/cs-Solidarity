@@ -321,6 +321,22 @@ group_chat_bot = None
 ROBOT_WX_NAME = ""
 processed_messages = set()
 last_processed_content = {}
+MAX_PROCESSED_MESSAGES = 5000  # 防止内存泄漏：最大缓存已处理消息数
+
+
+def add_processed_message(msg_id):
+    """安全地添加已处理消息ID，超过上限时自动清理旧数据"""
+    global processed_messages
+    if not msg_id:
+        return
+    
+    processed_messages.add(msg_id)
+    
+    # 超过限制时清理一半旧数据（保留最近的消息）
+    if len(processed_messages) > MAX_PROCESSED_MESSAGES:
+        old_count = len(processed_messages)
+        processed_messages = set(list(processed_messages)[old_count // 2:])
+        logger.info(f"已处理消息缓存已清理: {old_count} -> {len(processed_messages)}")
 
 def initialize_services():
     """初始化服务实例"""
@@ -492,7 +508,7 @@ def message_dispatcher():
 
                         
                         if msg_id:
-                            processed_messages.add(msg_id)
+                            add_processed_message(msg_id)
                         last_processed_content[who] = content            
                             
                         # 处理私聊和群聊消息
@@ -818,7 +834,7 @@ def main():
         try:
             private_message_queue.put(None)
             group_message_queue.put(None)
-        except:
+        except Exception:
             pass
 
         # 等待所有处理线程结束

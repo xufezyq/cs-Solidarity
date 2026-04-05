@@ -47,7 +47,7 @@ def GetVersionByPath(file_path):
                                         win32api.LOWORD(info['FileVersionMS']),
                                         win32api.HIWORD(info['FileVersionLS']),
                                         win32api.LOWORD(info['FileVersionLS']))
-    except:
+    except Exception:
         version = None
     return version
 
@@ -111,7 +111,7 @@ try:
         tree = RenderTree(findall(ele))
         for pre, fill, node in tree:
             print(f"{pre}{node.name}")
-except:
+except Exception:
     pass
 
 def SetClipboardFiles(paths):
@@ -129,12 +129,12 @@ def SetClipboardFiles(paths):
             win32clipboard.EmptyClipboard()
             win32clipboard.SetClipboardData(win32clipboard.CF_HDROP, matedata+data)
             break
-        except:
+        except Exception:
             pass
         finally:
             try:
                 win32clipboard.CloseClipboard()
-            except:
+            except Exception:
                 pass
 
 def PasteFile(folder):
@@ -158,7 +158,7 @@ def PasteFile(folder):
             else:
                 print("剪贴板中没有文件")
                 return False
-        except:
+        except Exception:
             pass
         finally:
             win32clipboard.CloseClipboard()
@@ -225,7 +225,7 @@ def ReadClipboardData():
         try:
             filenames = win32clipboard.GetClipboardData(i)
             win32clipboard.CloseClipboard()
-        except:
+        except Exception:
             win32clipboard.CloseClipboard()
             raise ValueError
         Dict[str(i)] = filenames

@@ -17,7 +17,7 @@ import os
 import re
 try:
     from typing import Literal
-except:
+except ImportError:
     from typing_extensions import Literal
 
 class WeChat(WeChatBase):
@@ -97,7 +97,7 @@ class WeChat(WeChatBase):
         if matchobj:
             try:
                 amount = int([i for i in SessionItem.GetChildren()[0].GetChildren() if type(i) == uia.uiautomation.TextControl][0].Name)
-            except:
+            except (ValueError, IndexError, AttributeError):
                 pass
         if amount:
             sessionname = SessionItem.Name.replace(f'{amount}条新消息','')
@@ -170,7 +170,7 @@ class WeChat(WeChatBase):
             if self.SessionItem.BoundingRectangle.width() != 0:
                 try:
                     name, amount = self.GetSessionAmont(self.SessionItem)
-                except:
+                except Exception:
                     break
                 if name not in self.SessionItemList:
                     self.SessionItemList.append(name)
@@ -240,7 +240,7 @@ class WeChat(WeChatBase):
                 else:
                     self.ChatWith(who)
                     editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
-            except:
+            except Exception:
                 self.ChatWith(who)
                 editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
         else:
@@ -282,7 +282,7 @@ class WeChat(WeChatBase):
                 else:
                     self.ChatWith(who)
                     editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
-            except:
+            except Exception:
                 self.ChatWith(who)
                 editbox = self.ChatBox.EditControl(Name=who, searchDepth=10)
         else:
@@ -345,7 +345,7 @@ class WeChat(WeChatBase):
                         pass
                     else:
                         self.ChatWith(who)
-                except:
+                except Exception:
                     self.ChatWith(who)
                 editbox = self.ChatBox.EditControl(Name=who)
             else:
@@ -408,7 +408,7 @@ class WeChat(WeChatBase):
         try:
             currentname = self.ChatBox.TextControl(searchDepth=15).Name
             return currentname
-        except:
+        except Exception:
             return None
         finally:
             uia.SetGlobalSearchTimeout(10)
@@ -496,8 +496,8 @@ class WeChat(WeChatBase):
             uia.SetGlobalSearchTimeout(1)
             rect = ele.BoundingRectangle
             Click(rect)
-        except:
-            return 
+        except Exception:
+            return
         finally:
             uia.SetGlobalSearchTimeout(10)
         roominfoWnd = self.UiaAPI.WindowControl(ClassName='SessionChatRoomDetailWnd', searchDepth=1)
@@ -506,7 +506,7 @@ class WeChat(WeChatBase):
             uia.SetGlobalSearchTimeout(1)
             rect = more.BoundingRectangle
             Click(rect)
-        except:
+        except Exception:
             pass
         finally:
             uia.SetGlobalSearchTimeout(10)
@@ -647,7 +647,7 @@ class WeChatFiles:
                 self.itemfiles = item[i]
                 self.itemfiles.Click()
                 time.sleep(0.5)
-            except:
+            except Exception:
                 pass
 
     def Close(self):

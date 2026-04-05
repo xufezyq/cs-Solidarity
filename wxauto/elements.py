@@ -54,7 +54,7 @@ class WeChatBase:
                 else:
                     name = 'Self'
                 Msg = [name, MsgItemName, ''.join([str(i) for i in MsgItem.GetRuntimeId()])]
-            except:
+            except Exception:
                 Msg = ['SYS', MsgItemName, ''.join([str(i) for i in MsgItem.GetRuntimeId()])]
         uia.SetGlobalSearchTimeout(10.0)
         return ParseMessage(Msg)
@@ -288,8 +288,8 @@ class ChatWnd(WeChatBase):
             uia.SetGlobalSearchTimeout(1)
             rect = ele.BoundingRectangle
             Click(rect)
-        except:
-            return 
+        except Exception:
+            return
         finally:
             uia.SetGlobalSearchTimeout(10)
         roominfoWnd = self.UiaAPI.WindowControl(ClassName='SessionChatRoomDetailWnd', searchDepth=1)
@@ -298,7 +298,7 @@ class ChatWnd(WeChatBase):
             uia.SetGlobalSearchTimeout(1)
             rect = more.BoundingRectangle
             Click(rect)
-        except:
+        except Exception:
             pass
         finally:
             uia.SetGlobalSearchTimeout(10)
@@ -380,7 +380,7 @@ class WeChatImage:
                 savehandle = FindWinEx(handle, classname='Button', name='保存(&S)')[0]
                 if edithandle and savehandle:
                     break
-            except:
+            except Exception:
                 pass
         win32gui.SendMessage(edithandle, win32con.WM_SETTEXT, '', str(savepath))
         win32gui.SendMessage(savehandle, win32con.BM_CLICK, 0, 0)
