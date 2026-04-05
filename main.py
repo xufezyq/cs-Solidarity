@@ -42,24 +42,43 @@ def _get_wechat_hwnd():
     return win32gui.FindWindow('WeChatMainWndForPC', None)
 
 def minimize_wechat():
-    """最小化微信窗口"""
+    """最小化微信窗口（带重试，Win11 兼容）"""
     try:
         hwnd = _get_wechat_hwnd()
-        if hwnd:
-            win32gui.ShowWindow(hwnd, 2)  # SW_MINIMIZE
-            debug("[窗口] 微信已最小化")
+        if not hwnd:
+            return
+        import ctypes
+        user32 = ctypes.windll.user32
+        # 先用 Win32 API 最小化（比 win32gui 更可靠）
+        user32.ShowWindow(hwnd, 2)  # SW_MINIMIZE
+        time.sleep(0.05)
+        # 验证是否真的最小化了
+        if not user32.IsIconic(hwnd):
+            # 重试：先 PostMessage 再 ShowWindow
+            user32.PostMessageW(hwnd, 0x0112, 0xF020, 0)  # WM_SYSCOMMAND + SC_MINIMIZE
+            time.sleep(0.05)
+            if not user32.IsIconic(hwnd):
+                # 最终手段：win32gui
+                win32gui.ShowWindow(hwnd, 2)
+        debug("[窗口] 微信已最小化")
     except Exception as e:
         error(f"[窗口] 最小化失败: {e}")
 
 def restore_wechat():
-    """恢复微信窗口并置前"""
+    """恢复微信窗口并置前（Win11 兼容）"""
     try:
         hwnd = _get_wechat_hwnd()
-        if hwnd:
-            win32gui.ShowWindow(hwnd, 9)   # SW_RESTORE
-            win32gui.SetForegroundWindow(hwnd)
-            human_delay(300, 600)
-            debug("[窗口] 微信已恢复")
+        if not hwnd:
+            return
+        import ctypes
+        user32 = ctypes.windll.user32
+        # SW_RESTORE = 9
+        user32.ShowWindow(hwnd, 9)
+        time.sleep(0.1)
+        # 确保窗口在前台
+        user32.SetForegroundWindow(hwnd)
+        human_delay(300, 600)
+        debug("[窗口] 微信已恢复")
     except Exception as e:
         error(f"[窗口] 恢复失败: {e}")
 
@@ -280,6 +299,7 @@ def start_instances(instances):
                 process_all_pending_messages(msg_queue, orig_senders, instances)
                 last_flash_time = time.time()
                 idle_cycle_count = 0
+                wx_is_minimized = True  # process_all_pending_messages 内部已最小化
                 # 不 continue——继续往下做闪烁检测，同一轮完成收发
 
             # ── 第二步：闪烁检测 → 收消息 ──

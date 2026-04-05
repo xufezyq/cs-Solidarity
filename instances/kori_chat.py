@@ -329,12 +329,14 @@ class KoriChatInstance(BaseInstance):
                 from data.config import config
                 group_config = None
                 reply_mode = None
+                triggers = []
 
                 if config and hasattr(config, 'user') and config.user.group_chat_config:
                     for gc_config in config.user.group_chat_config:
                         if gc_config.group_name == chat_name:
                             group_config = gc_config
                             reply_mode = getattr(gc_config, 'replyMode', 'at_only')
+                            triggers = getattr(gc_config, 'triggers', [])
                             break
 
                 if reply_mode is None:
@@ -344,10 +346,26 @@ class KoriChatInstance(BaseInstance):
                 if reply_mode == 'all':
                     log.debug("[KoriChat] 群聊配置为回复所有模式，不需要@机器人")
                 else:
-                    if not self._is_at_robot(content):
-                        log.debug(f"[KoriChat] 群聊消息未@机器人，已跳过：{chat_name}")
+                    # 检查 @机器人 或 trigger 关键词
+                    triggered_by_at = self._is_at_robot(content)
+                    triggered_by_keyword = False
+                    matched_trigger = None
+
+                    if not triggered_by_at and triggers:
+                        for t in triggers:
+                            if t in content:
+                                triggered_by_keyword = True
+                                matched_trigger = t
+                                break
+
+                    if not triggered_by_at and not triggered_by_keyword:
+                        log.debug(f"[KoriChat] 群聊消息未触发（无@、无关键词），已跳过：{chat_name}")
                         return
 
+                    if triggered_by_keyword:
+                        log.debug(f"[KoriChat] 群聊消息匹配 trigger 关键词：{matched_trigger}")
+
+                    # 剔除 @名字
                     at_match = re.search(r'@([^\s\u2005]+)(?:[\s\u2005]|$)', content)
                     if at_match:
                         at_name = at_match.group(1)
@@ -355,6 +373,14 @@ class KoriChatInstance(BaseInstance):
                         content = re.sub(f'@{at_name} ', '', content).strip()
                         content = re.sub(f'@{at_name}', '', content).strip()
                         log.debug(f"[KoriChat] 已剔除@名字 '{at_name}'，剩余: {content}")
+
+                    # 剔除 trigger 关键词（仅在非@触发时）
+                    if triggered_by_keyword and matched_trigger:
+                        content = content.replace(matched_trigger, '', 1).strip()
+                        if not content:
+                            log.debug("[KoriChat] trigger 关键词剔除后内容为空，跳过")
+                            return
+                        log.debug(f"[KoriChat] 已剔除 trigger '{matched_trigger}'，剩余: {content}")
 
             log.info(f"[KoriChat] 处理消息 - 来源：{chat_name}, 发送者：{sender}, {'群聊' if is_group else '私聊'}, 内容：{content[:50]}...")
 
