@@ -7,6 +7,7 @@ import random
 from datetime import datetime, time as dt_time
 from pathlib import Path
 from core import init_wechat, wechat_instance, get_instance_from_item, BaseInstance
+from core.wechat_instance import _send_op_lock
 from utils.human_sim import human_delay, human_action_delay, random_poll_interval, random_human_pause
 from utils.logger import setup_logger, info, debug, error, warning
 import win32gui
@@ -143,12 +144,13 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
             break
 
     if sent_any:
-        # 切回文件传输助手 → 最小化
+        # 切回文件传输助手 → 最小化（需要拿锁，防止与 KoriChat Timer 的 ChatWith 冲突）
         wx = wechat_instance.get_wechat()
         if wx:
             try:
                 human_delay(300, 600)
-                wx.ChatWith('文件传输助手')
+                with _send_op_lock:
+                    wx.ChatWith('文件传输助手')
                 debug("[窗口] 已切换到文件传输助手")
             except Exception as e:
                 debug(f"[窗口] 切换失败: {e}")
@@ -274,7 +276,8 @@ def start_instances(instances):
     wx = wechat_instance.get_wechat()
     if wx:
         try:
-            wx.ChatWith('文件传输助手')
+            with _send_op_lock:
+                wx.ChatWith('文件传输助手')
             info("已切换到文件传输助手")
         except Exception as e:
             warning(f"切换到文件传输助手失败：{e}")
@@ -345,7 +348,8 @@ def start_instances(instances):
                             wx = wechat_instance.get_wechat()
                             if wx:
                                 try:
-                                    wx.ChatWith('文件传输助手')
+                                    with _send_op_lock:
+                                        wx.ChatWith('文件传输助手')
                                 except Exception:
                                     pass
                             human_action_delay()
@@ -374,7 +378,8 @@ def start_instances(instances):
                 wx = wechat_instance.get_wechat()
                 if wx:
                     try:
-                        wx.ChatWith('文件传输助手')
+                        with _send_op_lock:
+                            wx.ChatWith('文件传输助手')
                     except Exception:
                         pass
                 human_action_delay()
@@ -396,7 +401,8 @@ def start_instances(instances):
                         wx = wechat_instance.get_wechat()
                         if wx:
                             try:
-                                wx.ChatWith('文件传输助手')
+                                with _send_op_lock:
+                                    wx.ChatWith('文件传输助手')
                             except Exception:
                                 pass
                         human_action_delay()
@@ -411,7 +417,8 @@ def start_instances(instances):
                         wx = wechat_instance.get_wechat()
                         if wx:
                             try:
-                                wx.ChatWith('文件传输助手')
+                                with _send_op_lock:
+                                    wx.ChatWith('文件传输助手')
                             except Exception:
                                 pass
                         human_action_delay()
