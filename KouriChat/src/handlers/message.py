@@ -742,7 +742,10 @@ class MessageHandler:
                 logger.error(f"[直接发送] 也失败: {e2}")
 
     def _send_message_with_dollar(self, reply, chat_id):
-        """以$为分隔符分批发送回复"""
+        """以$为分隔符分批发送回复
+        
+        使用 wechat_instance.send_messages 批量发送文本，避免每条消息之间窗口被最小化。
+        """
         # 过滤用户标签
         reply = self._filter_user_tags(reply)
 
@@ -752,7 +755,7 @@ class MessageHandler:
         if '$' in reply or '＄' in reply:
             parts = [p.strip() for p in reply.replace("＄", "$").split("$") if p.strip()]
 
-            # 收集所有文本片段，用批量发送（只切换一次窗口）
+            # 收集所有文本片段
             text_parts = []
             emoji_queue = []  # (index, emotion_type) — 记录每个表情应该在第几条文本之后发送
 
@@ -771,17 +774,26 @@ class MessageHandler:
                 for emotion_type in emotion_tags:
                     emoji_queue.append((len(text_parts) - 1, emotion_type))
 
-            # 批量发送文本（通过框架，每条消息都有完整保护）
+            # ════════════════════════════════════════════════
+            # 【关键修复】使用 send_messages 批量发送文本
+            # 避免每条消息之间窗口被最小化
+            # ════════════════════════════════════════════════
             if text_parts:
-                for tp in text_parts:
-                    try:
-                        self._send_via_framework(tp, chat_id)
-                        logger.debug(f"发送消息到 {chat_id}: {tp[:30]}...")
-                    except Exception as e:
-                        logger.error(f"发送失败: {e}")
-                    time.sleep(random.uniform(0.5, 2.0))
+                try:
+                    from core import wechat_instance
+                    wechat_instance.send_messages(text_parts, chat_id)
+                    logger.debug(f"批量发送 {len(text_parts)} 条消息到 {chat_id}")
+                except Exception as e:
+                    logger.error(f"[批量发送] 失败: {e}，回退到逐条发送")
+                    for tp in text_parts:
+                        try:
+                            self._send_via_framework(tp, chat_id)
+                            logger.debug(f"发送消息到 {chat_id}: {tp[:30]}...")
+                        except Exception as e2:
+                            logger.error(f"发送失败: {e2}")
+                        time.sleep(random.uniform(0.5, 2.0))
 
-            # 逐个发送表情（在对应文本之后）
+            # 逐个发送表情（在所有文本之后）
             for idx, emotion_type in emoji_queue:
                 try:
                     emoji_path = self.emoji_handler.get_emoji_for_emotion(emotion_type)

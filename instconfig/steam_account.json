@@ -156,7 +156,7 @@
       "min_pw_rating": 0.66,
       "max_we": 12.1991,
       "min_we": 3.4764,
-      "max_score": 2231,
+      "max_score": 2296,
       "min_score": 2113,
       "max_deaths": 34,
       "min_deaths": 14
@@ -218,7 +218,7 @@
       "min_we": 4.3785,
       "max_score": 1975,
       "min_score": 1769,
-      "max_deaths": 25,
+      "max_deaths": 27,
       "min_deaths": 6
     },
     "76561198126298848": {
@@ -283,7 +283,7 @@
     },
     "76561198412776807": {
       "nickname": "Sakura",
-      "max_kills": 21,
+      "max_kills": 23,
       "min_kills": 9,
       "max_rating": 1.41,
       "min_rating": 0.7,
@@ -293,7 +293,7 @@
       "min_we": 6.4121,
       "max_score": 1922,
       "min_score": 1784,
-      "max_deaths": 18,
+      "max_deaths": 28,
       "min_deaths": 11
     }
   },
