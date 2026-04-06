@@ -6,7 +6,8 @@
       "Bash(python3 -c \"import uiautomation; print\\(uiautomation.__file__\\)\")",
       "Bash(python -c \"import uiautomation; print\\(uiautomation.__file__\\)\")",
       "Bash(python -c \"import uiautomation as uia; print\\(dir\\(uia\\)\\)\")",
-      "Bash(python -c \"import uiautomation as uia; import inspect; print\\(inspect.getfile\\(uia.SendKeys\\)\\)\")"
+      "Bash(python -c \"import uiautomation as uia; import inspect; print\\(inspect.getfile\\(uia.SendKeys\\)\\)\")",
+      "Bash(claude skill:*)"
     ]
   }
 }

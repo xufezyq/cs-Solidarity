@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 _wx = None  # 全局WeChat单例对象，所有模块都可以导入使用
 _wx_lock = threading.Lock()  # 防止多线程同时初始化
+_send_op_lock = threading.Lock()  # 防止多个线程同时执行 ChatWith+SendMsg（KoriChat Timer 与主线程冲突）
 
 
 def _bezier_move(from_x, from_y, to_x, to_y):
@@ -302,111 +303,115 @@ def send_message(message, group):
         wx = get_wechat()
         human_action_delay()
 
-        # ── 第一步：ChatWith 之前预捕获未读消息 ──
-        # ChatWith 会清掉该聊天的未读状态（闪烁消失），
-        # 如果等到 ChatWith 之后再读，GetAllNewMessage 就拿不到了。
-        pre_caught = []
-        try:
-            all_new = wx.GetAllNewMessage()
-            if all_new and group in all_new:
-                raw = all_new[group]
-                for msg in raw:
-                    msg_type = msg.type if hasattr(msg, 'type') else None
-                    sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
-                    if msg_type != 'self' and sender != 'Self':
-                        pre_caught.append(msg)
-                if pre_caught:
-                    log.info(f"[send] 预捕获 {group} {len(pre_caught)} 条未读消息")
-        except Exception as e:
-            log.debug(f"[send] 预捕获失败（非致命）: {e}")
-
-        # ── 第二步：切换到目标聊天 ──
-        try:
-            wx.ChatWith(group)
-            human_delay(400, 900)
-        except Exception as e:
-            log.error(f"打开聊天 {group} 失败: {e}")
-            return pre_caught  # 即使切换失败，预捕获的消息也要返回
-
-        # ── 第三步：记录发送前的消息快照 ──
-        pre_msgs = []
-        last_id_before = None
-        try:
-            pre_msgs = wx.GetAllMessage()
-            if pre_msgs:
-                last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
-                log.debug(f"[send] 发送前 {group} 最后消息ID: {last_id_before}")
-        except Exception as e:
-            log.debug(f"[send] 读取消息列表失败: {e}")
-
-        # ── 第四步：发送 ──
-        # "打字延迟"：模拟人类输入内容需要的时间
-        if isinstance(message, dict):
-            content_len = len(message.get("content", ""))
-        elif isinstance(message, str):
-            content_len = len(message)
-        else:
-            content_len = 0
-        
-        typing_delay = min(max(content_len * 0.05, 0.3), 2.0)  # 0.3-2 秒
-        time.sleep(typing_delay + random.uniform(0, 0.3))
-        
-        # 实际发送
-        actual_msg = message.get("content") if isinstance(message, dict) else message
-        wx.SendMsg(actual_msg, clear=True)
-        
-        # ── 第五步：等待消息出现在聊天记录中 ──
-        sent_id = None
-        for _ in range(20):  # 最多等 10 秒
-            time.sleep(0.5)
+        # ── 互斥锁：确保 ChatWith+SendMsg 不会被其他线程（如 KoriChat Timer）打断 ──
+        # 没有这个锁，后台 Timer 和主线程可能同时执行 ChatWith，导致窗口来回切换，
+        # 消息发送到错误的聊天（如文件传输助手）。
+        with _send_op_lock:
+            # ── 第一步：ChatWith 之前预捕获未读消息 ──
+            # ChatWith 会清掉该聊天的未读状态（闪烁消失），
+            # 如果等到 ChatWith 之后再读，GetAllNewMessage 就拿不到了。
+            pre_caught = []
             try:
-                after_msgs = wx.GetAllMessage()
-                if after_msgs and len(after_msgs) > len(pre_msgs):
-                    new_msgs = after_msgs[len(pre_msgs):]
-                    for nm in new_msgs:
+                all_new = wx.GetAllNewMessage()
+                if all_new and group in all_new:
+                    raw = all_new[group]
+                    for msg in raw:
+                        msg_type = msg.type if hasattr(msg, 'type') else None
+                        sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                        if msg_type != 'self' and sender != 'Self':
+                            pre_caught.append(msg)
+                    if pre_caught:
+                        log.info(f"[send] 预捕获 {group} {len(pre_caught)} 条未读消息")
+            except Exception as e:
+                log.debug(f"[send] 预捕获失败（非致命）: {e}")
+
+            # ── 第二步：切换到目标聊天 ──
+            try:
+                wx.ChatWith(group)
+                human_delay(400, 900)
+            except Exception as e:
+                log.error(f"打开聊天 {group} 失败: {e}")
+                return pre_caught  # 即使切换失败，预捕获的消息也要返回
+
+            # ── 第三步：记录发送前的消息快照 ──
+            pre_msgs = []
+            last_id_before = None
+            try:
+                pre_msgs = wx.GetAllMessage()
+                if pre_msgs:
+                    last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
+                    log.debug(f"[send] 发送前 {group} 最后消息ID: {last_id_before}")
+            except Exception as e:
+                log.debug(f"[send] 读取消息列表失败: {e}")
+
+            # ── 第四步：发送 ──
+            # "打字延迟"：模拟人类输入内容需要的时间
+            if isinstance(message, dict):
+                content_len = len(message.get("content", ""))
+            elif isinstance(message, str):
+                content_len = len(message)
+            else:
+                content_len = 0
+
+            typing_delay = min(max(content_len * 0.05, 0.3), 2.0)  # 0.3-2 秒
+            time.sleep(typing_delay + random.uniform(0, 0.3))
+
+            # 实际发送
+            actual_msg = message.get("content") if isinstance(message, dict) else message
+            wx.SendMsg(actual_msg, clear=True)
+
+            # ── 第五步：等待消息出现在聊天记录中 ──
+            sent_id = None
+            for _ in range(20):  # 最多等 10 秒
+                time.sleep(0.5)
+                try:
+                    after_msgs = wx.GetAllMessage()
+                    if after_msgs and len(after_msgs) > len(pre_msgs):
+                        new_msgs = after_msgs[len(pre_msgs):]
+                        for nm in new_msgs:
+                            nm_sender = nm.sender if hasattr(nm, 'sender') else (nm[0] if isinstance(nm, (list, tuple)) else None)
+                            if nm_sender == 'Self':
+                                sent_id = nm.id if hasattr(nm, 'id') else nm[-1]
+                                break
+                        if sent_id:
+                            break
+                except Exception:
+                    pass
+
+            if sent_id:
+                log.debug(f"[send] 消息已确认发送 (ID={sent_id})")
+            else:
+                warning(f"[send] 消息可能未成功发送到 {group}")
+
+            # ── 第六步：捕获发送期间到达的新消息 ──
+            post_caught = []
+            try:
+                post_msgs = wx.GetAllMessage()
+                if post_msgs:
+                    start_idx = 0
+                    if last_id_before:
+                        for i, pm in enumerate(post_msgs):
+                            pm_id = pm.id if hasattr(pm, 'id') else pm[-1]
+                            if pm_id == last_id_before:
+                                start_idx = i + 1
+                                break
+
+                    new_after_send = post_msgs[start_idx:]
+                    for nm in new_after_send:
+                        nm_id = nm.id if hasattr(nm, 'id') else nm[-1]
+                        if sent_id and nm_id == sent_id:
+                            continue
+                        nm_type = nm.type if hasattr(nm, 'type') else None
                         nm_sender = nm.sender if hasattr(nm, 'sender') else (nm[0] if isinstance(nm, (list, tuple)) else None)
-                        if nm_sender == 'Self':
-                            sent_id = nm.id if hasattr(nm, 'id') else nm[-1]
-                            break
-                    if sent_id:
-                        break
-            except Exception:
-                pass
-        
-        if sent_id:
-            log.debug(f"[send] 消息已确认发送 (ID={sent_id})")
-        else:
-            warning(f"[send] 消息可能未成功发送到 {group}")
-        
-        # ── 第六步：捕获发送期间到达的新消息 ──
-        post_caught = []
-        try:
-            post_msgs = wx.GetAllMessage()
-            if post_msgs:
-                start_idx = 0
-                if last_id_before:
-                    for i, pm in enumerate(post_msgs):
-                        pm_id = pm.id if hasattr(pm, 'id') else pm[-1]
-                        if pm_id == last_id_before:
-                            start_idx = i + 1
-                            break
-                
-                new_after_send = post_msgs[start_idx:]
-                for nm in new_after_send:
-                    nm_id = nm.id if hasattr(nm, 'id') else nm[-1]
-                    if sent_id and nm_id == sent_id:
-                        continue
-                    nm_type = nm.type if hasattr(nm, 'type') else None
-                    nm_sender = nm.sender if hasattr(nm, 'sender') else (nm[0] if isinstance(nm, (list, tuple)) else None)
-                    if nm_type != 'self' and nm_sender != 'Self':
-                        post_caught.append(nm)
-                
-                if post_caught:
-                    info(f"[send] 发送期间捕获 {len(post_caught)} 条新消息")
-        except Exception as e:
-            debug(f"[send] 捕获新消息失败: {e}")
-        
-        return pre_caught + post_caught
+                        if nm_type != 'self' and nm_sender != 'Self':
+                            post_caught.append(nm)
+
+                    if post_caught:
+                        info(f"[send] 发送期间捕获 {len(post_caught)} 条新消息")
+            except Exception as e:
+                debug(f"[send] 捕获新消息失败: {e}")
+
+            return pre_caught + post_caught
     
     finally:
         # 发送完成后重置标志和计数器
@@ -428,102 +433,104 @@ def send_messages(messages, group):
     if isinstance(messages, str):
         messages = [messages]
 
-    # ── 预捕获未读消息 ──
-    pre_caught = []
-    try:
-        all_new = wx.GetAllNewMessage()
-        if all_new and group in all_new:
-            raw = all_new[group]
-            for msg in raw:
-                msg_type = msg.type if hasattr(msg, 'type') else None
-                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
-                if msg_type != 'self' and sender != 'Self':
-                    pre_caught.append(msg)
-            if pre_caught:
-                log.info(f"[send] 预捕获 {group} {len(pre_caught)} 条未读消息")
-    except Exception as e:
-        log.debug(f"[send] 预捕获失败（非致命）: {e}")
+    # ── 互斥锁：确保 ChatWith+SendMsgs 不会被其他线程打断 ──
+    with _send_op_lock:
+        # ── 预捕获未读消息 ──
+        pre_caught = []
+        try:
+            all_new = wx.GetAllNewMessage()
+            if all_new and group in all_new:
+                raw = all_new[group]
+                for msg in raw:
+                    msg_type = msg.type if hasattr(msg, 'type') else None
+                    sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                    if msg_type != 'self' and sender != 'Self':
+                        pre_caught.append(msg)
+                if pre_caught:
+                    log.info(f"[send] 预捕获 {group} {len(pre_caught)} 条未读消息")
+        except Exception as e:
+            log.debug(f"[send] 预捕获失败（非致命）: {e}")
 
-    # ── 切换到目标聊天 ──
-    try:
-        wx.ChatWith(group)
-        human_delay(400, 900)
-    except Exception as e:
-        log.error(f"打开聊天 {group} 失败: {e}")
-        return pre_caught
+        # ── 切换到目标聊天 ──
+        try:
+            wx.ChatWith(group)
+            human_delay(400, 900)
+        except Exception as e:
+            log.error(f"打开聊天 {group} 失败: {e}")
+            return pre_caught
 
-    # ── 记录发送前的消息快照 ──
-    last_id_before = None
-    try:
-        pre_msgs = wx.GetAllMessage()
-        if pre_msgs:
-            last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
-    except Exception as e:
-        log.debug(f"[send] 读取消息列表失败: {e}")
+        # ── 记录发送前的消息快照 ──
+        last_id_before = None
+        try:
+            pre_msgs = wx.GetAllMessage()
+            if pre_msgs:
+                last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
+        except Exception as e:
+            log.debug(f"[send] 读取消息列表失败: {e}")
 
-    # ── 批量发送 ──
-    total_len = sum(len(m) if isinstance(m, str) else 20 for m in messages)
-    typing_time = min(5.0, max(0.8, total_len * 0.02 + random.uniform(0.5, 1.5)))
-    log.debug(f"[send] 模拟打字延迟 {typing_time:.1f}s ({len(messages)} 条消息)")
-    time.sleep(typing_time)
+        # ── 批量发送 ──
+        total_len = sum(len(m) if isinstance(m, str) else 20 for m in messages)
+        typing_time = min(5.0, max(0.8, total_len * 0.02 + random.uniform(0.5, 1.5)))
+        log.debug(f"[send] 模拟打字延迟 {typing_time:.1f}s ({len(messages)} 条消息)")
+        time.sleep(typing_time)
 
-    try:
-        wx.SendMsgs(messages, group)
-        log.debug(f"[send] 批量发送 {len(messages)} 条消息到 {group}")
-    except Exception as e:
-        log.error(f"[send] 批量发送失败: {e}")
-        return pre_caught
+        try:
+            wx.SendMsgs(messages, group)
+            log.debug(f"[send] 批量发送 {len(messages)} 条消息到 {group}")
+        except Exception as e:
+            log.error(f"[send] 批量发送失败: {e}")
+            return pre_caught
 
-    human_delay(400, 1000)
+        human_delay(400, 1000)
 
-    # ── 捕获发送期间到达的新消息 ──
-    send_caught = []
-    try:
-        post_msgs = wx.GetAllMessage()
-        if post_msgs and last_id_before:
-            found_idx = -1
-            for i, msg in enumerate(post_msgs):
-                msg_id = msg.id if hasattr(msg, 'id') else msg[-1]
-                if msg_id == last_id_before:
-                    found_idx = i
-                    break
-            if found_idx >= 0:
-                raw_new = post_msgs[found_idx + 1:]
-            else:
-                raw_new = post_msgs
-            for msg in raw_new:
-                msg_type = msg.type if hasattr(msg, 'type') else None
-                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
-                if msg_type != 'self' and sender != 'Self':
-                    send_caught.append(msg)
-            if send_caught:
-                log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息")
-        elif post_msgs and not last_id_before:
-            for msg in post_msgs:
-                msg_type = msg.type if hasattr(msg, 'type') else None
-                sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
-                if msg_type != 'self' and sender != 'Self':
-                    send_caught.append(msg)
-            if send_caught:
-                log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息（首次）")
-    except Exception as e:
-        log.error(f"[send] 读取新消息失败: {e}")
+        # ── 捕获发送期间到达的新消息 ──
+        send_caught = []
+        try:
+            post_msgs = wx.GetAllMessage()
+            if post_msgs and last_id_before:
+                found_idx = -1
+                for i, msg in enumerate(post_msgs):
+                    msg_id = msg.id if hasattr(msg, 'id') else msg[-1]
+                    if msg_id == last_id_before:
+                        found_idx = i
+                        break
+                if found_idx >= 0:
+                    raw_new = post_msgs[found_idx + 1:]
+                else:
+                    raw_new = post_msgs
+                for msg in raw_new:
+                    msg_type = msg.type if hasattr(msg, 'type') else None
+                    sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                    if msg_type != 'self' and sender != 'Self':
+                        send_caught.append(msg)
+                if send_caught:
+                    log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息")
+            elif post_msgs and not last_id_before:
+                for msg in post_msgs:
+                    msg_type = msg.type if hasattr(msg, 'type') else None
+                    sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                    if msg_type != 'self' and sender != 'Self':
+                        send_caught.append(msg)
+                if send_caught:
+                    log.info(f"[send] 发送期间 {group} 收到 {len(send_caught)} 条新消息（首次）")
+        except Exception as e:
+            log.error(f"[send] 读取新消息失败: {e}")
 
-    # ── 合并去重 ──
-    all_caught = list(pre_caught)
-    seen_ids = set()
-    for msg in all_caught:
-        mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
-        if mid:
-            seen_ids.add(mid)
-    for msg in send_caught:
-        mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
-        if mid and mid not in seen_ids:
-            all_caught.append(msg)
-        elif not mid:
-            all_caught.append(msg)
+        # ── 合并去重 ──
+        all_caught = list(pre_caught)
+        seen_ids = set()
+        for msg in all_caught:
+            mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
+            if mid:
+                seen_ids.add(mid)
+        for msg in send_caught:
+            mid = msg.id if hasattr(msg, 'id') else (msg[-1] if isinstance(msg, (list, tuple)) else None)
+            if mid and mid not in seen_ids:
+                all_caught.append(msg)
+            elif not mid:
+                all_caught.append(msg)
 
-    return all_caught
+        return all_caught
 
 
 def get_wechat():
@@ -553,13 +560,15 @@ def init_wechat():
 
 
 def get_new_messages():
-    """获取所有新消息"""
+    """获取所有新消息（受互斥锁保护，避免与发送操作冲突）"""
     wx = get_wechat()
     if wx:
         try:
             log.debug("调用 wx.GetAllNewMessage()")
             human_delay(500, 2000)
-            msgs = wx.GetAllNewMessage()
+            # 互斥锁：确保收消息时不会有其他线程同时执行 ChatWith
+            with _send_op_lock:
+                msgs = wx.GetAllNewMessage()
             human_delay(200, 600)
             log.debug(f"wxauto 返回消息: {msgs}")
             return msgs
