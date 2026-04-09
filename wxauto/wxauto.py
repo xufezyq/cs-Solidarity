@@ -218,13 +218,15 @@ class WeChat(WeChatBase):
         firstresult.Click(simulateMove=False)
         return chatname
     
-    def SendMsg(self, msg, who=None, clear=True):
+    def SendMsg(self, msg, who=None, clear=True, at=None, at_all=False):
         """发送文本消息
 
         Args:
             msg (str): 要发送的文本消息
             who (str): 要发送给谁，如果为None，则发送到当前聊天页面。  *最好完整匹配，优先使用备注
-            clear (bool, optional): 是否清除原本的内容，
+            clear (bool, optional): 是否清除原本的内容
+            at (list, optional): 需要@的人的列表，在群聊内生效
+            at_all (bool, optional): 是否@所有人，在群聊内生效
         """
         if who in self.listen:
             chat = self.listen[who]
@@ -251,6 +253,45 @@ class WeChat(WeChatBase):
         if not editbox.HasKeyboardFocus:
             editbox.Click(simulateMove=False)
         
+        # 处理@所有人
+        if at_all:
+            editbox.SendKeys('@', waitTime=0.2)
+            # 等待@列表出现
+            time.sleep(0.5)
+            # 尝试点击"所有人"选项
+            try:
+                at_list = self.ChatBox.ListControl(searchDepth=10)
+                if at_list.Exists():
+                    # 查找"所有人"选项
+                    for item in at_list.GetChildren():
+                        if item.Name == '所有人' or item.Name == 'All':
+                            item.Click(simulateMove=False)
+                            time.sleep(0.2)
+                            break
+            except Exception:
+                pass
+        
+        # 处理@特定成员
+        if at and isinstance(at, list):
+            for member in at:
+                editbox.SendKeys(f'@{member}', waitTime=0.2)
+                # 等待@列表出现
+                time.sleep(0.5)
+                # 尝试在列表中找到并点击匹配的成员
+                try:
+                    at_list = self.ChatBox.ListControl(searchDepth=10)
+                    if at_list.Exists():
+                        # 查找匹配的成员
+                        for item in at_list.GetChildren():
+                            if member in item.Name:
+                                item.Click(simulateMove=False)
+                                time.sleep(0.2)
+                                break
+                except Exception:
+                    # 如果找不到，删除@+名字
+                    editbox.SendKeys('{Backspace}' * (len(member) + 1), waitTime=0)
+        
+        # 发送消息内容
         t0 = time.time()
         while True:
             if time.time() - t0 > 10:
@@ -261,12 +302,15 @@ class WeChat(WeChatBase):
                 break
         editbox.SendKeys('{Enter}')
 
-    def SendMsgs(self, msgs, who=None):
+    def SendMsgs(self, msgs, who=None, at=None, at_all=False, delay=0.4):
         """批量发送多条文本消息（只切换一次聊天窗口）
 
         Args:
             msgs (list[str]): 要发送的消息列表
             who (str): 目标聊天名称，为None则发送到当前聊天
+            at (list, optional): 需要@的人的列表，在群聊内生效
+            at_all (bool, optional): 是否@所有人，在群聊内生效
+            delay (float, optional): 发送消息的时间间隔，单位秒
         """
         if not msgs:
             return None
@@ -295,6 +339,46 @@ class WeChat(WeChatBase):
             self._show()
             if not editbox.HasKeyboardFocus:
                 editbox.Click(simulateMove=False)
+            
+            # 处理@所有人
+            if at_all:
+                editbox.SendKeys('@', waitTime=0.2)
+                # 等待@列表出现
+                time.sleep(0.5)
+                # 尝试点击"所有人"选项
+                try:
+                    at_list = self.ChatBox.ListControl(searchDepth=10)
+                    if at_list.Exists():
+                        # 查找"所有人"选项
+                        for item in at_list.GetChildren():
+                            if item.Name == '所有人' or item.Name == 'All':
+                                item.Click(simulateMove=False)
+                                time.sleep(0.2)
+                                break
+                except Exception:
+                    pass
+            
+            # 处理@特定成员
+            if at and isinstance(at, list):
+                for member in at:
+                    editbox.SendKeys(f'@{member}', waitTime=0.2)
+                    # 等待@列表出现
+                    time.sleep(0.5)
+                    # 尝试在列表中找到并点击匹配的成员
+                    try:
+                        at_list = self.ChatBox.ListControl(searchDepth=10)
+                        if at_list.Exists():
+                            # 查找匹配的成员
+                            for item in at_list.GetChildren():
+                                if member in item.Name:
+                                    item.Click(simulateMove=False)
+                                    time.sleep(0.2)
+                                    break
+                    except Exception:
+                        # 如果找不到，删除@+名字
+                        editbox.SendKeys('{Backspace}' * (len(member) + 1), waitTime=0)
+            
+            # 发送消息内容
             t0 = time.time()
             while True:
                 if time.time() - t0 > 10:
@@ -304,7 +388,114 @@ class WeChat(WeChatBase):
                 if editbox.GetValuePattern().Value:
                     break
             editbox.SendKeys('{Enter}')
-            time.sleep(random.uniform(0.5, 2.0))
+            time.sleep(max(delay, random.uniform(0.5, 2.0)))
+
+    def SendMessagesToFriend(self, friend, messages, at=None, at_all=False, delay=0.4):
+        """向单个好友或群聊发送多条消息
+
+        Args:
+            friend (str): 好友或群聊备注
+            messages (list[str]): 待发送消息列表
+            at (list, optional): 需要@的人的列表，在群聊内生效
+            at_all (bool, optional): 是否@所有人，在群聊内生效
+            delay (float, optional): 发送消息的时间间隔，单位秒
+        """
+        if not messages:
+            return None
+        if isinstance(messages, str):
+            messages = [messages]
+
+        # 只切换一次聊天窗口
+        try:
+            editbox = self.ChatBox.EditControl(searchDepth=10)
+            if friend in self.CurrentChat() and friend in editbox.Name:
+                pass
+            else:
+                self.ChatWith(friend)
+                editbox = self.ChatBox.EditControl(Name=friend, searchDepth=10)
+        except Exception:
+            self.ChatWith(friend)
+            editbox = self.ChatBox.EditControl(Name=friend, searchDepth=10)
+
+        for msg in messages:
+            if not msg:
+                continue
+            editbox.SendKeys('{Ctrl}a', waitTime=0)
+            self._show()
+            if not editbox.HasKeyboardFocus:
+                editbox.Click(simulateMove=False)
+            
+            # 处理@所有人
+            if at_all:
+                editbox.SendKeys('@', waitTime=0.2)
+                # 等待@列表出现
+                time.sleep(0.5)
+                # 尝试点击"所有人"选项
+                try:
+                    at_list = self.ChatBox.ListControl(searchDepth=10)
+                    if at_list.Exists():
+                        # 查找"所有人"选项
+                        for item in at_list.GetChildren():
+                            if item.Name == '所有人' or item.Name == 'All':
+                                item.Click(simulateMove=False)
+                                time.sleep(0.2)
+                                break
+                except Exception:
+                    pass
+            
+            # 处理@特定成员
+            if at and isinstance(at, list):
+                for member in at:
+                    editbox.SendKeys(f'@{member}', waitTime=0.2)
+                    # 等待@列表出现
+                    time.sleep(0.5)
+                    # 尝试在列表中找到并点击匹配的成员
+                    try:
+                        at_list = self.ChatBox.ListControl(searchDepth=10)
+                        if at_list.Exists():
+                            # 查找匹配的成员
+                            for item in at_list.GetChildren():
+                                if member in item.Name:
+                                    item.Click(simulateMove=False)
+                                    time.sleep(0.2)
+                                    break
+                    except Exception:
+                        # 如果找不到，删除@+名字
+                        editbox.SendKeys('{Backspace}' * (len(member) + 1), waitTime=0)
+            
+            # 发送消息内容
+            t0 = time.time()
+            while True:
+                if time.time() - t0 > 10:
+                    raise TimeoutError(f'发送消息超时 --> {editbox.Name} - {msg}')
+                SetClipboardText(msg)
+                editbox.SendKeys('{Ctrl}v')
+                if editbox.GetValuePattern().Value:
+                    break
+            editbox.SendKeys('{Enter}')
+            time.sleep(max(delay, random.uniform(0.5, 2.0)))
+
+    def SendMessageToFriends(self, friends, messages, at=None, at_all=False, delay=0.4):
+        """向多个好友发送不同的消息
+
+        Args:
+            friends (list[str]): 好友或群聊备注列表
+            messages (list[str]): 待发送消息列表，与friends一一对应
+            at (list, optional): 需要@的人的列表，在群聊内生效
+            at_all (bool, optional): 是否@所有人，在群聊内生效
+            delay (float, optional): 发送消息的时间间隔，单位秒
+        """
+        if not friends or not messages:
+            return None
+        if len(friends) != len(messages):
+            raise ValueError('friends和messages长度必须一致')
+
+        # 向每个好友发送对应的消息
+        for friend, message in zip(friends, messages):
+            if not message:
+                continue
+            self.SendMsg(msg=message, who=friend, at=at, at_all=at_all)
+            time.sleep(max(delay, random.uniform(0.5, 2.0)))
 
     def SendFiles(self, filepath, who=None):
         """向当前聊天窗口发送文件
