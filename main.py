@@ -10,6 +10,7 @@ from core import init_wechat, wechat_instance, get_instance_from_item, BaseInsta
 from core.wechat_instance import _send_op_lock
 from utils.human_sim import human_delay, human_action_delay, random_poll_interval, random_human_pause
 from utils.logger import setup_logger, info, debug, error, warning
+from version import VERSION, get_version_info
 import win32gui
 
 import logging
@@ -19,6 +20,11 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 DEBUG_MODE = False
+
+# 版本信息
+APP_VERSION = VERSION
+print(f"[cs-Solidarity] 版本: {APP_VERSION}")
+info(f"启动 - 版本: {APP_VERSION}")
 
 # 消息发送锁，确保消息发送期间不最小化窗口
 _send_lock = threading.Lock()

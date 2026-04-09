@@ -13,6 +13,13 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# 导入版本信息
+try:
+    from version import VERSION
+    APP_VERSION = VERSION
+except ImportError:
+    APP_VERSION = "1.0.0"
+
 # 配置文件读写锁，防止后台线程和 Web 面板同时写入导致损坏
 _config_lock = threading.Lock()
 
@@ -1185,7 +1192,8 @@ class SteamAuto(BaseInstance):
             time.sleep(2)
         
         check_interval = int(self.check_interval) if isinstance(self.check_interval, (int, float, str)) else 60
-        log.info(f"[{datetime.now()}] 程序启动，将每 {check_interval} 秒检查一次好友游戏状态")
+        log.info(f"[{datetime.now()}] [cs-Solidarity v{APP_VERSION}] 程序启动")
+        log.info(f"[{datetime.now()}] 将每 {check_interval} 秒检查一次好友游戏状态")
         log.info(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
         log.info(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计（避开维护时段）")
         log.info(f"[{datetime.now()}] 每天 23:55 将发送日报+完整排行榜")
