@@ -76,7 +76,7 @@ class _UnkownFileFilter(logging.Filter):
 # 格式
 # ============================================================
 # 使用 VS Code / Trae 可识别的格式：file:line 或 file(line)
-_LOG_FMT = "[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)d - %(message)s"
+_LOG_FMT = "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d]: %(message)s"
 _DATE_FMT = "%H:%M:%S"
 
 
