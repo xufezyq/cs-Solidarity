@@ -1297,7 +1297,8 @@ class SteamAuto(BaseInstance):
         # 注意：此时 send_message 已被主框架替换为入队函数，会受维护时间检查控制
         if self.code_update_message and not self.debug:
             log.info(f"[{datetime.now()}] 准备发送启动更新消息")
-            self.send_message(self.code_update_message)
+            msg = self.code_update_message.replace('{version}', APP_VERSION)
+            self.send_message(msg)
             log.info(f"[{datetime.now()}] 启动更新消息已加入队列")
             # 等待一小段时间让主线程处理队列
             time.sleep(2)
