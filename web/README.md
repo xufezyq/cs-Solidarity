@@ -21,10 +21,10 @@ pip install -r web/requirements.txt
 
 # 启动服务
 cd web
-uvicorn server:app --host 0.0.0.0 --port 8000
+uvicorn server:app --host 0.0.0.0 --port 11029
 
 # 首次运行会生成 admin 密码，请记录！
-# 之后访问 http://your-server:8000
+# 之后访问 http://your-server:11029
 ```
 
 #### A 机器（内网 Windows）
@@ -33,7 +33,7 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 pip install -r agent/requirements.txt
 
 # 启动 Agent
-python agent/client.py --server ws://B_IP:8000/ws/agent --token your-agent-token --root D:\code\cs-Solidarity
+python agent/client.py --server ws://B_IP:11029/ws/agent --token your-agent-token --root D:\code\cs-Solidarity
 ```
 
 ### 修改 admin 密码
@@ -72,21 +72,21 @@ python agent/client.py --server ws://B_IP:8000/ws/agent --token your-agent-token
 
 ## API 文档
 
-启动服务后访问 `http://server:8000/docs` 查看 Swagger API 文档。
+启动服务后访问 `http://server:11029/docs` 查看 Swagger API 文档。
 
 详细接口定义见 [REQUIREMENTS.md](./REQUIREMENTS.md) 第 5 节。
 
 ## 配置说明
 
 ### Agent 配置
-- `--server`：WebSocket 服务器地址（如 `ws://1.2.3.4:8000/ws/agent`）
+- `--server`：WebSocket 服务器地址（如 `ws://1.2.3.4:11029/ws/agent`）
 - `--token`：Agent 连接令牌
 - `--root`：cs-Solidarity 项目根目录（默认当前目录）
 
 ### Server 配置
 - 首次运行自动生成 `users.json`
 - Agent 连接令牌在启动时生成并输出到控制台
-- 默认端口 8000，可通过 uvicorn 参数修改
+- 默认端口 11029，可通过 uvicorn 参数修改
 
 ### 安全建议
 - 生产环境使用 Nginx + HTTPS

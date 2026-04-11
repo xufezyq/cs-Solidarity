@@ -4,7 +4,7 @@ cs-Solidarity Agent — WebSocket 客户端
 主动连接到 Web Server，接收请求并转发给 handler 处理，同时通过 watcher 推送日志。
 
 用法：
-    python -m agent.client --server ws://B_IP:8000/ws/agent --token xxx --root D:\code\cs-Solidarity
+    python -m agent.client --server ws://B_IP:11029/ws/agent --token xxx --root D:\code\cs-Solidarity
 """
 
 import asyncio
@@ -166,7 +166,7 @@ class AgentClient:
 
 def main():
     parser = argparse.ArgumentParser(description="cs-Solidarity Agent")
-    parser.add_argument("--server", required=True, help="WebSocket 服务器地址，如 ws://1.2.3.4:8000/ws/agent")
+    parser.add_argument("--server", required=True, help="WebSocket 服务器地址，如 ws://1.2.3.4:11029/ws/agent")
     parser.add_argument("--token", required=True, help="Agent 连接令牌")
     parser.add_argument("--root", default=".", help="cs-Solidarity 项目根目录（默认当前目录）")
     parser.add_argument("--debug", action="store_true", help="启用调试日志")

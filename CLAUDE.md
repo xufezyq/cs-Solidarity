@@ -17,11 +17,11 @@ python main.py
 
 # Web control panel (separate process/machine)
 pip install -r web/requirements.txt
-cd web && uvicorn server:app --host 0.0.0.0 --port 8000
+cd web && uvicorn server:app --host 0.0.0.0 --port 11029
 
 # Agent client (runs on bot machine, connects to web panel)
 pip install -r agent/requirements.txt
-python agent/client.py --server ws://SERVER:8000/ws/agent --token TOKEN --root PATH
+python agent/client.py --server ws://SERVER:11029/ws/agent --token TOKEN --root PATH
 ```
 
 No test suite, linter, or CI/CD is configured. Python 3.7+ for the bot, 3.9+ for the web panel.

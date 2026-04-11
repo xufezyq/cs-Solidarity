@@ -280,11 +280,11 @@ Agent 连接端点
 
 ### 7.1 Machine A（内网）
 1. 安装依赖：`pip install -r agent/requirements.txt`
-2. 运行 Agent：`python agent/client.py --server ws://B_IP:8000/ws/agent --token xxx --root D:\code\cs-Solidarity`
+2. 运行 Agent：`python agent/client.py --server ws://B_IP:11029/ws/agent --token xxx --root D:\code\cs-Solidarity`
 
 ### 7.2 Machine B（公网）
 1. 安装依赖：`pip install -r web/requirements.txt`
-2. 运行 Server：`cd web && uvicorn server:app --host 0.0.0.0 --port 8000`
+2. 运行 Server：`cd web && uvicorn server:app --host 0.0.0.0 --port 11029`
 3. 首次运行会生成 admin 密码，记录并登录修改
 
 ### 7.3 生产环境
