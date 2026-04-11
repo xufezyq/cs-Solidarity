@@ -509,7 +509,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
         <!-- 每个类别的 Top 3 -->
         <div class="lb-grid">
-        <div class="lb-category" v-for="(val,key) in steamDetail.friend_pw_leaderboard" :key="key">
+        <div class="lb-category" v-for="key in lbKeyOrder" :key="key">
+          <template v-if="steamDetail.friend_pw_leaderboard[key]">
           <div class="lb-cat-header">{{ leaderboardLabels[key] || key }}</div>
           <div class="podium">
             <!-- 第2名（左） -->
@@ -549,6 +550,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="podium-item podium-empty" v-else><div class="podium-stand stand3"></div></div>
           </div>
+        </template>
         </div>
         </div>
       </div>
@@ -563,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <th>最多死亡</th><th>最少死亡</th>
             <th>最高 Rating</th><th>最低 Rating</th>
             <th>最高 PW RT</th><th>最低 PW RT</th>
-            <th>最高胜率</th><th>最低胜率</th>
+            <th>最高WE</th><th>最低WE</th>
             <th>最高分数</th><th>最低分数</th>
           </tr>
           <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
@@ -729,8 +731,13 @@ createApp({
     const leaderboardLabels = {
       max_kills: '最高击杀', min_kills: '最低击杀', max_deaths: '最多死亡', min_deaths: '最少死亡',
       max_rating: '最高 Rating', min_rating: '最低 Rating', max_pw_rating: '最高 PW Rating', min_pw_rating: '最低 PW Rating',
-      max_we: '最高胜率', min_we: '最低胜率', max_score: '最高分数', min_score: '最低分数',
+      max_we: '最高WE', min_we: '最低WE', max_score: '最高分数', min_score: '最低分数',
     };
+    const lbKeyOrder = [
+      'max_kills','min_kills','max_deaths','min_deaths',
+      'max_rating','min_rating','max_pw_rating','min_pw_rating',
+      'max_we','min_we','max_score','min_score',
+    ];
 
     // 预计算每个排行榜类别的 Top 3
     const allTop3 = computed(() => {
@@ -744,7 +751,7 @@ createApp({
         const sentinel = isMin ? 99999 : 0;
         const entries = Object.entries(hs).map(([sid, d]) => ({
           steamid: sid,
-          pw_nickname: d.pw_nickname || d.nickname || '未知',
+          pw_nickname: d.pw_nickname || '未知',
           avatar: d.avatar || '',
           value: d[key] ?? sentinel,
         })).filter(p => isMin ? (p.value > 0 && p.value < sentinel) : p.value > 0);
@@ -979,7 +986,7 @@ createApp({
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
       overview, instances, userList, steamDetail, newUser, pwForm, config, logs,
-      visibleNav, typeIcons, leaderboardLabels, getTop3, ctrlLoading,
+      visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
     };

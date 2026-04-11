@@ -468,6 +468,7 @@ class SteamAuto(BaseInstance):
 
         # 为每场对局调用 get_match_detail 获取完美平台昵称（同一 matchId 只调一次）
         match_pw_nicknames = {}  # match_id -> {steam_id: pw_nickname}
+        player_avatar_map = {}   # steam_id -> avatar_url (最新一场对局的头像)
         for match_id in match_groups:
             try:
                 detail = await self.pw_api.get_match_detail(match_id)
@@ -478,8 +479,11 @@ class SteamAuto(BaseInstance):
                 for player in detail['players']:
                     pid = str(player.get('playerId', ''))
                     pw_nick = player.get('nickName', '')
+                    avatar = player.get('avatar', '')
                     if pid and pw_nick:
                         nick_map[pid] = pw_nick
+                    if pid and avatar:
+                        player_avatar_map[pid] = avatar
                 match_pw_nicknames[match_id] = nick_map
                 log.info(f"[{datetime.now()}] 对局 {match_id} 获取到 {len(nick_map)} 个完美昵称")
             except Exception as e:
@@ -575,6 +579,7 @@ class SteamAuto(BaseInstance):
                     if steam_id not in self.friend_pw_history_stats:
                         self.friend_pw_history_stats[steam_id] = {
                             'pw_nickname': pw_name or nickname,
+                            'avatar': player_avatar_map.get(steam_id, ''),
                             'last_match_id': match_id,
                             'max_kills': 0,
                             'min_kills': 999,
@@ -591,10 +596,11 @@ class SteamAuto(BaseInstance):
                         }
                     
                     hist = self.friend_pw_history_stats[steam_id]
-                    
+
                     # 确保所有必要字段都存在
                     required_fields = {
                         'pw_nickname': '未知好友',
+                        'avatar': '',
                         'last_match_id': '',
                         'max_kills': 0,
                         'min_kills': 999,
@@ -613,6 +619,10 @@ class SteamAuto(BaseInstance):
                     for field, default in required_fields.items():
                         if field not in hist:
                             hist[field] = default
+
+                    # 更新头像为最新一场对局的
+                    if player_avatar_map.get(steam_id):
+                        hist['avatar'] = player_avatar_map[steam_id]
                     
                     if kills > hist['max_kills']:
                         hist['max_kills'] = kills
@@ -1030,6 +1040,7 @@ class SteamAuto(BaseInstance):
                 best_sid, best_val = min(candidates, key=lambda x: x[1])
 
             best_nick = valid_players[best_sid].get('pw_nickname', '未知')
+            best_avatar = valid_players[best_sid].get('avatar', '')
             old = self.friend_pw_leaderboard.get(cat_key)
 
             if not old or old.get('steamid') != best_sid or old.get('value') != best_val:
@@ -1047,6 +1058,7 @@ class SteamAuto(BaseInstance):
                 self.friend_pw_leaderboard[cat_key] = {
                     'steamid': best_sid,
                     'pw_nickname': best_nick,
+                    'avatar': best_avatar,
                     'value': best_val
                 }
 
