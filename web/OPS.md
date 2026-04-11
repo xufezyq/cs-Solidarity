@@ -4,10 +4,10 @@
 
 ```bash
 cd D:\code\cs-Solidarity\web
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
+python -m uvicorn server:app --host 0.0.0.0 --port 11029
 ```
 
-浏览器访问 `http://localhost:8000`
+浏览器访问 `http://localhost:11029`
 
 首次运行会自动生成 admin 账户，密码显示在控制台：
 ```
@@ -28,10 +28,10 @@ python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ### 方法二：按端口号精准杀进程
 
 ```bash
-# 1. 查找占用 8000 端口的 PID
-netstat -ano | findstr :8000 | findstr LISTENING
+# 1. 查找占用 11029 端口的 PID
+netstat -ano | findstr :11029 | findstr LISTENING
 
-# 输出类似：TCP    0.0.0.0:8000    0.0.0.0:0    LISTENING    12345
+# 输出类似：TCP    0.0.0.0:11029    0.0.0.0:0    LISTENING    12345
 #                                                ^^^^^^^ 这是 PID
 
 # 2. 用 PID 杀进程
@@ -68,14 +68,14 @@ rd /s /q D:\code\cs-Solidarity\web\backups
 
 ```bash
 # 1. 关闭旧进程（按端口查 PID）
-netstat -ano | findstr :8000 | findstr LISTENING
+netstat -ano | findstr :11029 | findstr LISTENING
 taskkill /F /PID <PID>
 
 # 2. 启动新进程
 cd D:\code\cs-Solidarity\web
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
+python -m uvicorn server:app --host 0.0.0.0 --port 11029
 
-# 3. 浏览器打开 http://localhost:8000
+# 3. 浏览器打开 http://localhost:11029
 ```
 
 ---
@@ -97,7 +97,7 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 cd D:\code\cs-Solidarity
 pip install websockets -i https://mirrors.aliyun.com/pypi/simple/
 
-python -m agent.client --server ws://<公网IP>:8000/ws/agent --token <令牌> --root D:\code\cs-Solidarity
+python -m agent.client --server ws://<公网IP>:11029/ws/agent --token <令牌> --root D:\code\cs-Solidarity
 ```
 
 Agent 连接令牌在 Web Server 启动时显示在控制台：
@@ -114,7 +114,7 @@ Agent 连接令牌在 Web Server 启动时显示在控制台：
 需要用 API 创建，角色为 `user`：
 
 ```bash
-curl -X POST http://localhost:8000/api/users \
+curl -X POST http://localhost:11029/api/users \
   -H "Authorization: Bearer <admin_token>" \
   -H "Content-Type: application/json" \
   -d "{\"username\": \"test\", \"password\": \"123456\", \"role\": \"user\", \"display_name\": \"测试用户\"}"
@@ -124,7 +124,7 @@ curl -X POST http://localhost:8000/api/users \
 
 ### 普通用户登录
 
-浏览器打开 `http://localhost:8000`，用管理员分配的账号密码登录即可。
+浏览器打开 `http://localhost:11029`，用管理员分配的账号密码登录即可。
 
 **普通用户权限：** 只能执行操作，不能管理用户（创建/删除/修改角色）。
 
@@ -132,23 +132,23 @@ curl -X POST http://localhost:8000/api/users \
 
 ```bash
 # 查看所有用户
-curl http://localhost:8000/api/users \
+curl http://localhost:11029/api/users \
   -H "Authorization: Bearer <admin_token>"
 
 # 修改用户角色
-curl -X PUT http://localhost:8000/api/users/test/role \
+curl -X PUT http://localhost:11029/api/users/test/role \
   -H "Authorization: Bearer <admin_token>" \
   -H "Content-Type: application/json" \
   -d "{\"role\": \"admin\"}"
 
 # 重置用户密码
-curl -X PUT http://localhost:8000/api/users/test/password \
+curl -X PUT http://localhost:11029/api/users/test/password \
   -H "Authorization: Bearer <admin_token>" \
   -H "Content-Type: application/json" \
   -d "{\"new_password\": \"newpass123\"}"
 
 # 删除用户
-curl -X DELETE http://localhost:8000/api/users/test \
+curl -X DELETE http://localhost:11029/api/users/test \
   -H "Authorization: Bearer <admin_token>"
 ```
 
