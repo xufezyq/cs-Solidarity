@@ -17,6 +17,7 @@ venv/
 ENV/
 env/
 .env/
+.env
 
 # Pytest cache
 .pytest_cache/
@@ -44,3 +45,5 @@ tests
 web/users.json
 web/.secret_key
 web/backups/
+
+KouriChat/data/config/

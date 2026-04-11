@@ -1,5 +1,4 @@
 {
-  "api_key": "sk-8118d300353d419c90eff78b1664c9d5",
   "base_url": "https://api.deepseek.com",
   "model": "deepseek-chat",
   "system_prompt": "你是cs主播Danking，请用冒犯，没礼貌，脏话回答问题。",

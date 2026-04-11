@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from core.base_instance import BaseInstance
 from core.wechat_instance import send_message as wx_send_message
+from dotenv import load_dotenv
+import os
+
+# 加载 .env 文件
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +63,8 @@ class InfoPush(BaseInstance):
                 log.debug("[InfoPush] 使用金价缓存数据")
                 return self.gold_price_cache
 
-            api_key = self.api_configs.get('gold_api_key', '')
+            # 优先从环境变量读取 API 密钥
+            api_key = self.api_configs.get('gold_api_key', '') or os.getenv('GOLD_API_KEY', '')
             if api_key:
                 url = f"https://gold-api.cn/api/v1/gold/realtime?api_key={api_key}&variety=Au9999"
                 response = requests.get(url, timeout=10)

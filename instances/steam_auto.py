@@ -10,6 +10,11 @@ from core import wechat_instance
 from core.base_instance import BaseInstance
 from cs2_pw.request import PerfectWorldApi
 import logging
+from dotenv import load_dotenv
+import os
+
+# 加载 .env 文件
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
@@ -24,14 +29,17 @@ except ImportError:
 _config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key, steam_id, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
-        self.steam = SteamAPI(steam_api_key)
-        self.steam_id = steam_id
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
+        # 优先从环境变量读取配置
+        self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
+        self.steam_id = steam_id or os.getenv('STEAM_ID')
+        
+        self.steam = SteamAPI(self.steam_api_key)
         self.config_path = config_path # 保存配置文件路径
         self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
-        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
+        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
@@ -45,8 +53,8 @@ class SteamAuto(BaseInstance):
         
         # 完美平台配置
         self.perfect_world_config = perfect_world_config or {}
-        self.pw_uid = self.perfect_world_config.get('uid')
-        self.pw_token = self.perfect_world_config.get('token')
+        self.pw_uid = self.perfect_world_config.get('uid') or os.getenv('PW_UID')
+        self.pw_token = self.perfect_world_config.get('token') or os.getenv('PW_TOKEN')
         self.pw_api = None
         if self.pw_uid and self.pw_token:
             self.pw_api = PerfectWorldApi(uid=self.pw_uid, token=self.pw_token)
@@ -204,16 +212,25 @@ class SteamAuto(BaseInstance):
         except Exception:
             debug_mode = False
 
+        # 从环境变量读取敏感信息
+        steam_api_key = os.getenv('STEAM_API_KEY') or config.get('steam_api_key')
+        steam_id = os.getenv('STEAM_ID') or config.get('steam_id')
+        
+        # 完美平台配置
+        perfect_world_config = config.get('perfect_world_config', {})
+        perfect_world_config['uid'] = os.getenv('PW_UID') or perfect_world_config.get('uid')
+        perfect_world_config['token'] = os.getenv('PW_TOKEN') or perfect_world_config.get('token')
+
         # 创建临时实例用于自动填充
         temp_instance = SteamAuto(
-            steam_api_key=config.get('steam_api_key'),
-            steam_id=config.get('steam_id'),
+            steam_api_key=steam_api_key,
+            steam_id=steam_id,
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
             code_update_message=config.get('code_update_message', ''),
             check_interval=config.get('check_interval', 60),
-            perfect_world_config=config.get('perfect_world_config'),
+            perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
             config_path=config_path
@@ -246,14 +263,14 @@ class SteamAuto(BaseInstance):
 
         # 创建最终实例
         instance = SteamAuto(
-            steam_api_key=config.get('steam_api_key'),
-            steam_id=config.get('steam_id'),
+            steam_api_key=steam_api_key,
+            steam_id=steam_id,
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
             code_update_message=config.get('code_update_message', ''),
             check_interval=config.get('check_interval', 60),
-            perfect_world_config=config.get('perfect_world_config'),
+            perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),

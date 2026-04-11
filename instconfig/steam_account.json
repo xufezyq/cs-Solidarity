@@ -1,10 +1,4 @@
 {
-  "steam_api_key": "594FAD4869EEC7F9816B9600B5E2C3CE",
-  "steam_id": "76561198383859685",
-  "perfect_world_config": {
-    "uid": "76561199209601450",
-    "token": "6cb373b9a2d2dcf371d9d938474deb7c484d72b8"
-  },
   "enable_all_friends": false,
   "check_interval": 60,
   "enable_news_check": true,

@@ -6,6 +6,11 @@ from pathlib import Path
 from datetime import datetime
 from core.base_instance import BaseInstance
 from core import wechat_instance
+from dotenv import load_dotenv
+import os
+
+# 加载 .env 文件
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
@@ -217,8 +222,18 @@ class ChatAuto(BaseInstance):
         else:
             config = config_path if config_path else {}
 
+        # 从环境变量读取 API 密钥
+        api_key = config.get('api_key')
+        if not api_key:
+            # 根据模型名称从环境变量读取相应的 API 密钥
+            model = config.get('model', "deepseek-chat")
+            if 'openclaw' in model.lower():
+                api_key = os.getenv('OPENCLAW_API_KEY')
+            elif 'deepseek' in model.lower():
+                api_key = os.getenv('DEEPSEEK_API_KEY')
+
         return cls(
-            api_key=config.get('api_key'),
+            api_key=api_key,
             base_url=config.get('base_url', "https://api.deepseek.com"),
             model=config.get('model', "deepseek-chat"),
             system_prompt=config.get('system_prompt', ""),
