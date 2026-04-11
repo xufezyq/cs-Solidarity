@@ -43,6 +43,7 @@ tests
 
 # Web 面板隐私文件
 web/users.json
+web/registrations.json
 web/.secret_key
 web/backups/
 

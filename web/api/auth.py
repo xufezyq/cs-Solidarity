@@ -5,7 +5,11 @@ Web API — 认证
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from web.auth import authenticate, create_token, get_current_user, verify_password, hash_password, _load_users, _save_users
+from web.auth import (
+    authenticate, create_token, get_current_user, verify_password, hash_password,
+    _load_users, _save_users, submit_registration, approve_registration,
+    reject_registration, _load_registrations, require_admin
+)
 from fastapi import Depends
 from web.auth import User
 
@@ -20,6 +24,12 @@ class LoginRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str = ""
 
 
 @router.post("/login")
@@ -39,6 +49,47 @@ async def login(req: LoginRequest):
             "display_name": user.get("display_name", ""),
         }
     }
+
+
+@router.post("/register")
+async def register(req: RegisterRequest):
+    """用户提交注册申请"""
+    error = submit_registration(req.username, req.password, req.display_name)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True, "message": "注册申请已提交，请等待管理员审核"}
+
+
+@router.get("/registrations")
+async def list_registrations(current_user: User = Depends(require_admin)):
+    """获取待审核的注册申请列表"""
+    reg_data = _load_registrations()
+    pending = []
+    for r in reg_data.get("pending", []):
+        pending.append({
+            "username": r["username"],
+            "display_name": r.get("display_name", r["username"]),
+            "created_at": r.get("created_at", ""),
+        })
+    return {"success": True, "data": {"pending": pending}}
+
+
+@router.post("/registrations/{username}/approve")
+async def approve_reg(username: str, current_user: User = Depends(require_admin)):
+    """审核通过注册申请"""
+    error = approve_registration(username)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True, "message": f"用户 {username} 已审核通过"}
+
+
+@router.post("/registrations/{username}/reject")
+async def reject_reg(username: str, current_user: User = Depends(require_admin)):
+    """拒绝注册申请"""
+    error = reject_registration(username)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True, "message": f"用户 {username} 的注册申请已拒绝"}
 
 
 @router.post("/change-password")

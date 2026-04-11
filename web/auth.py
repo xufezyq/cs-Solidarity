@@ -37,6 +37,7 @@ SECRET_KEY = _get_or_create_secret()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 USERS_FILE = Path(__file__).parent / "users.json"
+REGISTRATIONS_FILE = Path(__file__).parent / "registrations.json"
 
 # 密码哈希
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -160,3 +161,102 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="需要管理员权限")
     return current_user
+
+
+def _load_registrations() -> dict:
+    """加载注册申请数据"""
+    if not REGISTRATIONS_FILE.exists():
+        return {"pending": []}
+    try:
+        with open(REGISTRATIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"pending": []}
+
+
+def _save_registrations(data: dict):
+    """保存注册申请数据"""
+    with open(REGISTRATIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def submit_registration(username: str, password: str, display_name: str = "") -> str:
+    """提交注册申请，返回结果消息"""
+    if not username or not password:
+        return "用户名和密码不能为空"
+    if len(username) < 2 or len(username) > 32:
+        return "用户名长度需在 2-32 之间"
+    if len(password) < 6:
+        return "密码长度不能少于 6 位"
+
+    # 检查用户名是否已存在
+    users_data = _load_users()
+    for u in users_data["users"]:
+        if u["username"] == username:
+            return "用户名已存在"
+
+    # 检查是否已有待审核的同名申请
+    reg_data = _load_registrations()
+    for r in reg_data["pending"]:
+        if r["username"] == username:
+            return "该用户名已有待审核的注册申请"
+
+    reg_data["pending"].append({
+        "username": username,
+        "password_hash": hash_password(password),
+        "display_name": display_name or username,
+        "role": "user",
+        "created_at": datetime.now().isoformat(),
+    })
+    _save_registrations(reg_data)
+    return ""
+
+
+def approve_registration(username: str) -> str:
+    """审核通过注册申请，返回结果消息"""
+    reg_data = _load_registrations()
+    target = None
+    for r in reg_data["pending"]:
+        if r["username"] == username:
+            target = r
+            break
+
+    if not target:
+        return "注册申请不存在"
+
+    # 再次检查用户名是否已被占用
+    users_data = _load_users()
+    for u in users_data["users"]:
+        if u["username"] == username:
+            reg_data["pending"] = [r for r in reg_data["pending"] if r["username"] != username]
+            _save_registrations(reg_data)
+            return "用户名已存在，申请已移除"
+
+    # 添加到用户列表
+    users_data["users"].append({
+        "username": target["username"],
+        "password_hash": target["password_hash"],
+        "role": target.get("role", "user"),
+        "display_name": target.get("display_name", target["username"]),
+        "created_at": datetime.now().isoformat(),
+        "last_login": None,
+    })
+    _save_users(users_data)
+
+    # 从待审核列表移除
+    reg_data["pending"] = [r for r in reg_data["pending"] if r["username"] != username]
+    _save_registrations(reg_data)
+    return ""
+
+
+def reject_registration(username: str) -> str:
+    """拒绝注册申请，返回结果消息"""
+    reg_data = _load_registrations()
+    original_len = len(reg_data["pending"])
+    reg_data["pending"] = [r for r in reg_data["pending"] if r["username"] != username]
+
+    if len(reg_data["pending"]) == original_len:
+        return "注册申请不存在"
+
+    _save_registrations(reg_data)
+    return ""
