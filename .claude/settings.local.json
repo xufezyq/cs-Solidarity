@@ -7,7 +7,11 @@
       "Bash(python -c \"import uiautomation; print\\(uiautomation.__file__\\)\")",
       "Bash(python -c \"import uiautomation as uia; print\\(dir\\(uia\\)\\)\")",
       "Bash(python -c \"import uiautomation as uia; import inspect; print\\(inspect.getfile\\(uia.SendKeys\\)\\)\")",
-      "Bash(claude skill:*)"
+      "Bash(claude skill:*)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('main.py OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/wechat_instance.py', encoding='utf-8'\\).read\\(\\)\\); print\\('wechat_instance.py OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('instances/steam_auto.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('utils/flash_detector.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")"
     ]
   }
 }

@@ -27,57 +27,22 @@ WS_MINIMIZE = 0x20000000
 
 
 def _find_notification_area_rect():
-    """精确定位系统托盘通知区域（而非整个任务栏）
+    """截取屏幕右下角微信托盘图标附近的小区域
 
-    Win11 路径：Shell_TrayWnd → TrayNotifyWnd → SysPager → ToolbarWindow32
-    Win10 路径：Shell_TrayWnd → TrayNotifyWnd → SysPager → ToolbarWindow32
-    备用：直接截取屏幕右下角通知区域
+    只截取右下角 48x48 的小区域（覆盖托盘图标位置），而非整个任务栏通知区域。
     """
     user32 = ctypes.windll.user32
 
-    # 方法1：通过窗口层级定位通知区域
-    shell = user32.FindWindowW("Shell_TrayWnd", None)
-    if shell:
-        tray = user32.FindWindowExW(shell, None, "TrayNotifyWnd", None)
-        if tray:
-            syspager = user32.FindWindowExW(tray, None, "SysPager", None)
-            if syspager:
-                toolbar = user32.FindWindowExW(syspager, None, "ToolbarWindow32", None)
-                if toolbar:
-                    rect = wintypes.RECT()
-                    user32.GetWindowRect(toolbar, ctypes.byref(rect))
-                    r = (rect.left, rect.top, rect.right, rect.bottom)
-                    if r[2] - r[0] > 0 and r[3] - r[1] > 0:
-                        log.debug(f"通知区域(ToolbarWindow32): {r}")
-                        return r
-
-            # 没有 ToolbarWindow32，截 TrayNotifyWnd
-            rect = wintypes.RECT()
-            user32.GetWindowRect(tray, ctypes.byref(rect))
-            r = (rect.left, rect.top, rect.right, rect.bottom)
-            if r[2] - r[0] > 0 and r[3] - r[1] > 0:
-                log.debug(f"通知区域(TrayNotifyWnd): {r}")
-                return r
-
-    # 方法2：截取屏幕右下角固定区域（备用）
-    # Win11 任务栏默认高度 48px，托盘区域在右下约 400x48
     try:
         screen_w = user32.GetSystemMetrics(0)
         screen_h = user32.GetSystemMetrics(1)
-        # 右下角 400x60 区域（覆盖通知区域 + 溢出图标）
-        tray_rect = (screen_w - 420, screen_h - 65, screen_w, screen_h)
-        log.debug(f"通知区域(屏幕右下角): {tray_rect}")
+        # 右下角 48x48 区域，覆盖托盘图标
+        icon_size = 48
+        tray_rect = (screen_w - icon_size - 4, screen_h - icon_size - 4, screen_w - 4, screen_h - 4)
+        log.debug(f"托盘图标区域: {tray_rect}")
         return tray_rect
     except Exception:
         pass
-
-    # 方法3：最后备用，整个任务栏
-    if shell:
-        rect = wintypes.RECT()
-        user32.GetWindowRect(shell, ctypes.byref(rect))
-        r = (rect.left, rect.top, rect.right, rect.bottom)
-        log.debug(f"通知区域(整个任务栏备用): {r}")
-        return r
 
     return None
 
