@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>cs-Solidarity 控制面板</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <script src="https://cdn.bootcdn.net/ajax/libs/vue/3.5.13/vue.global.prod.min.js"></script>
 <script>
 // Vue CDN 加载失败兜底
@@ -12,114 +13,294 @@ if (typeof Vue === 'undefined') {
 }
 </script>
 <style>
-/* ═══════════════════════ 全局样式 ═══════════════════════ */
+/* ═══════════════════════ Design Tokens ═══════════════════════ */
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
-  --bg: #0f1117; --bg2: #1a1d27; --bg3: #252833;
-  --border: #2e3244; --text: #e0e0e0; --text2: #8b8fa3;
-  --accent: #6c72ff; --accent2: #4a4fcc; --green: #4caf50;
-  --red: #f44336; --yellow: #ff9800; --blue: #2196f3;
-  --card-r: 10px;
+  --bg-grad1: #0a0a1a; --bg-grad2: #1a1035;
+  --glass-bg: rgba(255,255,255,0.05); --glass-hover: rgba(255,255,255,0.08);
+  --glass-border: rgba(255,255,255,0.08); --glass-border-hover: rgba(255,255,255,0.15);
+  --blur: 20px; --blur-heavy: 24px;
+  --radius: 16px; --radius-sm: 10px;
+  --accent: #7c6cff; --accent2: #5a4fd6;
+  --glow: rgba(124,108,255,0.3); --glow-strong: rgba(124,108,255,0.5);
+  --text: #e8e8f0; --text2: #8888a8;
+  --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+/* ═══════════════════════ Global ═══════════════════════ */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, var(--bg-grad1), var(--bg-grad2));
+  color: var(--text); min-height: 100vh; position: relative; overflow-x: hidden;
+}
+/* Ambient light spots */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 600px 600px at 15% 20%, rgba(124,108,255,0.12), transparent),
+    radial-gradient(ellipse 500px 500px at 80% 70%, rgba(96,165,250,0.10), transparent),
+    radial-gradient(ellipse 400px 400px at 50% 90%, rgba(168,85,247,0.08), transparent);
+  animation: ambientDrift 20s ease-in-out infinite alternate;
+}
+@keyframes ambientDrift {
+  0%   { opacity:1; transform:translate(0,0) scale(1); }
+  50%  { opacity:.85; transform:translate(30px,-20px) scale(1.05); }
+  100% { opacity:1; transform:translate(-20px,15px) scale(0.97); }
+}
 a { color:var(--accent); text-decoration:none; }
 button { cursor:pointer; font-family:inherit; }
-input, textarea { font-family:inherit; }
+input, textarea, select { font-family:inherit; }
 
-/* ═══════════════════════ 登录页 ═══════════════════════ */
+/* ═══════════════════════ Login ═══════════════════════ */
 #login-page { position:fixed; inset:0; z-index:9999; }
-.login-overlay { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; }
-.login-box { background:var(--bg2); border:1px solid var(--border); border-radius:var(--card-r); padding:40px; width:360px; }
-.login-box h1 { text-align:center; margin-bottom:8px; font-size:22px; }
-.login-box .sub { text-align:center; color:var(--text2); margin-bottom:24px; font-size:14px; }
-.login-box input { width:100%; padding:10px 12px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:14px; margin-bottom:12px; outline:none; }
-.login-box input:focus { border-color:var(--accent); }
-.login-box .btn { width:100%; padding:10px; background:var(--accent); color:#fff; border:none; border-radius:6px; font-size:15px; font-weight:600; }
-.login-box .btn:hover { background:var(--accent2); }
+.login-overlay {
+  position:fixed; inset:0;
+  background: linear-gradient(135deg, var(--bg-grad1), var(--bg-grad2));
+  display:flex; align-items:center; justify-content:center;
+}
+.login-overlay::before {
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse 500px 500px at 30% 40%, rgba(124,108,255,0.15), transparent),
+    radial-gradient(ellipse 400px 400px at 70% 60%, rgba(96,165,250,0.12), transparent);
+  animation: ambientDrift 20s ease-in-out infinite alternate;
+}
+.login-box {
+  background: var(--glass-bg); backdrop-filter: blur(var(--blur-heavy));
+  border: 1px solid var(--glass-border); border-radius: var(--radius);
+  padding: 48px 40px; width: 400px; position: relative; z-index: 1;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.login-box h1 {
+  text-align:center; margin-bottom:8px; font-size:24px; font-weight:700;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.login-box .sub { text-align:center; color:var(--text2); margin-bottom:32px; font-size:14px; letter-spacing:0.5px; }
+.login-box input {
+  width:100%; padding:12px 16px; background:rgba(255,255,255,0.04);
+  border:1px solid var(--glass-border); border-radius:var(--radius-sm);
+  color:var(--text); font-size:14px; margin-bottom:14px; outline:none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.login-box input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+.login-box .btn {
+  width:100%; padding:12px; border:none; border-radius:var(--radius-sm);
+  font-size:15px; font-weight:600; color:#fff; margin-top:4px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow: 0 4px 16px rgba(124,108,255,0.3);
+  transition: transform .15s, box-shadow .15s;
+}
+.login-box .btn:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(124,108,255,0.4); }
+.login-box .btn:active { transform:translateY(0); }
 .login-box .err { color:var(--red); font-size:13px; margin-bottom:12px; text-align:center; }
 
-/* ═══════════════════════ 布局 ═══════════════════════ */
-#app { display:none; min-height:100vh; flex-direction:column; }
+/* ═══════════════════════ Layout ═══════════════════════ */
+#app { display:none; min-height:100vh; flex-direction:column; position:relative; z-index:1; }
 #app.show { display:flex; }
 .sidebar {
-  width:100%; background:var(--bg2); border-bottom:1px solid var(--border);
-  display:flex; align-items:center; overflow-x:auto; flex-shrink:0;
+  width:100%; display:flex; align-items:center; overflow-x:auto; flex-shrink:0;
+  background:var(--glass-bg); backdrop-filter:blur(var(--blur-heavy));
+  border-bottom:1px solid var(--glass-border);
 }
 .sidebar .brand { display:none; }
-.sidebar .nav-item { padding:10px 14px; cursor:pointer; font-size:20px; color:var(--text2); transition:all .15s; white-space:nowrap; }
-.sidebar .nav-item:hover { background:var(--bg3); color:var(--text); }
-.sidebar .nav-item.active { color:var(--accent); background:var(--bg3); }
+.sidebar .nav-item {
+  padding:10px 14px; cursor:pointer; font-size:18px; color:var(--text2);
+  transition:all .2s; white-space:nowrap; display:flex; align-items:center; gap:6px;
+}
+.sidebar .nav-item:hover { background:var(--glass-hover); color:var(--text); }
+.sidebar .nav-item.active { color:var(--accent); background:rgba(124,108,255,0.1); box-shadow:0 0 12px var(--glow); border-radius:8px; }
 .sidebar .nav-label { display:none; }
 .sidebar .spacer { display:none; }
 .sidebar .user-info { margin-left:auto; padding:10px 14px; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text2); white-space:nowrap; }
 .sidebar .user-info .uname { display:none; }
 .sidebar .user-info .role { display:none; }
-.sidebar .user-info .logout { cursor:pointer; color:var(--red); font-size:13px; }
-.main { flex:1; padding:12px; }
+.sidebar .user-info .logout { cursor:pointer; color:var(--red); font-size:13px; transition:opacity .15s; }
+.sidebar .user-info .logout:hover { opacity:.8; }
+.main { flex:1; padding:16px; }
 
-/* 桌面端布局 */
+/* Desktop */
 @media(min-width:769px) {
   #app { flex-direction:row; }
-  .sidebar { width:200px; flex-direction:column; padding:16px 0; border-bottom:none; border-right:1px solid var(--border); align-items:stretch; overflow-x:visible; }
-  .sidebar .brand { display:block; padding:0 16px 16px; font-size:15px; font-weight:700; border-bottom:1px solid var(--border); margin-bottom:8px; }
-  .sidebar .nav-item { padding:10px 16px; font-size:14px; white-space:normal; }
-  .sidebar .nav-icon { font-size:14px; }
+  .sidebar {
+    width:220px; flex-direction:column; padding:20px 0; border-bottom:none;
+    border-right:1px solid var(--glass-border); align-items:stretch; overflow-x:visible;
+  }
+  .sidebar .brand {
+    display:block; padding:0 20px 20px; font-size:16px; font-weight:700;
+    border-bottom:1px solid var(--glass-border); margin-bottom:12px;
+    background: linear-gradient(135deg, var(--accent), var(--blue));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .sidebar .nav-item { padding:10px 16px; font-size:14px; white-space:normal; border-radius:0; margin:2px 8px; border-radius:10px; }
+  .sidebar .nav-item.active { margin:2px 8px; }
+  .sidebar .nav-icon { font-size:18px; width:22px; text-align:center; }
   .sidebar .nav-label { display:inline; }
   .sidebar .spacer { display:block; flex:1; }
-  .sidebar .user-info { margin-left:0; padding:12px 16px; border-top:1px solid var(--border); flex-direction:column; align-items:stretch; gap:4px; }
-  .sidebar .user-info .uname { display:inline; }
-  .sidebar .user-info .role { display:inline; font-size:11px; padding:2px 6px; border-radius:4px; background:var(--accent); color:#fff; }
+  .sidebar .user-info {
+    margin-left:0; padding:16px 20px; border-top:1px solid var(--glass-border);
+    flex-direction:column; align-items:stretch; gap:6px;
+  }
+  .sidebar .user-info .uname { display:inline; font-size:14px; color:var(--text); }
+  .sidebar .user-info .role { display:inline-block; font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(124,108,255,0.2); color:var(--accent); }
   .sidebar .user-info .logout { font-size:12px; }
-  .main { padding:24px; max-height:100vh; overflow-y:auto; }
+  .main { padding:28px; max-height:100vh; overflow-y:auto; }
 }
 
-/* ═══════════════════════ 通用组件 ═══════════════════════ */
-.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--card-r); padding:20px; margin-bottom:16px; }
-.card h2 { font-size:16px; margin-bottom:16px; }
-.card h3 { font-size:14px; margin-bottom:12px; color:var(--text2); }
+/* ═══════════════════════ Glass Components ═══════════════════════ */
+.card {
+  background:var(--glass-bg); backdrop-filter:blur(var(--blur));
+  border:1px solid var(--glass-border); border-radius:var(--radius);
+  padding:24px; margin-bottom:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.2);
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.card:hover { border-color:var(--glass-border-hover); box-shadow:0 12px 40px rgba(0,0,0,0.3); }
+.card h2 { font-size:16px; margin-bottom:16px; font-weight:600; }
+.card h3 { font-size:14px; margin-bottom:12px; color:var(--text2); font-weight:500; }
 .row { display:flex; gap:16px; flex-wrap:wrap; }
 .row > * { flex:1; min-width:200px; }
-.stat { text-align:center; }
-.stat .num { font-size:28px; font-weight:700; }
-.stat .label { font-size:12px; color:var(--text2); margin-top:4px; }
-.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
-.badge.green { background:#4caf5022; color:var(--green); }
-.badge.red { background:#f4433622; color:var(--red); }
-.badge.yellow { background:#ff980022; color:var(--yellow); }
-.badge.blue { background:#2196f322; color:var(--blue); }
-table { width:100%; border-collapse:collapse; font-size:13px; }
-table th, table td { padding:8px 12px; text-align:left; border-bottom:1px solid var(--border); }
-table th { color:var(--text2); font-weight:600; font-size:12px; text-transform:uppercase; }
-.btn-sm { padding:6px 12px; background:var(--accent); color:#fff; border:none; border-radius:5px; font-size:12px; }
-.btn-sm:hover { background:var(--accent2); }
-.btn-sm.danger { background:var(--red); }
-.btn-sm.danger:hover { background:#d32f2f; }
-.btn-sm.success { background:var(--green); }
-.btn-sm.warn { background:var(--yellow); color:#000; }
-.input-sm { padding:6px 10px; background:var(--bg3); border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:13px; outline:none; }
-.input-sm:focus { border-color:var(--accent); }
-textarea.code { width:100%; min-height:400px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--green); font-family:'Cascadia Code','Fira Code',monospace; font-size:13px; padding:12px; resize:vertical; outline:none; }
-.log-line { font-family:monospace; font-size:12px; padding:3px 0; line-height:1.6; word-break:break-all; }
+.stat { text-align:center; padding:16px; border-radius:var(--radius-sm); background:rgba(255,255,255,0.02); }
+.stat .num {
+  font-size:28px; font-weight:700;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.stat .label { font-size:12px; color:var(--text2); margin-top:6px; }
+.badge { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+.badge.green { background:rgba(74,222,128,0.12); color:var(--green); }
+.badge.red { background:rgba(248,113,113,0.12); color:var(--red); }
+.badge.yellow { background:rgba(251,191,36,0.12); color:var(--yellow); }
+.badge.blue { background:rgba(96,165,250,0.12); color:var(--blue); }
+
+/* Status dots */
+.dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+.dot.green { background:var(--green); box-shadow:0 0 8px rgba(74,222,128,0.5); }
+.dot.red { background:var(--red); box-shadow:0 0 8px rgba(248,113,113,0.5); }
+
+/* Tables */
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
+table th { color:var(--text2); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; padding:10px 14px; background:rgba(255,255,255,0.02); }
+table td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04); }
+table tr:hover td { background:rgba(255,255,255,0.03); }
+table th:first-child { border-radius:8px 0 0 0; }
+table th:last-child { border-radius:0 8px 0 0; }
+
+/* Buttons */
+.btn-sm {
+  padding:8px 16px; border:none; border-radius:8px; font-size:12px; font-weight:600;
+  color:#fff; background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow:0 2px 8px rgba(124,108,255,0.2);
+  transition: transform .15s, box-shadow .15s;
+}
+.btn-sm:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,108,255,0.35); }
+.btn-sm:active { transform:translateY(0); }
+.btn-sm:disabled { opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-sm.danger { background:linear-gradient(135deg, var(--red), #dc2626); box-shadow:0 2px 8px rgba(248,113,113,0.2); }
+.btn-sm.danger:hover { box-shadow:0 4px 12px rgba(248,113,113,0.35); }
+.btn-sm.success { background:linear-gradient(135deg, var(--green), #16a34a); box-shadow:0 2px 8px rgba(74,222,128,0.2); }
+.btn-sm.success:hover { box-shadow:0 4px 12px rgba(74,222,128,0.35); }
+.btn-sm.warn { background:linear-gradient(135deg, var(--yellow), #d97706); color:#000; box-shadow:0 2px 8px rgba(251,191,36,0.2); }
+.btn-sm.warn:hover { box-shadow:0 4px 12px rgba(251,191,36,0.35); }
+
+/* Inputs */
+.input-sm {
+  padding:8px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border);
+  border-radius:8px; color:var(--text); font-size:13px; outline:none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-sm:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+select.input-sm { padding:8px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; color:var(--text); font-size:13px; }
+select.input-sm:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); outline:none; }
+textarea.code {
+  width:100%; min-height:400px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border);
+  border-radius:var(--radius-sm); color:var(--green); font-family:'Cascadia Code','Fira Code',monospace;
+  font-size:13px; padding:14px; resize:vertical; outline:none;
+  transition: border-color .2s, box-shadow .2s;
+}
+textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+
+/* Logs */
+.log-line { font-family:monospace; font-size:12px; padding:4px 0; line-height:1.6; word-break:break-all; }
 .log-line.error { color:var(--red); }
 .log-line.warning { color:var(--yellow); }
 .log-line.info { color:var(--text); }
 .log-line.debug { color:var(--text2); }
-.toast { position:fixed; top:20px; right:20px; padding:12px 20px; border-radius:8px; color:#fff; font-size:14px; z-index:10000; animation:fadeIn .3s; }
-.toast.success { background:var(--green); }
-.toast.error { background:var(--red); }
+
+/* Toast */
+.toast {
+  position:fixed; top:20px; right:20px; padding:14px 24px; border-radius:var(--radius-sm);
+  font-size:14px; z-index:10000; backdrop-filter:blur(var(--blur));
+  animation:toastIn .4s cubic-bezier(.34,1.56,.64,1);
+  border-left:3px solid; box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+.toast.success { background:rgba(74,222,128,0.15); border-left-color:var(--green); color:var(--green); }
+.toast.error { background:rgba(248,113,113,0.15); border-left-color:var(--red); color:var(--red); }
+@keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
 @keyframes fadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-select.input-sm { padding:6px 10px; background:var(--bg3); border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:13px; }
-.empty { text-align:center; color:var(--text2); padding:40px; font-size:14px; }
-.expandable { cursor:pointer; }
-.expandable:hover { background:var(--bg3); }
-.json-detail { background:var(--bg); border-radius:6px; padding:12px; font-family:monospace; font-size:12px; white-space:pre-wrap; color:var(--green); margin-top:8px; max-height:400px; overflow-y:auto; }
+
+/* Misc */
+.empty { text-align:center; color:var(--text2); padding:48px; font-size:14px; }
+.expandable { cursor:pointer; border-radius:8px; padding:4px; margin:-4px; }
+.expandable:hover { background:rgba(255,255,255,0.03); }
+.json-detail {
+  background:rgba(0,0,0,0.3); border-radius:var(--radius-sm); padding:14px;
+  font-family:monospace; font-size:12px; white-space:pre-wrap; color:var(--green);
+  margin-top:12px; max-height:400px; overflow-y:auto; border:1px solid var(--glass-border);
+}
+
+/* Card stagger entrance */
+.card-enter { animation:cardIn .4s ease both; }
+@keyframes cardIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+/* Page fade */
+.page-enter { animation:pageIn .2s ease; }
+@keyframes pageIn { from{opacity:0} to{opacity:1} }
+
+/* Table avatar */
+.table-avatar { width:24px; height:24px; border-radius:50%; vertical-align:middle; margin-right:6px; object-fit:cover; }
+
+/* Leaderboard grid */
+.lb-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+.lb-category { padding:16px 12px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); }
+.lb-cat-header { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; text-align:center; }
+
+/* Podium */
+.podium { display:flex; align-items:flex-end; justify-content:center; gap:12px; padding:0 0 4px; }
+.podium-item { text-align:center; flex:0 0 auto; }
+.podium-empty { visibility:hidden; }
+.podium-avatar { width:48px; height:48px; border-radius:50%; margin:0 auto 6px; overflow:hidden; background:rgba(255,255,255,0.05); border:2px solid var(--glass-border); display:flex; align-items:center; justify-content:center; }
+.podium-avatar img { width:100%; height:100%; object-fit:cover; }
+.podium-avatar i { font-size:24px; color:var(--text2); }
+.rank1 { width:60px; height:60px; border-color:var(--yellow); box-shadow:0 0 14px rgba(251,191,36,0.25); }
+.rank2 { border-color:rgba(192,192,192,0.5); }
+.rank3 { border-color:rgba(205,127,50,0.5); }
+.podium-rank { font-size:16px; font-weight:700; margin-bottom:2px; }
+.podium-item:nth-child(2) .podium-rank { color:var(--yellow); font-size:20px; }
+.podium-item:nth-child(1) .podium-rank { color:#c0c0c0; }
+.podium-item:nth-child(3) .podium-rank { color:#cd7f32; }
+.podium-name { font-size:12px; font-weight:600; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 auto; }
+.podium-value { font-size:11px; color:var(--accent); font-weight:600; margin-top:2px; }
+.podium-stand { margin-top:6px; border-radius:6px 6px 0 0; }
+.stand1 { width:72px; height:52px; background:linear-gradient(180deg, rgba(251,191,36,0.12), rgba(251,191,36,0.03)); border:1px solid rgba(251,191,36,0.15); border-bottom:none; }
+.stand2 { width:64px; height:36px; background:linear-gradient(180deg, rgba(192,192,192,0.08), rgba(192,192,192,0.02)); border:1px solid rgba(192,192,192,0.1); border-bottom:none; }
+.stand3 { width:64px; height:24px; background:linear-gradient(180deg, rgba(205,127,50,0.08), rgba(205,127,50,0.02)); border:1px solid rgba(205,127,50,0.1); border-bottom:none; }
+
+/* Mobile */
 @media(max-width:768px) {
   .row { flex-direction:column; }
   .row > * { min-width:100%; }
-  .card { padding:12px; }
+  .card { padding:16px; }
   table { display:block; overflow-x:auto; }
-  .login-box { width:90%; max-width:360px; padding:24px; }
+  .login-box { width:90%; max-width:400px; padding:32px 24px; }
   .input-sm, .login-box input { font-size:16px; }
+  .lb-grid { grid-template-columns:1fr; }
+  .podium { gap:8px; }
+  .podium-avatar { width:40px; height:40px; }
+  .rank1 { width:50px; height:50px; }
+  .stand1 { width:60px; height:40px; }
+  .stand2 { width:52px; height:28px; }
+  .stand3 { width:52px; height:20px; }
   textarea.code { min-height:250px; font-size:12px; }
 }
 </style>
@@ -129,7 +310,7 @@ select.input-sm { padding:6px 10px; background:var(--bg3); border:1px solid var(
 <div id="login-page">
   <div class="login-overlay">
     <div class="login-box">
-      <h1>🔧 cs-Solidarity</h1>
+      <h1>cs-Solidarity</h1>
       <div class="sub">Web 控制面板</div>
       <div class="err" id="login-error"></div>
       <input id="login-user" placeholder="用户名" autofocus>
@@ -201,16 +382,16 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- ═══════════ Vue 主界面 ═══════════ -->
 <div id="app">
 <div class="sidebar">
-  <div class="brand">🔧 cs-Solidarity</div>
+  <div class="brand">cs-Solidarity</div>
   <div class="nav-item" v-for="item in visibleNav" :key="item.key"
        :class="{active: currentPage===item.key}" @click="currentPage=item.key">
-    <span class="nav-icon">{{ item.icon }}</span><span class="nav-label">{{ item.label }}</span>
+    <i class="nav-icon mdi" :class="item.icon"></i><span class="nav-label">{{ item.label }}</span>
   </div>
   <div class="spacer"></div>
   <div class="user-info">
     <span class="uname">{{ user.display_name || user.username }}</span>
     <span class="role">{{ user.role }}</span>
-    <span class="logout" @click="doLogout">退出</span>
+    <span class="logout" @click="doLogout"><i class="mdi mdi-logout" style="margin-right:4px;"></i>退出</span>
   </div>
 </div>
 <div class="main">
@@ -219,16 +400,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ 仪表盘 ═══════════ -->
   <div v-if="currentPage==='dashboard'">
-    <h2 style="margin-bottom:16px;">📊 仪表盘</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-view-dashboard" style="margin-right:8px;"></i>仪表盘</h2>
     <!-- Agent 状态 -->
-    <div class="card">
+    <div class="card card-enter">
       <div class="row">
         <div class="stat">
-          <div class="num">{{ overview.agent_connected ? '🟢' : '🔴' }}</div>
+          <div class="num" style="font-size:20px;"><span class="dot" :class="overview.agent_connected ? 'green' : 'red'"></span></div>
           <div class="label">Agent {{ overview.agent_connected ? '已连接' : '未连接' }}</div>
         </div>
         <div class="stat">
-          <div class="num">{{ overview.bot_running ? '🟢' : '🔴' }}</div>
+          <div class="num" style="font-size:20px;"><span class="dot" :class="overview.bot_running ? 'green' : 'red'"></span></div>
           <div class="label">Bot {{ overview.bot_running ? '运行中' : '已停止' }}</div>
         </div>
         <div class="stat">
@@ -236,18 +417,18 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="label">实例数量</div>
         </div>
         <div class="stat">
-          <div class="num">{{ overview.debug_mode ? '🐛' : '✅' }}</div>
+          <div class="num" style="font-size:20px;"><i class="mdi" :class="overview.debug_mode ? 'mdi-bug' : 'mdi-check-circle'" :style="{color: overview.debug_mode ? 'var(--yellow)' : 'var(--green)'}"></i></div>
           <div class="label">{{ overview.debug_mode ? 'Debug 模式' : '正常模式' }}</div>
         </div>
         <div class="stat">
-          <div class="num">{{ overview.is_maintenance ? '🌙' : '☀️' }}</div>
+          <div class="num" style="font-size:20px;"><i class="mdi" :class="overview.is_maintenance ? 'mdi-weather-night' : 'mdi-white-balance-sunny'" :style="{color: overview.is_maintenance ? 'var(--blue)' : 'var(--yellow)'}"></i></div>
           <div class="label">{{ overview.is_maintenance ? '维护时段' : '正常运行' }}</div>
         </div>
       </div>
     </div>
     <!-- 最近日志 -->
-    <div class="card">
-      <h2>📋 最近日志</h2>
+    <div class="card card-enter" style="animation-delay:.1s">
+      <h2><i class="mdi mdi-file-document" style="margin-right:8px;"></i>最近日志</h2>
       <div v-if="overview.recent_logs && overview.recent_logs.length">
         <div class="log-line" v-for="(line,i) in overview.recent_logs" :key="i"
              :class="{'error':line.includes('ERROR'),'warning':line.includes('WARNING')}">
@@ -260,14 +441,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ 实例管理 ═══════════ -->
   <div v-if="currentPage==='instances'">
-    <h2 style="margin-bottom:16px;">🧩 实例管理</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-puzzle" style="margin-right:8px;"></i>实例管理</h2>
     <div v-if="instances.length===0" class="card empty">Agent 未连接或无实例配置</div>
-    <div class="card" v-for="inst in instances" :key="inst.index">
+    <div class="card card-enter" v-for="(inst,idx) in instances" :key="inst.index" :style="{animationDelay: (idx*0.08)+'s'}">
       <div class="expandable" @click="inst._expanded=!inst._expanded">
         <h3>
-          <span>{{ typeIcons[inst.type] || '📦' }} {{ inst.type.toUpperCase() }}</span>
-          <span class="badge green" style="margin-left:8px;">运行中</span>
-          <span style="float:right;color:var(--text2);font-size:12px;">{{ inst._expanded ? '▼' : '▶' }} {{ inst.config_path }}</span>
+          <i class="mdi" :class="typeIcons[inst.type] || 'mdi-package'" style="margin-right:4px;"></i><span>{{ inst.type.toUpperCase() }}</span>
+          <span class="badge green" style="margin-left:8px;"><i class="mdi mdi-check-circle" style="font-size:11px;margin-right:2px;"></i>运行中</span>
+          <span style="float:right;color:var(--text2);font-size:12px;"><i class="mdi" :class="inst._expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></i> {{ inst.config_path }}</span>
         </h3>
         <div class="row">
           <div v-for="(val,key) in inst.summary" :key="key">
@@ -282,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ 配置编辑 ═══════════ -->
   <div v-if="currentPage==='config'">
-    <h2 style="margin-bottom:16px;">⚙️ 配置编辑</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-cog" style="margin-right:8px;"></i>配置编辑</h2>
     <div class="row" style="margin-bottom:16px;">
       <div>
         <select class="input-sm" v-model="config.selectedFile" @change="loadConfig" style="min-width:200px;">
@@ -291,28 +472,28 @@ document.addEventListener('DOMContentLoaded', function() {
             {{ f.type === 'main' ? '📋' : '🧩' }} {{ f.name }}
           </option>
         </select>
-        <button class="btn-sm" @click="loadConfigList" style="margin-left:8px;">🔄 刷新</button>
+        <button class="btn-sm" @click="loadConfigList" style="margin-left:8px;"><i class="mdi mdi-refresh"></i> 刷新</button>
       </div>
       <div style="text-align:right;">
-        <button class="btn-sm warn" @click="backupConfig" :disabled="!config.selectedFile" style="margin-right:8px;">📦 备份</button>
-        <button class="btn-sm success" @click="saveConfig" :disabled="!config.selectedFile">💾 保存</button>
+        <button class="btn-sm warn" @click="backupConfig" :disabled="!config.selectedFile" style="margin-right:8px;"><i class="mdi mdi-archive"></i> 备份</button>
+        <button class="btn-sm success" @click="saveConfig" :disabled="!config.selectedFile"><i class="mdi mdi-content-save"></i> 保存</button>
       </div>
     </div>
-    <div class="card" v-if="config.selectedFile">
+    <div class="card card-enter" v-if="config.selectedFile">
       <h3>{{ config.selectedFile }} <span style="color:var(--text2);font-size:12px;">{{ config.modified }}</span></h3>
       <textarea class="code" v-model="config.content"></textarea>
-      <div v-if="config.error" style="color:var(--red);margin-top:8px;font-size:13px;">⚠️ {{ config.error }}</div>
+      <div v-if="config.error" style="color:var(--red);margin-top:8px;font-size:13px;"><i class="mdi mdi-alert" style="margin-right:4px;"></i>{{ config.error }}</div>
     </div>
     <!-- 备份列表 -->
-    <div class="card" v-if="config.backups.length">
-      <h2>📦 备份历史</h2>
+    <div class="card card-enter" v-if="config.backups.length" style="animation-delay:.15s">
+      <h2><i class="mdi mdi-archive" style="margin-right:8px;"></i>备份历史</h2>
       <table>
         <tr><th>文件名</th><th>大小</th><th>创建时间</th><th>操作</th></tr>
         <tr v-for="b in config.backups" :key="b.name">
           <td>{{ b.name }}</td>
           <td>{{ (b.size/1024).toFixed(1) }} KB</td>
           <td>{{ b.created }}</td>
-          <td><button class="btn-sm" @click="restoreBackup(b.name)">恢复</button></td>
+          <td><button class="btn-sm" @click="restoreBackup(b.name)"><i class="mdi mdi-restore"></i> 恢复</button></td>
         </tr>
       </table>
     </div>
@@ -320,12 +501,95 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ Steam ═══════════ -->
   <div v-if="currentPage==='steam'">
-    <h2 style="margin-bottom:16px;">🎮 Steam 监控</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-steam" style="margin-right:8px;"></i>Steam 监控</h2>
     <div v-if="!steamDetail" class="card empty">Agent 未连接或未找到 Steam 实例</div>
     <template v-if="steamDetail">
+      <!-- 排行榜 -->
+      <div class="card card-enter" v-if="steamDetail.friend_pw_leaderboard" style="animation-delay:.08s">
+        <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
+        <!-- 每个类别的 Top 3 -->
+        <div class="lb-grid">
+        <div class="lb-category" v-for="(val,key) in steamDetail.friend_pw_leaderboard" :key="key">
+          <div class="lb-cat-header">{{ leaderboardLabels[key] || key }}</div>
+          <div class="podium">
+            <!-- 第2名（左） -->
+            <div class="podium-item" v-if="getTop3(key)[1]">
+              <div class="podium-avatar rank2">
+                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" @error="$event.target.style.display='none'">
+                <i v-else class="mdi mdi-account"></i>
+              </div>
+              <div class="podium-rank">2</div>
+              <div class="podium-name">{{ getTop3(key)[1].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[1].value }}</div>
+              <div class="podium-stand stand2"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand2"></div></div>
+            <!-- 第1名（中） -->
+            <div class="podium-item" v-if="getTop3(key)[0]">
+              <div class="podium-avatar rank1">
+                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" @error="$event.target.style.display='none'">
+                <i v-else class="mdi mdi-account"></i>
+              </div>
+              <div class="podium-rank">1</div>
+              <div class="podium-name">{{ getTop3(key)[0].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[0].value }}</div>
+              <div class="podium-stand stand1"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand1"></div></div>
+            <!-- 第3名（右） -->
+            <div class="podium-item" v-if="getTop3(key)[2]">
+              <div class="podium-avatar rank3">
+                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" @error="$event.target.style.display='none'">
+                <i v-else class="mdi mdi-account"></i>
+              </div>
+              <div class="podium-rank">3</div>
+              <div class="podium-name">{{ getTop3(key)[2].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[2].value }}</div>
+              <div class="podium-stand stand3"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand3"></div></div>
+          </div>
+        </div>
+        </div>
+      </div>
+      <!-- 历史极值 -->
+      <div class="card card-enter" v-if="steamDetail.friend_pw_history_stats" style="animation-delay:.16s">
+        <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>历史极值</h2>
+        <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>玩家</th>
+            <th>最高击杀</th><th>最低击杀</th>
+            <th>最多死亡</th><th>最少死亡</th>
+            <th>最高 Rating</th><th>最低 Rating</th>
+            <th>最高 PW RT</th><th>最低 PW RT</th>
+            <th>最高胜率</th><th>最低胜率</th>
+            <th>最高分数</th><th>最低分数</th>
+          </tr>
+          <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
+            <td style="white-space:nowrap;">
+              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" @error="$event.target.style.display='none'">
+              {{ val.pw_nickname || val.nickname }}
+            </td>
+            <td>{{ val.max_kills || '-' }}</td>
+            <td>{{ val.min_kills < 999 ? val.min_kills : '-' }}</td>
+            <td>{{ val.max_deaths || '-' }}</td>
+            <td>{{ val.min_deaths < 999 ? val.min_deaths : '-' }}</td>
+            <td>{{ val.max_rating ? val.max_rating.toFixed(1) : '-' }}</td>
+            <td>{{ val.min_rating < 999 ? val.min_rating.toFixed(1) : '-' }}</td>
+            <td>{{ val.max_pw_rating ? val.max_pw_rating.toFixed(1) : '-' }}</td>
+            <td>{{ val.min_pw_rating < 999 ? val.min_pw_rating.toFixed(1) : '-' }}</td>
+            <td>{{ val.max_we || '-' }}</td>
+            <td>{{ val.min_we < 999 ? val.min_we : '-' }}</td>
+            <td>{{ val.max_score || '-' }}</td>
+            <td>{{ val.min_score < 9999 ? val.min_score : '-' }}</td>
+          </tr>
+        </table>
+        </div>
+      </div>
       <!-- 好友列表 -->
-      <div class="card">
-        <h2>👥 监控好友 ({{ (steamDetail.monitored_friends || []).length }})</h2>
+      <div class="card card-enter" style="animation-delay:.24s">
+        <h2><i class="mdi mdi-account-multiple" style="margin-right:8px;"></i>监控好友 ({{ (steamDetail.monitored_friends || []).length }})</h2>
         <table>
           <tr><th>昵称</th><th>Steam ID</th></tr>
           <tr v-for="f in steamDetail.monitored_friends || []" :key="f.steamid">
@@ -334,38 +598,12 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
         </table>
       </div>
-      <!-- 排行榜 -->
-      <div class="card" v-if="steamDetail.friend_pw_leaderboard">
-        <h2>🏆 完美世界排行榜</h2>
-        <table>
-          <tr><th>指标</th><th>玩家</th><th>数值</th></tr>
-          <tr v-for="(val,key) in steamDetail.friend_pw_leaderboard" :key="key">
-            <td>{{ leaderboardLabels[key] || key }}</td>
-            <td>{{ val.nickname }}</td>
-            <td><strong>{{ val.value }}</strong></td>
-          </tr>
-        </table>
-      </div>
-      <!-- 历史极值 -->
-      <div class="card" v-if="steamDetail.friend_pw_history_stats">
-        <h2>📈 历史极值</h2>
-        <table>
-          <tr><th>玩家</th><th>最高 Rating</th><th>最低 Rating</th><th>最高击杀</th><th>最高分数</th></tr>
-          <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
-            <td>{{ val.nickname }}</td>
-            <td>{{ val.max_rating }}</td>
-            <td>{{ val.min_rating }}</td>
-            <td>{{ val.max_kills }}</td>
-            <td>{{ val.max_score }}</td>
-          </tr>
-        </table>
-      </div>
     </template>
   </div>
 
   <!-- ═══════════ 日志 ═══════════ -->
   <div v-if="currentPage==='logs'">
-    <h2 style="margin-bottom:16px;">📋 日志查看</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-file-document" style="margin-right:8px;"></i>日志查看</h2>
     <div class="row" style="margin-bottom:16px;">
       <input class="input-sm" type="date" v-model="logs.date" @change="loadLogs" style="min-width:150px;">
       <select class="input-sm" v-model="logs.level" @change="loadLogs" style="min-width:100px;">
@@ -376,16 +614,16 @@ document.addEventListener('DOMContentLoaded', function() {
         <option value="ERROR">ERROR</option>
       </select>
       <input class="input-sm" v-model="logs.keyword" placeholder="关键词搜索..." @keyup.enter="loadLogs" style="min-width:200px;">
-      <button class="btn-sm" @click="loadLogs">🔍 搜索</button>
+      <button class="btn-sm" @click="loadLogs"><i class="mdi mdi-magnify"></i> 搜索</button>
       <button class="btn-sm" @click="toggleLogStream" :class="{'danger':logs.streaming}">
-        {{ logs.streaming ? '⏸ 停止实时' : '▶ 实时推送' }}
+        <i class="mdi" :class="logs.streaming ? 'mdi-pause' : 'mdi-play'"></i> {{ logs.streaming ? '停止实时' : '实时推送' }}
       </button>
     </div>
-    <div class="card">
+    <div class="card card-enter">
       <div style="margin-bottom:8px;font-size:12px;color:var(--text2);">
         共 {{ logs.total }} 条 | 第 {{ logs.page }} 页
-        <button class="btn-sm" @click="logs.page>1&&(logs.page--,loadLogs())" :disabled="logs.page<=1" style="margin-left:8px;">◀</button>
-        <button class="btn-sm" @click="logs.page++;loadLogs()" style="margin-left:4px;">▶</button>
+        <button class="btn-sm" @click="logs.page>1&&(logs.page--,loadLogs())" :disabled="logs.page<=1" style="margin-left:8px;"><i class="mdi mdi-chevron-left"></i></button>
+        <button class="btn-sm" @click="logs.page++;loadLogs()" style="margin-left:4px;"><i class="mdi mdi-chevron-right"></i></button>
       </div>
       <div style="max-height:60vh;overflow-y:auto;">
         <div class="log-line" v-for="(line,i) in logs.lines" :key="i"
@@ -399,28 +637,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ 控制 ═══════════ -->
   <div v-if="currentPage==='control'">
-    <h2 style="margin-bottom:16px;">🔴 Bot 控制</h2>
-    <div class="card">
-      <h2>进程控制</h2>
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-play-circle" style="margin-right:8px;"></i>Bot 控制</h2>
+    <div class="card card-enter">
+      <h2><i class="mdi mdi-console" style="margin-right:8px;"></i>进程控制</h2>
       <div class="row">
         <div class="stat">
-          <div class="num">{{ overview.bot_running ? '🟢' : '🔴' }}</div>
+          <div class="num" style="font-size:20px;"><span class="dot" :class="overview.bot_running ? 'green' : 'red'"></span></div>
           <div class="label">状态: {{ overview.bot_running ? '运行中' : '已停止' }}</div>
           <div class="label" v-if="overview.bot_pid">PID: {{ overview.bot_pid }}</div>
         </div>
       </div>
       <div style="margin-top:16px;display:flex;gap:12px;">
-        <button class="btn-sm success" @click="controlBot('start')" :disabled="overview.bot_running || ctrlLoading">▶ 启动</button>
-        <button class="btn-sm danger" @click="controlBot('stop')" :disabled="!overview.bot_running || ctrlLoading">⏹ 停止</button>
-        <button class="btn-sm warn" @click="controlBot('restart')" :disabled="ctrlLoading">🔄 重启</button>
+        <button class="btn-sm success" @click="controlBot('start')" :disabled="overview.bot_running || ctrlLoading"><i class="mdi mdi-play"></i> 启动</button>
+        <button class="btn-sm danger" @click="controlBot('stop')" :disabled="!overview.bot_running || ctrlLoading"><i class="mdi mdi-stop"></i> 停止</button>
+        <button class="btn-sm warn" @click="controlBot('restart')" :disabled="ctrlLoading"><i class="mdi mdi-restart"></i> 重启</button>
       </div>
     </div>
   </div>
 
   <!-- ═══════════ 用户管理 ═══════════ -->
   <div v-if="currentPage==='users'">
-    <h2 style="margin-bottom:16px;">👤 用户管理</h2>
-    <div class="card">
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-account-group" style="margin-right:8px;"></i>用户管理</h2>
+    <div class="card card-enter">
       <div style="margin-bottom:16px;">
         <input class="input-sm" v-model="newUser.username" placeholder="用户名" style="margin-right:8px;">
         <input class="input-sm" v-model="newUser.password" placeholder="密码" type="password" style="margin-right:8px;">
@@ -428,7 +666,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <option value="user">普通用户</option>
           <option value="admin">管理员</option>
         </select>
-        <button class="btn-sm success" @click="createUser">➕ 创建用户</button>
+        <button class="btn-sm success" @click="createUser"><i class="mdi mdi-account-plus"></i> 创建用户</button>
       </div>
       <table>
         <tr><th>用户名</th><th>显示名</th><th>角色</th><th>最后登录</th><th>操作</th></tr>
@@ -439,9 +677,9 @@ document.addEventListener('DOMContentLoaded', function() {
           <td style="font-size:12px;color:var(--text2);">{{ u.last_login || '从未' }}</td>
           <td>
             <button class="btn-sm" @click="toggleRole(u)" style="margin-right:4px;" :disabled="u.username===user.username">
-              {{ u.role==='admin' ? '降为用户' : '升为管理员' }}
+              <i class="mdi" :class="u.role==='admin' ? 'mdi-arrow-down' : 'mdi-arrow-up'" style="margin-right:2px;"></i>{{ u.role==='admin' ? '降为用户' : '升为管理员' }}
             </button>
-            <button class="btn-sm danger" @click="deleteUser(u.username)" :disabled="u.username===user.username">删除</button>
+            <button class="btn-sm danger" @click="deleteUser(u.username)" :disabled="u.username===user.username"><i class="mdi mdi-delete"></i> 删除</button>
           </td>
         </tr>
       </table>
@@ -450,12 +688,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ 修改密码 ═══════════ -->
   <div v-if="currentPage==='password'">
-    <h2 style="margin-bottom:16px;">🔑 修改密码</h2>
-    <div class="card" style="max-width:400px;">
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-lock" style="margin-right:8px;"></i>修改密码</h2>
+    <div class="card card-enter" style="max-width:400px;">
       <input class="input-sm" v-model="pwForm.old" type="password" placeholder="当前密码" style="width:100%;margin-bottom:12px;">
       <input class="input-sm" v-model="pwForm.new1" type="password" placeholder="新密码" style="width:100%;margin-bottom:12px;">
       <input class="input-sm" v-model="pwForm.new2" type="password" placeholder="确认新密码" style="width:100%;margin-bottom:12px;">
-      <button class="btn-sm success" @click="changePassword">确认修改</button>
+      <button class="btn-sm success" @click="changePassword"><i class="mdi mdi-check"></i> 确认修改</button>
     </div>
   </div>
 </div>
@@ -487,23 +725,46 @@ createApp({
     const config = reactive({ files: [], selectedFile: '', content: '', modified: '', error: '', backups: [] });
     const logs = reactive({ date: new Date().toISOString().slice(0,10), level: '', keyword: '', lines: [], total: 0, page: 1, streaming: false, ws: null });
 
-    const typeIcons = { steam: '🎮', daily: '⏰', chat: '🤖', korichat: '💬', infopush: '📰' };
+    const typeIcons = { steam: 'mdi-steam', daily: 'mdi-clock', chat: 'mdi-robot', korichat: 'mdi-chat', infopush: 'mdi-newspaper' };
     const leaderboardLabels = {
       max_kills: '最高击杀', min_kills: '最低击杀', max_deaths: '最多死亡', min_deaths: '最少死亡',
-      max_rating: '最高 Rating', min_rating: '最低 Rating', max_pw_rating: '最高 PW Rating',
+      max_rating: '最高 Rating', min_rating: '最低 Rating', max_pw_rating: '最高 PW Rating', min_pw_rating: '最低 PW Rating',
       max_we: '最高胜率', min_we: '最低胜率', max_score: '最高分数', min_score: '最低分数',
     };
 
+    // 预计算每个排行榜类别的 Top 3
+    const allTop3 = computed(() => {
+      const hs = steamDetail.value?.friend_pw_history_stats;
+      const lb = steamDetail.value?.friend_pw_leaderboard;
+      if (!hs || !lb) return {};
+      const minKeys = ['min_kills','min_deaths','min_rating','min_pw_rating','min_we','min_score'];
+      const result = {};
+      for (const key of Object.keys(lb)) {
+        const isMin = minKeys.includes(key);
+        const sentinel = isMin ? 99999 : 0;
+        const entries = Object.entries(hs).map(([sid, d]) => ({
+          steamid: sid,
+          pw_nickname: d.pw_nickname || d.nickname || '未知',
+          avatar: d.avatar || '',
+          value: d[key] ?? sentinel,
+        })).filter(p => isMin ? (p.value > 0 && p.value < sentinel) : p.value > 0);
+        entries.sort((a, b) => isMin ? a.value - b.value : b.value - a.value);
+        result[key] = entries.slice(0, 3);
+      }
+      return result;
+    });
+    function getTop3(key) { return allTop3.value[key] || []; }
+
     // ── 导航菜单 ──
     const allNav = [
-      { key:'dashboard', icon:'📊', label:'仪表盘', roles:['admin','user'] },
-      { key:'instances', icon:'🧩', label:'实例管理', roles:['admin','user'] },
-      { key:'config',    icon:'⚙️', label:'配置编辑', roles:['admin'] },
-      { key:'steam',     icon:'🎮', label:'Steam',   roles:['admin','user'] },
-      { key:'logs',      icon:'📋', label:'日志',     roles:['admin','user'] },
-      { key:'control',   icon:'🔴', label:'控制',     roles:['admin'] },
-      { key:'users',     icon:'👤', label:'用户管理', roles:['admin'] },
-      { key:'password',  icon:'🔑', label:'修改密码', roles:['admin','user'] },
+      { key:'dashboard', icon:'mdi-view-dashboard', label:'仪表盘', roles:['admin','user'] },
+      { key:'steam',     icon:'mdi-steam', label:'Steam',   roles:['admin','user'] },
+      { key:'instances', icon:'mdi-puzzle', label:'实例管理', roles:['admin','user'] },
+      { key:'config',    icon:'mdi-cog', label:'配置编辑', roles:['admin'] },
+      { key:'logs',      icon:'mdi-file-document', label:'日志', roles:['admin','user'] },
+      { key:'control',   icon:'mdi-play-circle', label:'控制', roles:['admin'] },
+      { key:'users',     icon:'mdi-account-group', label:'用户管理', roles:['admin'] },
+      { key:'password',  icon:'mdi-lock', label:'修改密码', roles:['admin','user'] },
     ];
     const visibleNav = computed(() => allNav.filter(n => n.roles.includes(user.role)));
 
@@ -718,7 +979,7 @@ createApp({
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
       overview, instances, userList, steamDetail, newUser, pwForm, config, logs,
-      visibleNav, typeIcons, leaderboardLabels, ctrlLoading,
+      visibleNav, typeIcons, leaderboardLabels, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
     };
