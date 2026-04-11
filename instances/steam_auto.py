@@ -33,7 +33,7 @@ class SteamAuto(BaseInstance):
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
-        self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "nickname": ..., "value": ...}}
+        self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_message = code_update_message
         self.check_interval = check_interval
@@ -63,26 +63,18 @@ class SteamAuto(BaseInstance):
         
         # 配置监听的好友列表
         self.monitored_friends = set()
-        self.friend_nickname_map = {}  # 映射 steamid 到 nickname
-        self.friend_pw_username_map = {}  # 映射 steamid 到 pw_username
         self.friend_pw_nickname_map = {}  # 映射 steamid 到 pw_nickname
         self.enable_all_friends = enable_all_friends
-        
+
         if monitored_friends:
-            # 将监听列表转换为集合，方便查询，同时构建各种映射
+            # 将监听列表转换为集合，方便查询，同时构建映射
             for friend in monitored_friends:
                 if isinstance(friend, dict):
                     steamid = friend.get('steamid', '')
-                    nickname = friend.get('nickname', friend.get('personaname', '未知昵称'))
-                    pw_username = friend.get('pw_username', '')
-                    pw_nickname = friend.get('pw_nickname', nickname)
-                    
+                    pw_nickname = friend.get('pw_nickname', friend.get('personaname', '未知昵称'))
+
                     self.monitored_friends.add(steamid)
-                    self.friend_nickname_map[steamid] = nickname
-                    if pw_username:
-                        self.friend_pw_username_map[steamid] = pw_username
-                    if pw_nickname:
-                        self.friend_pw_nickname_map[steamid] = pw_nickname
+                    self.friend_pw_nickname_map[steamid] = pw_nickname
                 else:
                     steamid = str(friend)
                     self.monitored_friends.add(steamid)
@@ -177,7 +169,7 @@ class SteamAuto(BaseInstance):
                 friends_config.append({
                     "steamid": friend.get('steamid', ''),
                     "personaname": friend.get('personaname', '未知昵称'),
-                    "nickname": friend.get('personaname', '未知昵称')
+                    "pw_nickname": friend.get('personaname', '未知昵称')
                 })
             
             # 更新配置
@@ -189,7 +181,7 @@ class SteamAuto(BaseInstance):
             
             log.info(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
             for friend in friends_config:
-                log.debug(f"  - {friend['nickname']} ({friend['steamid']})")
+                log.debug(f"  - {friend['pw_nickname']} ({friend['steamid']})")
             
         except Exception as e:
             log.info(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
@@ -456,10 +448,30 @@ class SteamAuto(BaseInstance):
             return []
 
         log.info(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
-        
+
+        # 为每场对局调用 get_match_detail 获取完美平台昵称（同一 matchId 只调一次）
+        match_pw_nicknames = {}  # match_id -> {steam_id: pw_nickname}
+        for match_id in match_groups:
+            try:
+                detail = await self.pw_api.get_match_detail(match_id)
+                if isinstance(detail, int) or not detail.get('players'):
+                    match_pw_nicknames[match_id] = {}
+                    continue
+                nick_map = {}
+                for player in detail['players']:
+                    pid = str(player.get('playerId', ''))
+                    pw_nick = player.get('nickName', '')
+                    if pid and pw_nick:
+                        nick_map[pid] = pw_nick
+                match_pw_nicknames[match_id] = nick_map
+                log.info(f"[{datetime.now()}] 对局 {match_id} 获取到 {len(nick_map)} 个完美昵称")
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 获取对局详情失败 ({match_id}): {e}")
+                match_pw_nicknames[match_id] = {}
+
         # 收集所有玩家的数据，用于合并和排序
         all_players = []  # [(steam_id, data, map_name, score1, score2), ...]
-        
+
         for match_id, group in match_groups.items():
             try:
                 # 这一组都是同一场比赛的好友
@@ -468,11 +480,24 @@ class SteamAuto(BaseInstance):
                 map_name = first_player_data.get('mapName', '未知地图')
                 score1 = first_player_data.get('score1')
                 score2 = first_player_data.get('score2')
-                
+
+                pw_nicks = match_pw_nicknames.get(match_id, {})
+
                 for steam_id, data in group:
-                    # 先统计数据和历史战绩
-                    nickname = self.friend_nickname_map.get(steam_id, '未知好友')
-                    
+                    # 优先使用对局详情中的完美平台昵称，其次使用已缓存的昵称
+                    pw_name = pw_nicks.get(steam_id, '')
+                    if pw_name:
+                        nickname = pw_name
+                        self.friend_pw_nickname_map[steam_id] = pw_name
+                    else:
+                        nickname = self.friend_pw_nickname_map.get(steam_id, '未知好友')
+
+                    # 跳过已播报的对局
+                    hist = self.friend_pw_history_stats.get(steam_id, {})
+                    if hist.get('last_match_id') == match_id:
+                        log.info(f"[{datetime.now()}] {nickname} 的对局 {match_id} 已播报过，跳过")
+                        continue
+
                     # 胜负
                     win_team = data.get('winTeam')
                     my_team = data.get('team')
@@ -482,7 +507,7 @@ class SteamAuto(BaseInstance):
                         result = "胜利"
                     else:
                         result = "失败"
-                    
+
                     # KDA
                     kills = data.get('kill', 0)
                     deaths = data.get('death', 0)
@@ -492,14 +517,15 @@ class SteamAuto(BaseInstance):
                     we = data.get('we', 0)
                     pvpScore = data.get('pvpScore', 0)
                     score_change = data.get('pvpScoreChange', 0)
-                    
+
                     # 统计今日完美平台战绩
                     if steam_id not in self.friend_pw_daily_stats:
                         self.friend_pw_daily_stats[steam_id] = {
-                            'nickname': nickname,
+                            'pw_nickname': nickname,
                             'matches': [],
                             'wins': 0,
                             'losses': 0,
+                            'draws': 0,
                             'total_score_change': 0,
                             'total_kills': 0,
                             'total_deaths': 0,
@@ -509,14 +535,16 @@ class SteamAuto(BaseInstance):
                             'total_we': 0,
                             'match_count': 0
                         }
-                    
+
                     stats = self.friend_pw_daily_stats[steam_id]
                     stats['matches'].append(match_id)
                     if result == "胜利":
                         stats['wins'] += 1
                     elif result == "失败":
                         stats['losses'] += 1
-                    
+                    elif result == "平局":
+                        stats['draws'] += 1
+
                     stats['total_score_change'] += score_change
                     stats['total_kills'] += kills
                     stats['total_deaths'] += deaths
@@ -525,11 +553,12 @@ class SteamAuto(BaseInstance):
                     stats['total_pw_rating'] += pwRating
                     stats['total_we'] += we
                     stats['match_count'] += 1
-                    
+
                     # 更新历史最佳战绩
                     if steam_id not in self.friend_pw_history_stats:
                         self.friend_pw_history_stats[steam_id] = {
-                            'nickname': nickname,
+                            'pw_nickname': pw_name or nickname,
+                            'last_match_id': match_id,
                             'max_kills': 0,
                             'min_kills': 999,
                             'max_deaths': 0,
@@ -548,7 +577,8 @@ class SteamAuto(BaseInstance):
                     
                     # 确保所有必要字段都存在
                     required_fields = {
-                        'nickname': '未知好友',
+                        'pw_nickname': '未知好友',
+                        'last_match_id': '',
                         'max_kills': 0,
                         'min_kills': 999,
                         'max_deaths': 0,
@@ -597,7 +627,13 @@ class SteamAuto(BaseInstance):
                             hist['max_score'] = pvpScore
                         if pvpScore < hist['min_score']:
                             hist['min_score'] = pvpScore
-                    
+
+                    # 更新昵称和最后一局 matchId
+                    hist['pw_nickname'] = nickname
+                    if pw_name:
+                        hist['pw_nickname'] = pw_name
+                    hist['last_match_id'] = match_id
+
                     # 收集用于显示的数据
                     all_players.append((steam_id, data, map_name, score1, score2, nickname, result))
                 
@@ -632,7 +668,13 @@ class SteamAuto(BaseInstance):
                 # 判断总体胜负（取多数人的结果）
                 wins = sum(1 for _, _, _, r in players if r == '胜利')
                 losses = sum(1 for _, _, _, r in players if r == '失败')
-                result_emoji = '✅' if wins > losses else ('❌' if losses > wins else '🤝')
+                draws = sum(1 for _, _, _, r in players if r == '平局')
+                
+                # 逻辑修正：如果有平局，直接显示平局
+                if draws > 0:
+                    result_emoji = '🤝'
+                else:
+                    result_emoji = '✅' if wins > losses else ('❌' if losses > wins else '🤝')
 
                 msg = f"{result_emoji} {map_name}  {score1}:{score2}\n"
                 msg += f"{'─' * 14}\n"
@@ -675,6 +717,12 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
 
+        # 保存完美平台昵称到配置文件
+        try:
+            self.save_pw_nicknames()
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存完美平台昵称失败: {e}")
+
         # 如果有记录刷新通知，附加到最后一条战报后面
         if record_notifications and messages:
             record_msg = "🏆 记录刷新！\n" + "\n".join(record_notifications)
@@ -711,7 +759,7 @@ class SteamAuto(BaseInstance):
         for friend in friend_status_list:
             steam_id = friend.get('steamid')
             # 从config中的nickname_map获取昵称，如果没有则使用personaname
-            nickname = self.friend_nickname_map.get(steam_id, friend.get('personaname', '未知昵称'))
+            nickname = friend.get('personaname', '未知昵称')
             game_id = friend.get('gameid', None)
             game_name = friend.get('gameextrainfo', '未游玩游戏')
             personastate = friend.get('personastate', 0)  # 0: 离线, 1: 在线, 2: 忙碌, 3: 离开, 4: 暂离, 5: 求交易, 6: 求组队
@@ -842,7 +890,7 @@ class SteamAuto(BaseInstance):
         message = f"📊 【好友今日游玩统计 - {today}】\n\n"
         
         for steam_id, friend_data in stats_data.items():
-            nickname = friend_data.get('nickname', '未知昵称')
+            nickname = friend_data.get('pw_nickname', '未知昵称')
             games = friend_data.get('games', {})
             
             message += f"👤 {nickname}:\n"
@@ -878,21 +926,51 @@ class SteamAuto(BaseInstance):
             return {}
         return self.friend_pw_history_stats
     
+    def save_pw_nicknames(self, config_path=None):
+        """将获取到的完美平台昵称保存到配置文件的 monitored_friends 中"""
+        try:
+            target_config_path = config_path or self.config_path
+            config = self.load_config(target_config_path)
+            monitored_friends = config.get('monitored_friends', [])
+            changed = False
+            for friend in monitored_friends:
+                if isinstance(friend, dict):
+                    steamid = friend.get('steamid', '')
+                    pw_nick = self.friend_pw_nickname_map.get(steamid, '')
+                    if pw_nick and friend.get('pw_nickname') != pw_nick:
+                        friend['pw_nickname'] = pw_nick
+                        changed = True
+                    # 移除旧的 nickname 字段
+                    if 'nickname' in friend:
+                        del friend['nickname']
+                        changed = True
+            if changed:
+                self.save_config(config, target_config_path)
+                log.info(f"[{datetime.now()}] 完美平台昵称已保存到 {target_config_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存完美平台昵称失败: {e}")
+
     def save_history_stats(self, config_path=None):
         """保存历史战绩统计到配置文件"""
-        target_config_path = config_path or self.config_path
-        config = self.load_config(target_config_path)
-        config['friend_pw_history_stats'] = self.friend_pw_history_stats
-        self.save_config(config, target_config_path)
-        log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
+        try:
+            target_config_path = config_path or self.config_path
+            config = self.load_config(target_config_path)
+            config['friend_pw_history_stats'] = self.friend_pw_history_stats
+            self.save_config(config, target_config_path)
+            log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
 
     def save_leaderboard(self, config_path=None):
         """保存排行榜持有者到配置文件"""
-        target_config_path = config_path or self.config_path
-        config = self.load_config(target_config_path)
-        config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
-        self.save_config(config, target_config_path)
-        log.info(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
+        try:
+            target_config_path = config_path or self.config_path
+            config = self.load_config(target_config_path)
+            config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
+            self.save_config(config, target_config_path)
+            log.info(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存排行榜数据失败: {e}")
 
     def check_and_report_records(self):
         """检查排行榜变化，返回刷新记录的通知消息列表"""
@@ -934,13 +1012,13 @@ class SteamAuto(BaseInstance):
                     continue
                 best_sid, best_val = min(candidates, key=lambda x: x[1])
 
-            best_nick = valid_players[best_sid].get('nickname', '未知')
+            best_nick = valid_players[best_sid].get('pw_nickname', '未知')
             old = self.friend_pw_leaderboard.get(cat_key)
 
             if not old or old.get('steamid') != best_sid or old.get('value') != best_val:
                 # 记录刷新了
                 if old and old.get('steamid') != best_sid:
-                    old_nick = old.get('nickname', '未知')
+                    old_nick = old.get('pw_nickname', '未知')
                     old_val = old.get('value', 0)
                     notifications.append(f"{emoji} {cat_name}易主！{old_nick}({old_val}) → {best_nick}({best_val})")
                 elif old and old.get('value') != best_val:
@@ -951,7 +1029,7 @@ class SteamAuto(BaseInstance):
 
                 self.friend_pw_leaderboard[cat_key] = {
                     'steamid': best_sid,
-                    'nickname': best_nick,
+                    'pw_nickname': best_nick,
                     'value': best_val
                 }
 
@@ -971,13 +1049,14 @@ class SteamAuto(BaseInstance):
         sorted_friends = sorted(pw_stats_data.items(), key=lambda x: x[1]['match_count'], reverse=True)
 
         for steam_id, stats in sorted_friends:
-            nickname = stats.get('nickname', '未知好友')
+            nickname = stats.get('pw_nickname', '未知好友')
             match_count = stats.get('match_count', 0)
             if match_count == 0:
                 continue
 
             wins = stats.get('wins', 0)
             losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
             total_score_change = stats.get('total_score_change', 0)
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
@@ -996,7 +1075,10 @@ class SteamAuto(BaseInstance):
             wr_emoji = '🟢' if win_rate >= 60 else ('🟡' if win_rate >= 40 else '🔴')
 
             lines.append(f"👤 {nickname}  {match_count}场")
-            lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+            if draws > 0:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+            else:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
             lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  WE: {avg_we:.1f}")
             lines.append("")
 
@@ -1062,7 +1144,7 @@ class SteamAuto(BaseInstance):
                     continue
                 best_sid, best_val = min(candidates, key=lambda x: x[1])
 
-            nick = valid_players[best_sid].get('nickname', '?')
+            nick = valid_players[best_sid].get('pw_nickname', '?')
             val_str = f"{best_val:.2f}" if isinstance(best_val, float) and not unit else str(int(best_val))
             lines.append(f"  {label}  {nick} {val_str}{unit}")
 
