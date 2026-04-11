@@ -3,7 +3,7 @@
   "check_interval": 60,
   "enable_news_check": true,
   "check_news_interval": 3600,
-  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v1.3.1\n\n更新内容：\n FUCK TENCENT! FUCK WECHAT! F-U-C-K! Y-O-U!",
+  "code_update_message": "【cs-Solidarity】 已经成功启动，当前版本：v{version}\n\n更新内容：\n FUCK TENCENT! FUCK WECHAT! F-U-C-K! Y-O-U!",
   "wechat_groups": [
     "【CS】团结友爱"
   ],
@@ -111,6 +111,7 @@
   ],
   "friend_pw_history_stats": {
     "76561198324071323": {
+      "pw_nickname": "Oopy",
       "max_kills": 36,
       "min_kills": 5,
       "max_rating": 1.81,
@@ -119,14 +120,14 @@
       "min_pw_rating": 0.52,
       "max_we": 13.7048,
       "min_we": 3.0652,
-      "max_score": 2367,
+      "max_score": 2458,
       "min_score": 2257,
       "max_deaths": 31,
-      "min_deaths": 6,
-      "pw_nickname": "Oopy"
+      "min_deaths": 6
     },
     "76561199009839689": {
-      "max_kills": 30,
+      "pw_nickname": "难念的经",
+      "max_kills": 33,
       "min_kills": 5,
       "max_rating": 1.91,
       "min_rating": 0.34,
@@ -134,29 +135,29 @@
       "min_pw_rating": 0.62,
       "max_we": 13.914,
       "min_we": 2.6874,
-      "max_score": 2267,
+      "max_score": 2339,
       "min_score": 2100,
       "max_deaths": 31,
-      "min_deaths": 8,
-      "pw_nickname": "难念的经"
+      "min_deaths": 8
     },
     "76561198986231197": {
+      "pw_nickname": "大宝贝",
       "max_kills": 33,
       "min_kills": 6,
       "max_rating": 1.71,
       "min_rating": 0.34,
       "max_pw_rating": 1.72,
       "min_pw_rating": 0.66,
-      "max_we": 12.1991,
+      "max_we": 12.5426,
       "min_we": 3.4764,
-      "max_score": 2296,
+      "max_score": 2345,
       "min_score": 2113,
       "max_deaths": 34,
-      "min_deaths": 14,
-      "pw_nickname": "大宝贝"
+      "min_deaths": 12
     },
     "76561199103253412": {
-      "max_kills": 24,
+      "pw_nickname": "贼眉鼠眼",
+      "max_kills": 27,
       "min_kills": 6,
       "max_rating": 1.71,
       "min_rating": 0.31,
@@ -164,28 +165,28 @@
       "min_pw_rating": 0.63,
       "max_we": 13.116,
       "min_we": 4.0963,
-      "max_score": 1796,
+      "max_score": 1873,
       "min_score": 1531,
-      "max_deaths": 20,
-      "min_deaths": 11,
-      "pw_nickname": "贼眉鼠眼"
+      "max_deaths": 22,
+      "min_deaths": 11
     },
     "76561199262650715": {
-      "max_kills": 20,
+      "pw_nickname": "electronic",
+      "max_kills": 25,
       "min_kills": 5,
-      "max_rating": 1.11,
+      "max_rating": 1.46,
       "min_rating": 0.32,
-      "max_pw_rating": 1.15,
+      "max_pw_rating": 1.34,
       "min_pw_rating": 0.62,
-      "max_we": 11.5529,
+      "max_we": 11.8249,
       "min_we": 2.0012,
-      "max_score": 1865,
+      "max_score": 2027,
       "min_score": 1761,
-      "max_deaths": 17,
-      "min_deaths": 15,
-      "pw_nickname": "electronic"
+      "max_deaths": 20,
+      "min_deaths": 15
     },
     "76561199142850248": {
+      "pw_nickname": "不见见手青",
       "max_kills": 28,
       "min_kills": 10,
       "max_rating": 1.61,
@@ -194,43 +195,43 @@
       "min_pw_rating": 0.79,
       "max_we": 12.308,
       "min_we": 5.1614,
-      "max_score": 1907,
+      "max_score": 1935,
       "min_score": 1679,
       "max_deaths": 24,
-      "min_deaths": 12,
-      "pw_nickname": "不见见手青"
+      "min_deaths": 12
     },
     "76561198383859685": {
+      "pw_nickname": "風間トオル",
       "max_kills": 26,
       "min_kills": 6,
       "max_rating": 1.93,
       "min_rating": 0.44,
       "max_pw_rating": 1.56,
       "min_pw_rating": 0.52,
-      "max_we": 13.1811,
+      "max_we": 13.4381,
       "min_we": 4.3785,
-      "max_score": 1975,
+      "max_score": 2023,
       "min_score": 1769,
       "max_deaths": 27,
-      "min_deaths": 6,
-      "pw_nickname": "風間トオル"
+      "min_deaths": 6
     },
     "76561198126298848": {
-      "max_kills": 22,
-      "min_kills": 5,
+      "pw_nickname": "旧颜",
+      "max_kills": 25,
+      "min_kills": 4,
       "max_rating": 1.28,
       "min_rating": 0.28,
       "max_pw_rating": 1.43,
       "min_pw_rating": 0.44,
       "max_we": 11.4806,
       "min_we": 2.7098,
-      "max_score": 1896,
+      "max_score": 2005,
       "min_score": 1630,
       "max_deaths": 31,
-      "min_deaths": 9,
-      "pw_nickname": "旧颜"
+      "min_deaths": 9
     },
     "76561198347252622": {
+      "pw_nickname": "苦海胆",
       "max_kills": 29,
       "min_kills": 7,
       "max_rating": 1.77,
@@ -239,118 +240,116 @@
       "min_pw_rating": 0.69,
       "max_we": 13.2703,
       "min_we": 4.0635,
-      "max_score": 2108,
+      "max_score": 2155,
       "min_score": 2024,
       "max_deaths": 32,
-      "min_deaths": 6,
-      "pw_nickname": "苦海胆"
+      "min_deaths": 6
     },
     "76561199447107976": {
-      "max_kills": 22,
-      "min_kills": 10,
-      "max_rating": 1.57,
-      "min_rating": 0.57,
-      "max_pw_rating": 1.64,
-      "min_pw_rating": 0.67,
-      "max_we": 12.4593,
-      "min_we": 5.8356,
-      "max_score": 1730,
+      "pw_nickname": "小猫老弟",
+      "max_kills": 24,
+      "min_kills": 6,
+      "max_rating": 1.76,
+      "min_rating": 0.37,
+      "max_pw_rating": 1.65,
+      "min_pw_rating": 0.63,
+      "max_we": 13.116,
+      "min_we": 4.3009,
+      "max_score": 1860,
       "min_score": 1602,
       "max_deaths": 21,
-      "min_deaths": 11,
-      "pw_nickname": "小猫老弟"
+      "min_deaths": 10
     },
     "76561198987925371": {
+      "pw_nickname": "三重刘德华",
       "max_kills": 22,
       "min_kills": 5,
-      "max_rating": 1.38,
+      "max_rating": 1.64,
       "min_rating": 0.38,
-      "max_pw_rating": 1.4,
+      "max_pw_rating": 1.58,
       "min_pw_rating": 0.49,
-      "max_we": 12.4418,
+      "max_we": 13.6501,
       "min_we": 2.8398,
-      "max_score": 1924,
+      "max_score": 1946,
       "min_score": 1678,
       "max_deaths": 21,
-      "min_deaths": 12,
-      "pw_nickname": "三重刘德华"
+      "min_deaths": 10
     },
     "76561198412776807": {
-      "max_kills": 23,
+      "pw_nickname": "Sakura",
+      "max_kills": 30,
       "min_kills": 9,
-      "max_rating": 1.41,
-      "min_rating": 0.7,
-      "max_pw_rating": 1.45,
+      "max_rating": 1.92,
+      "min_rating": 0.58,
+      "max_pw_rating": 1.75,
       "min_pw_rating": 0.79,
-      "max_we": 11.5691,
+      "max_we": 14.7041,
       "min_we": 6.4121,
-      "max_score": 1922,
+      "max_score": 2128,
       "min_score": 1784,
       "max_deaths": 28,
-      "min_deaths": 11,
-      "pw_nickname": "Sakura"
+      "min_deaths": 7
     }
   },
   "friend_pw_leaderboard": {
     "max_kills": {
+      "pw_nickname": "Oopy",
       "steamid": "76561198324071323",
-      "value": 36,
-      "pw_nickname": "Oopy"
+      "value": 36
     },
     "min_kills": {
-      "steamid": "76561198324071323",
-      "value": 5,
-      "pw_nickname": "Oopy"
+      "pw_nickname": "旧颜",
+      "steamid": "76561198126298848",
+      "value": 4
     },
     "max_deaths": {
+      "pw_nickname": "大宝贝",  
       "steamid": "76561198986231197",
-      "value": 34,
-      "pw_nickname": "大宝贝"
+      "value": 34
     },
     "min_deaths": {
+      "pw_nickname": "Oopy",
       "steamid": "76561198324071323",
-      "value": 6,
-      "pw_nickname": "Oopy"
+      "value": 6
     },
     "max_rating": {
+      "pw_nickname": "風間トオル",
       "steamid": "76561198383859685",
-      "value": 1.93,
-      "pw_nickname": "風間トオル"
+      "value": 1.93
     },
     "min_rating": {
+      "pw_nickname": "旧颜",
       "steamid": "76561198126298848",
-      "value": 0.28,
-      "pw_nickname": "旧颜"
+      "value": 0.28
     },
     "max_pw_rating": {
-      "steamid": "76561198986231197",
-      "value": 1.72,
-      "pw_nickname": "大宝贝"
+      "pw_nickname": "Sakura",
+      "steamid": "76561198412776807",
+      "value": 1.75
     },
     "max_we": {
-      "steamid": "76561199009839689",
-      "value": 13.914,
-      "pw_nickname": "难念的经"
+      "steamid": "76561198412776807",
+      "value": 14.7041
     },
     "min_we": {
+      "pw_nickname": "electronic",
       "steamid": "76561199262650715",
-      "value": 2.0012,
-      "pw_nickname": "electronic"
+      "value": 2.0012
     },
     "max_score": {
+      "pw_nickname": "Oopy",
       "steamid": "76561198324071323",
-      "value": 2367,
-      "pw_nickname": "Oopy"
+      "value": 2458
     },
     "min_score": {
+      "pw_nickname": "贼眉鼠眼",
       "steamid": "76561199103253412",
-      "value": 1531,
-      "pw_nickname": "贼眉鼠眼"
+      "value": 1531
     },
     "min_pw_rating": {
+      "pw_nickname": "旧颜",
       "steamid": "76561198126298848",
-      "value": 0.44,
-      "pw_nickname": "旧颜"
+      "value": 0.44
     }
   }
 }
