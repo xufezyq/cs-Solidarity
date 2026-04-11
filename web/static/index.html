@@ -655,10 +655,10 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>{{ val.min_kills < 999 ? val.min_kills : '-' }}</td>
             <td>{{ val.max_deaths || '-' }}</td>
             <td>{{ val.min_deaths < 999 ? val.min_deaths : '-' }}</td>
-            <td>{{ val.max_rating ? val.max_rating.toFixed(1) : '-' }}</td>
-            <td>{{ val.min_rating < 999 ? val.min_rating.toFixed(1) : '-' }}</td>
-            <td>{{ val.max_pw_rating ? val.max_pw_rating.toFixed(1) : '-' }}</td>
-            <td>{{ val.min_pw_rating < 999 ? val.min_pw_rating.toFixed(1) : '-' }}</td>
+            <td>{{ val.max_rating || '-' }}</td>
+            <td>{{ val.min_rating < 999 ? val.min_rating : '-' }}</td>
+            <td>{{ val.max_pw_rating || '-' }}</td>
+            <td>{{ val.min_pw_rating < 999 ? val.min_pw_rating : '-' }}</td>
             <td>{{ val.max_we || '-' }}</td>
             <td>{{ val.min_we < 999 ? val.min_we : '-' }}</td>
             <td>{{ val.max_score || '-' }}</td>
