@@ -490,6 +490,33 @@ def process_receive_messages(instances):
     # ... 实际接收逻辑
 ```
 
+### 3. 闪烁检测控制
+
+```python
+# 主循环中
+if not ENABLE_FLASH_DETECT:
+    debug("[闪烁检测] 跳过：检测功能已禁用")
+    time.sleep(0.1)
+    continue
+
+is_flashing = detect_flash()  # 截图对比像素变化
+if is_flashing:
+    # 检查是否允许接收消息
+    if not ENABLE_RECEIVE:
+        debug("[闪烁检测] 检测到新消息，但接收功能已禁用，不恢复窗口")
+    elif is_maintenance_time():
+        debug("[闪烁检测] 检测到新消息，但当前是维护时间，不恢复窗口")
+    else:
+        # 恢复窗口并处理消息
+        restore_wechat()
+        process_receive_messages(instances)
+```
+
+**说明**：
+- `ENABLE_FLASH_DETECT = False`：完全停止闪烁检测，不截图、不对比像素，节省 CPU 和内存
+- `ENABLE_RECEIVE = False`：仍然检测闪烁，但检测到后跳过消息处理且不恢复窗口
+- 两者配合使用可实现灵活的消息控制
+
 ### 4. 配置示例
 
 ```json
@@ -497,6 +524,7 @@ def process_receive_messages(instances):
   "debug_mode": false,
   "enable_send": true,
   "enable_receive": true,
+  "enable_flash_detect": true,
   "maintenance": {
     "start_hour": 0,
     "start_minute": 15,

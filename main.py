@@ -39,7 +39,8 @@ _sending_count = 0   # 正在发送的消息数量
 MAINTENANCE_START = dt_time(0, 15)  # 维护开始时间
 MAINTENANCE_END = dt_time(8, 0)     # 维护结束时间
 ENABLE_SEND = True                   # 是否允许发送消息
-ENABLE_RECEIVE = True                # 是否允许接收消息
+ENABLE_RECEIVE = True                # 是否允许接收消息（处理消息）
+ENABLE_FLASH_DETECT = True           # 是否检测新消息（闪烁检测）
 
 # ============================================================
 # 维护时间检查
@@ -263,7 +264,8 @@ def detect_flash():
 # 配置
 # ============================================================
 def load_master_config(config_file):
-    global DEBUG_MODE, MAINTENANCE_START, MAINTENANCE_END, ENABLE_SEND, ENABLE_RECEIVE
+    global DEBUG_MODE, MAINTENANCE_START, MAINTENANCE_END
+    global ENABLE_SEND, ENABLE_RECEIVE, ENABLE_FLASH_DETECT
     if not Path(config_file).exists():
         return {}
     try:
@@ -292,6 +294,7 @@ def load_master_config(config_file):
     # 加载开关配置
     ENABLE_SEND = cfg.get('enable_send', True)
     ENABLE_RECEIVE = cfg.get('enable_receive', True)
+    ENABLE_FLASH_DETECT = cfg.get('enable_flash_detect', True)
     
     return cfg
 
@@ -428,20 +431,36 @@ def start_instances(instances):
                 continue
             last_poll_time = now
 
+            # 检查是否允许检测新消息
+            if not ENABLE_FLASH_DETECT:
+                if idle_cycle_count % 10 == 0:  # 每 10 次循环打印一次日志
+                    debug("[闪烁检测] 跳过：检测功能已禁用")
+                time.sleep(0.1)
+                continue
+            
             is_flashing = detect_flash()
             idle_cycle_count += 1
 
             if is_flashing:
                 last_flash_time = now
                 idle_cycle_count = 0
-                info("检测到微信闪烁，开始收消息...")
-
-                if wx_is_minimized:
-                    human_delay(200, 800)
-                    restore_wechat()
-                    wx_is_minimized = False
-
-                process_receive_messages(instances)
+                
+                # 检查是否允许接收消息
+                if not ENABLE_RECEIVE:
+                    debug("[闪烁检测] 检测到新消息，但接收功能已禁用，不恢复窗口")
+                else:
+                    # 检查是否在维护时间内
+                    if is_maintenance_time():
+                        debug("[闪烁检测] 检测到新消息，但当前是维护时间，不恢复窗口")
+                    else:
+                        info("检测到微信闪烁，开始收消息...")
+                        
+                        if wx_is_minimized:
+                            human_delay(200, 800)
+                            restore_wechat()
+                            wx_is_minimized = False
+                        
+                        process_receive_messages(instances)
 
                 # 切到文件传输助手 → 最小化
                 wx = wechat_instance.get_wechat()

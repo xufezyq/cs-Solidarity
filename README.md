@@ -137,7 +137,8 @@ python main.py
 |--------|------|--------|------|
 | `debug_mode` | bool | `false` | 调试模式，开启后维护时间失效 |
 | `enable_send` | bool | `true` | 是否允许发送消息 |
-| `enable_receive` | bool | `true` | 是否允许接收消息 |
+| `enable_receive` | bool | `true` | 是否允许接收消息（处理消息） |
+| `enable_flash_detect` | bool | `true` | 是否检测新消息（闪烁检测） |
 | `maintenance` | object | - | 维护时间配置 |
 | `maintenance.start_hour` | int | `0` | 维护开始小时 |
 | `maintenance.start_minute` | int | `15` | 维护开始分钟 |
@@ -160,7 +161,17 @@ python main.py
 ```json
 {
   "enable_send": false,
-  "enable_receive": true
+  "enable_receive": true,
+  "enable_flash_detect": true
+}
+```
+
+**完全禁用消息处理（不检测、不发送、不接收）**：
+```json
+{
+  "enable_send": false,
+  "enable_receive": false,
+  "enable_flash_detect": false
 }
 ```
 
