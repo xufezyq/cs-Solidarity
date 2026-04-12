@@ -3,7 +3,7 @@
   "check_interval": 60,
   "enable_news_check": true,
   "check_news_interval": 3600,
-  "code_update_message": "【cs-Solidarity】已经成功启动，当前版本：v{version}\n\n该项目迎来史诗级更新，✨ 核心功能变动：\n- 重构消息收发机制，最大程度避免风控\n- 实现真正的@mentions\n- 添加维护时间配置（支持自定义时段）\n- 新增消息发送/接收开关控制\n- 支持从环境变量读取敏感信息\n- 增加Web 控制面板（http://159.75.169.14:11029/）\n- Steam 功能统一使用 pw_nickname 字段\n- 优化战绩统计逻辑和评分数据显示",
+  "code_update_message": "【cs-Solidarity】已经成功启动，当前版本：v{version}\n\n该项目迎来史诗级更新，✨ 核心功能变动：\n- 重构消息收发机制，最大程度避免风控\n- 实现真正的@mentions\n- 添加维护时间配置（支持自定义时段）\n- 新增消息发送/接收开关控制\n- 支持从环境变量读取敏感信息\n- 增加Web 控制面板（http://159.75.169.14:11029/）\n- Steam 功能统一使用 pw_nickname 字段\n- 优化战绩统计逻辑和评分数据显示\n\n该项目以开源至：https://github.com/xufezyq/cs-Solidarity\nplease give the project a Star.",
   "wechat_groups": [
     "【CS】团结友爱"
   ],
