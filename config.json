@@ -1,5 +1,13 @@
 {
   "debug_mode": false,
+  "enable_send": true,
+  "enable_receive": true,
+  "maintenance": {
+    "start_hour": 0,
+    "start_minute": 15,
+    "end_hour": 8,
+    "end_minute": 0
+  },
   "instances": [
     {
       "type": "steam",

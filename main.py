@@ -23,8 +23,8 @@ DEBUG_MODE = False
 
 # 版本信息
 APP_VERSION = VERSION
-print(f"[cs-Solidarity] 版本: {APP_VERSION}")
-info(f"启动 - 版本: {APP_VERSION}")
+print(f"[cs-Solidarity] 版本：{APP_VERSION}")
+info(f"启动 - 版本：{APP_VERSION}")
 
 # 消息发送锁，确保消息发送期间不最小化窗口
 _send_lock = threading.Lock()
@@ -33,15 +33,26 @@ _is_sending = False  # 是否正在发送消息的标志
 _sending_count = 0   # 正在发送的消息数量
 
 # ============================================================
-# 维护时间
+# 维护时间配置
+# ============================================================
+# 维护时间配置：默认凌晨 0:15-8:00
+MAINTENANCE_START = dt_time(0, 15)  # 维护开始时间
+MAINTENANCE_END = dt_time(8, 0)     # 维护结束时间
+ENABLE_SEND = True                   # 是否允许发送消息
+ENABLE_RECEIVE = True                # 是否允许接收消息
+
+# ============================================================
+# 维护时间检查
 # ============================================================
 def is_maintenance_time():
+    """检查当前是否在维护时间内"""
     if DEBUG_MODE:
         return False
     now = datetime.now().time()
-    return dt_time(0, 15) <= now < dt_time(8, 0)
+    return MAINTENANCE_START <= now < MAINTENANCE_END
 
 def check_maintenance():
+    """维护时间检查接口（供其他模块调用）"""
     return is_maintenance_time()
 
 import core
@@ -117,8 +128,18 @@ def restore_wechat():
 # ============================================================
 def process_send_message(name, message, orig_senders, instances=None):
     """发送消息并处理发送期间捕获的新消息"""
+    # 检查是否允许发送消息
+    if not ENABLE_SEND:
+        debug(f"[发送] 跳过：发送功能已禁用 (name={name})")
+        return
+    
+    # 检查是否在维护时间内
+    if is_maintenance_time():
+        info(f"[发送] 跳过：当前是维护时间 (name={name})")
+        return
+        
     target = message.get("target", name) if isinstance(message, dict) else name
-    debug(f"发送: name={name}, target={target}")
+    debug(f"发送：name={name}, target={target}")
     try:
         human_action_delay()
         sender = orig_senders.get(name)
@@ -190,6 +211,16 @@ def route_message_to_instances(msg_content, instances):
 
 def process_receive_messages(instances):
     """收消息 + 分发，返回收到的消息数量"""
+    # 检查是否允许接收消息
+    if not ENABLE_RECEIVE:
+        debug("[收消息] 跳过：接收功能已禁用")
+        return 0
+    
+    # 检查是否在维护时间内
+    if is_maintenance_time():
+        debug("[收消息] 跳过：当前是维护时间")
+        return 0
+        
     debug("收取消息...")
     total_count = 0
     try:
@@ -205,12 +236,12 @@ def process_receive_messages(instances):
                         try:
                             inst.handle_message(chat_name, msg)
                         except Exception as e:
-                            error(f"{name} 处理失败: {e}")
+                            error(f"{name} 处理失败：{e}")
             info(f"共处理 {total_count} 条消息")
         else:
             debug("无新消息")
     except Exception as e:
-        error(f"收消息失败: {e}")
+        error(f"收消息失败：{e}")
         import traceback
         traceback.print_exc()
     return total_count
@@ -232,7 +263,7 @@ def detect_flash():
 # 配置
 # ============================================================
 def load_master_config(config_file):
-    global DEBUG_MODE
+    global DEBUG_MODE, MAINTENANCE_START, MAINTENANCE_END, ENABLE_SEND, ENABLE_RECEIVE
     if not Path(config_file).exists():
         return {}
     try:
@@ -244,7 +275,24 @@ def load_master_config(config_file):
         return {}
     if not cfg.get('instances'):
         return {}
+    
+    # 加载配置
     DEBUG_MODE = cfg.get('debug_mode', False)
+    
+    # 加载维护时间配置
+    maintenance = cfg.get('maintenance', {})
+    if maintenance:
+        start_hour = maintenance.get('start_hour', 0)
+        start_minute = maintenance.get('start_minute', 15)
+        end_hour = maintenance.get('end_hour', 8)
+        end_minute = maintenance.get('end_minute', 0)
+        MAINTENANCE_START = dt_time(start_hour, start_minute)
+        MAINTENANCE_END = dt_time(end_hour, end_minute)
+    
+    # 加载开关配置
+    ENABLE_SEND = cfg.get('enable_send', True)
+    ENABLE_RECEIVE = cfg.get('enable_receive', True)
+    
     return cfg
 
 def create_instances(master_cfg):
