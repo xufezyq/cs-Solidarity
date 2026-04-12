@@ -255,37 +255,34 @@ class MessageHandler:
         在群聊中使用 chat_id + sender_name 作为键，在私聊中仅使用 chat_id"""
         return f"{chat_id}_{sender_name}" if is_group else chat_id
 
-    def _add_at_tag_if_needed(self, reply: str, sender_name: str, is_group: bool) -> str:
+    def _add_at_tag_if_needed(self, reply: str, sender_name: str, is_group: bool) -> tuple:
         """统一处理@标签添加逻辑，避免重复添加
-        
+
         Args:
             reply: 原始回复内容
-            sender_name: 发送者名称  
+            sender_name: 发送者名称
             is_group: 是否为群聊
-            
+
         Returns:
-            str: 处理后的回复内容
+            tuple: (处理后的回复内容, 需要@的人名列表)
         """
         if not is_group:
-            return reply
+            return reply, []
 
         # 检查回复是否已经包含@用户名，避免重复添加
-        # 同时检查空格和换行符的情况
         if reply.startswith(f"@{sender_name} ") or reply.startswith(f"@{sender_name}\n") or reply.startswith(
                 f"@{sender_name}$"):
             logger.info(f"AI回复中已包含@标签，无需添加。回复: {reply[:50]}...")
-            return reply
+            # 去掉文本中的@前缀，改用真实@
+            clean = reply[len(f"@{sender_name} "):]
+            return clean, [sender_name]
         elif reply.startswith("@") and sender_name in reply.split()[0]:
-            # 检查是否@了正确的用户（处理各种分隔符的情况）
             logger.info(f"AI回复中已包含@标签，无需添加。回复: {reply[:50]}...")
-            return reply
-        elif "@" in reply and not reply.startswith("@"):
-            # 如果@符号不在开头，说明可能在回复中提到了其他人
-            logger.debug("回复中包含@符号但不在开头，添加@标签")
-            return f"@{sender_name} {reply}"
+            clean = reply.split(' ', 1)[-1] if ' ' in reply else reply
+            return clean, [sender_name]
         else:
             logger.debug("群聊环境下添加@标签")
-            return f"@{sender_name} {reply}"
+            return reply, [sender_name]
 
     def _get_user_relationship_info(self, sender_name: str) -> str:
         """获取用户关系信息，用于群聊环境判断"""
@@ -464,10 +461,10 @@ class MessageHandler:
                 def command_callback(command, reply, chat_id):
                     try:
                         # 统一处理@标签
-                        reply = self._add_at_tag_if_needed(reply, sender_name, is_group)
+                        reply, at_list = self._add_at_tag_if_needed(reply, sender_name, is_group)
 
                         # 使用命令响应发送方法
-                        self._send_command_response(command, reply, chat_id)
+                        self._send_command_response(command, reply, chat_id, at=at_list)
                         logger.info(f"异步处理命令完成: {command}")
                     except Exception as e:
                         logger.error(f"异步处理命令失败: {str(e)}")
@@ -484,9 +481,9 @@ class MessageHandler:
                     # 只有当有响应时才发送（异步生成内容的命令不会有初始响应）
                     if response:
                         # 统一处理@标签
-                        response = self._add_at_tag_if_needed(response, sender_name, is_group)
+                        response, at_list = self._add_at_tag_if_needed(response, sender_name, is_group)
                         # self.wx.SendMsg(msg=response, who=chat_id)
-                        self._send_raw_message(response, chat_id)
+                        self._send_raw_message(response, chat_id, at=at_list)
 
                     # 不记录调试命令的对话
                     logger.info(f"已处理调试命令: {content}")
@@ -718,33 +715,36 @@ class MessageHandler:
         text = re.sub(r'\s*</用户>', '', text)
         return text.strip()
 
-    def _send_via_framework(self, message: str, chat_id: str):
+    def _send_via_framework(self, message: str, chat_id: str, at=None, at_all=False):
         """通过主框架的 wechat_instance 发送消息（带完整保护）
-        
+
         使用 wechat_instance.send_message 而不是直接调用 wx.SendMsg，
         这样可以：
         1. 获得 ChatWith 窗口切换保护
         2. 获得发送期间的计数器保护（防止窗口被最小化）
         3. 捕获发送期间的新消息
-        
+
         Args:
             message: 要发送的消息内容
             chat_id: 目标聊天ID
+            at: 需要@的人的列表（list of str）
+            at_all: 是否@所有人（bool）
         """
         try:
             from core import wechat_instance
-            wechat_instance.send_message(message, chat_id)
+            wechat_instance.send_message(message, chat_id, at=at, at_all=at_all)
         except Exception as e:
             logger.error(f"[框架发送] 失败: {e}，回退到直接发送")
             try:
-                self.wx.SendMsg(msg=message, who=chat_id)
+                self.wx.SendMsg(msg=message, who=chat_id, at=at, at_all=at_all)
             except Exception as e2:
                 logger.error(f"[直接发送] 也失败: {e2}")
 
-    def _send_message_with_dollar(self, reply, chat_id):
+    def _send_message_with_dollar(self, reply, chat_id, at=None):
         """以$为分隔符分批发送回复
-        
+
         使用 wechat_instance.send_messages 批量发送文本，避免每条消息之间窗口被最小化。
+        at 参数仅作用于第一条消息（@只需出现一次）。
         """
         # 过滤用户标签
         reply = self._filter_user_tags(reply)
@@ -781,13 +781,14 @@ class MessageHandler:
             if text_parts:
                 try:
                     from core import wechat_instance
-                    wechat_instance.send_messages(text_parts, chat_id)
+                    # @ 只在第一条消息生效
+                    wechat_instance.send_messages(text_parts, chat_id, at=at)
                     logger.debug(f"批量发送 {len(text_parts)} 条消息到 {chat_id}")
                 except Exception as e:
                     logger.error(f"[批量发送] 失败: {e}，回退到逐条发送")
-                    for tp in text_parts:
+                    for i, tp in enumerate(text_parts):
                         try:
-                            self._send_via_framework(tp, chat_id)
+                            self._send_via_framework(tp, chat_id, at=at if i == 0 else None)
                             logger.debug(f"发送消息到 {chat_id}: {tp[:30]}...")
                         except Exception as e2:
                             logger.error(f"发送失败: {e2}")
@@ -814,7 +815,7 @@ class MessageHandler:
                 clean_reply = clean_reply.replace(f'[{tag}]', '')
 
             if clean_reply.strip():
-                self._send_via_framework(clean_reply.strip(), chat_id)
+                self._send_via_framework(clean_reply.strip(), chat_id, at=at)
                 logger.debug(f"发送消息: {clean_reply[:20]}...")
 
             # 发送表情
@@ -828,12 +829,13 @@ class MessageHandler:
                 except Exception as e:
                     logger.error(f"发送表情失败 - {emotion_type}: {str(e)}")
 
-    def _send_raw_message(self, text: str, chat_id: str):
+    def _send_raw_message(self, text: str, chat_id: str, at=None):
         """直接发送原始文本消息，保留所有换行符和格式
 
         Args:
             text: 要发送的原始文本
             chat_id: 接收消息的聊天ID
+            at: 需要@的人的列表（list of str）
         """
         try:
             # 过滤用户标签
@@ -855,20 +857,19 @@ class MessageHandler:
                 clean_text = clean_text.replace('$', '')
                 clean_text = clean_text.replace('＄', '')  # 全角$符号
                 clean_text = clean_text.replace(r'\n', '\r\n\r\n')
-                self._send_via_framework(clean_text, chat_id)
-                
-                # logger.info(f"已发送经过处理的文件内容: {file_content}")
+                self._send_via_framework(clean_text, chat_id, at=at)
 
         except Exception as e:
             logger.error(f"发送原始格式消息失败: {str(e)}")
 
-    def _send_command_response(self, command: str, reply: str, chat_id: str):
+    def _send_command_response(self, command: str, reply: str, chat_id: str, at=None):
         """发送命令响应，根据命令类型决定是否保留原始格式
 
         Args:
             command: 命令名称，如 '/state'
             reply: 要发送的回复内容
             chat_id: 聊天ID
+            at: 需要@的人的列表（list of str）
         """
         if not reply:
             return
@@ -877,10 +878,10 @@ class MessageHandler:
         if command in self.preserve_format_commands:
             # 使用原始格式发送消息
             logger.info(f"使用原始格式发送命令响应: {command}")
-            self._send_raw_message(reply, chat_id)
+            self._send_raw_message(reply, chat_id, at=at)
         else:
             # 使用正常的消息发送方式
-            self._send_message_with_dollar(reply, chat_id)
+            self._send_message_with_dollar(reply, chat_id, at=at)
 
     def _handle_text_message(self, content, chat_id, sender_name, username, is_group):
         """处理普通文本消息"""
@@ -905,7 +906,7 @@ class MessageHandler:
             logger.debug(f"思考过程: {think_content.strip()}")
 
         # 处理群聊中的回复
-        reply = self._add_at_tag_if_needed(reply, sender_name, is_group)
+        reply, at_list = self._add_at_tag_if_needed(reply, sender_name, is_group)
 
         # 判断是否是系统消息
         is_system_message = sender_name == "System" or username == "System"
@@ -913,10 +914,10 @@ class MessageHandler:
         # 发送文本消息和表情
         if command and command in self.preserve_format_commands:
             # 如果是需要保留原始格式的命令，使用原始格式发送
-            self._send_command_response(command, reply, chat_id)
+            self._send_command_response(command, reply, chat_id, at=at_list)
         else:
             # 否则使用正常的消息发送方式
-            self._send_message_with_dollar(reply, chat_id)
+            self._send_message_with_dollar(reply, chat_id, at=at_list)
 
         # 异步保存消息记录
         # 保存实际用户发送的内容，群聊中保留发送者信息

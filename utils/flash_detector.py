@@ -27,18 +27,26 @@ WS_MINIMIZE = 0x20000000
 
 
 def _find_notification_area_rect():
-    """截取屏幕右下角微信托盘图标附近的小区域
+    """截取屏幕右下角任务栏通知区域
 
-    只截取右下角 48x48 的小区域（覆盖托盘图标位置），而非整个任务栏通知区域。
+    截取右下角 300x48 像素的区域，避开右侧时钟区域（约100像素）。
+    检测区域 = 从屏幕右侧 (clock_width + margin) 开始，向左延伸 tray_width 像素。
     """
     user32 = ctypes.windll.user32
 
     try:
         screen_w = user32.GetSystemMetrics(0)
         screen_h = user32.GetSystemMetrics(1)
-        # 右下角 48x48 区域，覆盖托盘图标
-        icon_size = 48
-        tray_rect = (screen_w - icon_size - 4, screen_h - icon_size - 4, screen_w - 4, screen_h - 4)
+        tray_width = 300
+        tray_height = 48
+        clock_width = 100  # 时钟/日期区域宽度，需要避开
+        margin = 4
+        # 区域：右下角，避开时钟，向左延伸 300px
+        right = screen_w - clock_width - margin
+        left = right - tray_width
+        bottom = screen_h - margin
+        top = bottom - tray_height
+        tray_rect = (left, top, right, bottom)
         log.debug(f"托盘图标区域: {tray_rect}")
         return tray_rect
     except Exception:

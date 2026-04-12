@@ -280,8 +280,14 @@ def _patch_wxauto_human_behavior():
         return False
 
 
-def send_message(message, group):
+def send_message(message, group, at=None, at_all=False):
     """发送消息并捕获发送期间的新消息（带人类行为模拟）
+
+    Args:
+        message: 消息内容（str 或 dict）
+        group: 目标聊天名称
+        at: 需要@的人的列表（list of str），在群聊内生效
+        at_all: 是否@所有人（bool），在群聊内生效
 
     流程：
     1. 【关键】ChatWith 之前，先从侧边栏读取目标聊天的未读消息
@@ -358,7 +364,66 @@ def send_message(message, group):
 
             # 实际发送
             actual_msg = message.get("content") if isinstance(message, dict) else message
-            wx.SendMsg(actual_msg, clear=True)
+            actual_at = message.get("at") if isinstance(message, dict) else at
+            actual_at_all = message.get("at_all") if isinstance(message, dict) else at_all
+            log.info(f"[send] 发送消息到 {group}: msg={actual_msg[:30]!r}..., at={actual_at}, at_all={actual_at_all}")
+            try:
+                # 有 @ 时：@名字 + 回车选人，然后粘贴消息，最后回车发送
+                if (actual_at and isinstance(actual_at, list)) or actual_at_all:
+                    import uiautomation as uia
+                    from wxauto.utils import SetClipboardText
+                    # 确保窗口可见
+                    wx._show()
+                    human_delay(200, 400)
+                    # 获取输入框
+                    editbox = wx.ChatBox.EditControl(searchDepth=10)
+                    if not editbox.Exists():
+                        editbox = wx.ChatBox.EditControl(Name=group, searchDepth=10)
+                    if not editbox.HasKeyboardFocus:
+                        editbox.Click(simulateMove=False)
+                        human_delay(100, 200)
+
+                    # 清空输入框
+                    uia.SendKeys('{Ctrl}a', waitTime=0.05)
+                    time.sleep(0.1)
+
+                    # @所有人
+                    if actual_at_all:
+                        log.info("[send] 输入 @所有人 回车")
+                        uia.SendKeys('@所有人', waitTime=0.1)
+                        time.sleep(0.5)
+                        uia.SendKeys('{Enter}', waitTime=0.1)
+                        time.sleep(0.2)
+
+                    # @特定成员：输入 @名字 回车选人
+                    if actual_at and isinstance(actual_at, list):
+                        for member in actual_at:
+                            log.info(f"[send] 输入 @{member} 回车")
+                            uia.SendKeys(f'@{member}', waitTime=0.1)
+                            time.sleep(0.5)
+                            uia.SendKeys('{Enter}', waitTime=0.1)
+                            time.sleep(0.2)
+
+                    # 粘贴消息内容
+                    time.sleep(0.1)
+                    SetClipboardText(actual_msg)
+                    uia.SendKeys('{Ctrl}v', waitTime=0.1)
+                    time.sleep(0.3)
+
+                    # 回车发送
+                    uia.SendKeys('{Enter}', waitTime=0.1)
+                    log.info(f"[send] SendMsg(at) 完成")
+                else:
+                    wx.SendMsg(actual_msg, clear=True)
+                    log.info(f"[send] SendMsg 完成")
+            except Exception as send_e:
+                log.error(f"[send] SendMsg 异常: {send_e}")
+                import traceback
+                log.debug(traceback.format_exc())
+                raise
+            # 更新发送时间戳
+            with main._send_lock:
+                main._last_send_time = time.time()
 
             # ── 第五步：等待消息出现在聊天记录中 ──
             sent_id = None
@@ -422,7 +487,7 @@ def send_message(message, group):
                 main._sending_count = 0
 
 
-def send_messages(messages, group):
+def send_messages(messages, group, at=None, at_all=False):
     """批量发送多条消息到同一聊天（只切换一次窗口，捕获发送期间的新消息）
     
     与 send_message 不同，此方法一次发送多条消息，期间保持 _sending_count > 0，
@@ -490,8 +555,60 @@ def send_messages(messages, group):
             time.sleep(typing_time)
 
             try:
-                wx.SendMsgs(messages, group)
+                if (at and isinstance(at, list)) or at_all:
+                    # 有 @ 时：@名字 + 回车选人，粘贴消息，回车发送
+                    import uiautomation as uia
+                    from wxauto.utils import SetClipboardText
+
+                    first_msg = messages[0] if messages else ""
+                    wx._show()
+                    human_delay(200, 400)
+                    editbox = wx.ChatBox.EditControl(searchDepth=10)
+                    if not editbox.Exists():
+                        editbox = wx.ChatBox.EditControl(Name=group, searchDepth=10)
+                    if not editbox.HasKeyboardFocus:
+                        editbox.Click(simulateMove=False)
+                        human_delay(100, 200)
+
+                    # 清空输入框
+                    uia.SendKeys('{Ctrl}a', waitTime=0.05)
+                    time.sleep(0.1)
+
+                    if at_all:
+                        log.info("[send] 输入 @所有人 回车")
+                        uia.SendKeys('@所有人', waitTime=0.1)
+                        time.sleep(0.5)
+                        uia.SendKeys('{Enter}', waitTime=0.1)
+                        time.sleep(0.2)
+
+                    if at and isinstance(at, list):
+                        for member in at:
+                            log.info(f"[send] 输入 @{member} 回车")
+                            uia.SendKeys(f'@{member}', waitTime=0.1)
+                            time.sleep(0.5)
+                            uia.SendKeys('{Enter}', waitTime=0.1)
+                            time.sleep(0.2)
+
+                    # 粘贴第一条消息
+                    time.sleep(0.1)
+                    SetClipboardText(first_msg)
+                    uia.SendKeys('{Ctrl}v', waitTime=0.1)
+                    time.sleep(0.3)
+                    uia.SendKeys('{Enter}', waitTime=0.1)
+                    log.info(f"[send] 第一条消息(带@)已发送: {first_msg[:30]}...")
+
+                    # 剩余消息用 SendMsgs 批量发送（不带 @）
+                    remaining = messages[1:] if len(messages) > 1 else []
+                    if remaining:
+                        time.sleep(random.uniform(0.5, 1.5))
+                        wx.SendMsgs(remaining, group)
+                        log.debug(f"[send] 批量发送剩余 {len(remaining)} 条消息")
+                else:
+                    wx.SendMsgs(messages, group)
                 log.debug(f"[send] 批量发送 {len(messages)} 条消息到 {group}")
+                # 更新发送时间戳
+                with main._send_lock:
+                    main._last_send_time = time.time()
             except Exception as e:
                 log.error(f"[send] 批量发送失败: {e}")
                 return pre_caught

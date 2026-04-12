@@ -252,7 +252,7 @@ class WeChat(WeChatBase):
         self._show()
         if not editbox.HasKeyboardFocus:
             editbox.Click(simulateMove=False)
-        
+
         # 处理@所有人
         if at_all:
             editbox.SendKeys('@', waitTime=0.2)
@@ -270,7 +270,7 @@ class WeChat(WeChatBase):
                             break
             except Exception:
                 pass
-        
+
         # 处理@特定成员
         if at and isinstance(at, list):
             for member in at:
@@ -290,7 +290,7 @@ class WeChat(WeChatBase):
                 except Exception:
                     # 如果找不到，删除@+名字
                     editbox.SendKeys('{Backspace}' * (len(member) + 1), waitTime=0)
-        
+
         # 发送消息内容
         t0 = time.time()
         while True:

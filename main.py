@@ -55,13 +55,29 @@ def _get_wechat_hwnd():
     return win32gui.FindWindow('WeChatMainWndForPC', None)
 
 def minimize_wechat():
-    """最小化微信窗口（带重试，Win11 兼容）"""
+    """最小化微信窗口（带重试，Win11 兼容）
+
+    如果有消息正在发送，跳过最小化以避免中断 @ 操作。
+    """
+    # 用锁检查发送状态，避免 TOCTOU 竞态
+    with _send_lock:
+        if _sending_count > 0:
+            debug(f"[窗口] 跳过最小化：有 {_sending_count} 条消息正在发送")
+            return
+        elapsed = time.time() - _last_send_time
+    if elapsed < 5:
+        debug(f"[窗口] 跳过最小化：距离上次发送仅 {elapsed:.1f}s")
+        return
+    debug(f"[窗口] 执行最小化")
     try:
         hwnd = _get_wechat_hwnd()
         if not hwnd:
             return
         import ctypes
         user32 = ctypes.windll.user32
+        # 再次检查（拿锁后窗口可能已被恢复）
+        if user32.IsIconic(hwnd):
+            return
         # 先用 Win32 API 最小化（比 win32gui 更可靠）
         user32.ShowWindow(hwnd, 2)  # SW_MINIMIZE
         time.sleep(0.05)
@@ -150,7 +166,8 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
             break
 
     if sent_any:
-        # 切回文件传输助手 → 最小化（需要拿锁，防止与 KoriChat Timer 的 ChatWith 冲突）
+        # 切回文件传输助手（需要拿锁，防止与 KoriChat Timer 的 ChatWith 冲突）
+        # 不在这里最小化——由主循环的空闲检测统一处理，避免与后台发送冲突
         wx = wechat_instance.get_wechat()
         if wx:
             try:
@@ -160,8 +177,6 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
                 debug("[窗口] 已切换到文件传输助手")
             except Exception as e:
                 debug(f"[窗口] 切换失败: {e}")
-        human_action_delay()
-        minimize_wechat()
 
     return sent_any
 

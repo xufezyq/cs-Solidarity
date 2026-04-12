@@ -49,9 +49,11 @@ class ChatAuto(BaseInstance):
         if isinstance(message_data, dict):
             target = message_data.get("target")
             content = message_data.get("content")
+            at = message_data.get("at")
+            at_all = message_data.get("at_all", False)
             if target and content:
                 try:
-                    wechat_instance.send_message(content, target)
+                    wechat_instance.send_message(content, target, at=at, at_all=at_all)
                     log.info(f"[ChatAuto] 回复 {target}: {content[:20]}...")
                 except Exception as e:
                     log.error(f"[ChatAuto] 发送失败: {e}")
@@ -121,7 +123,7 @@ class ChatAuto(BaseInstance):
             if user_query.lower() in ('clear', 'reset', '重置', '清除上下文', '清除记忆'):
                 self.clear_history(chat_name, sender)
                 log.info(f"[ChatAuto] 已清除 {sender} 的对话历史")
-                self.send_message({"target": chat_name, "content": f"@{sender} ✅ 已清除你的对话上下文"})
+                self.send_message({"target": chat_name, "content": "✅ 已清除你的对话上下文", "at": [sender]})
                 return
 
             log.debug(f"[ChatAuto] 提取问题: {user_query}")
@@ -132,7 +134,7 @@ class ChatAuto(BaseInstance):
             log.debug(f"[ChatAuto] LLM 返回: {reply[:80]}")
 
             # 发送回复
-            self.send_message({"target": chat_name, "content": f"@{sender} {reply}"})
+            self.send_message({"target": chat_name, "content": reply, "at": [sender]})
             log.debug(f"[ChatAuto] 消息已加入队列")
 
         except Exception as e:

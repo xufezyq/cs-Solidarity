@@ -11,7 +11,12 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\('main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('main.py OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('core/wechat_instance.py', encoding='utf-8'\\).read\\(\\)\\); print\\('wechat_instance.py OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('instances/steam_auto.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('utils/flash_detector.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('utils/flash_detector.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -m py_compile core/wechat_instance.py)",
+      "Bash(python -m py_compile instances/chat_auto.py)",
+      "Bash(python -m py_compile main.py)",
+      "Bash(python -m py_compile utils/flash_detector.py)",
+      "Bash(python -m py_compile \"KouriChat/src/handlers/message.py\")"
     ]
   }
 }
