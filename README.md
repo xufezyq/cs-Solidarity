@@ -403,8 +403,17 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 - [wxauto](https://github.com/cluic/wxauto) - 微信自动化库
 - [KouriChat](https://github.com/KouriChat/KouriChat) - 智能聊天助手
-- 所有贡献者和用户
 
 ---
 
 **Made with ❤️ by cs-Solidarity Team**
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=xufezyq%2Fcs-Solidarity&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xufezyq/cs-Solidarity&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xufezyq/cs-Solidarity&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xufezyq/cs-Solidarity&type=date&legend=top-left" />
+ </picture>
+</a>
