@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>cs-Solidarity 控制面板</title>
-<link rel="stylesheet" href="https://unpkg.com/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <script src="https://cdn.bootcdn.net/ajax/libs/vue/3.5.13/vue.global.prod.min.js"></script>
 <script>
 // Vue CDN 加载失败兜底
@@ -591,13 +591,11 @@ document.addEventListener('DOMContentLoaded', function() {
           <template v-if="steamDetail.friend_pw_leaderboard[key]">
           <div class="lb-cat-header">{{ leaderboardLabels[key] || key }}</div>
           <div class="podium">
-            <!-- 第 2 名（左） -->
+            <!-- 第2名（左） -->
             <div class="podium-item" v-if="getTop3(key)[1]">
               <div class="podium-avatar rank2">
                 <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" @error="$event.target.style.display='none'">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
+                <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">2</div>
               <div class="podium-name">{{ getTop3(key)[1].pw_nickname }}</div>
@@ -605,13 +603,11 @@ document.addEventListener('DOMContentLoaded', function() {
               <div class="podium-stand stand2"></div>
             </div>
             <div class="podium-item podium-empty" v-else><div class="podium-stand stand2"></div></div>
-            <!-- 第 1 名（中） -->
+            <!-- 第1名（中） -->
             <div class="podium-item" v-if="getTop3(key)[0]">
               <div class="podium-avatar rank1">
                 <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" @error="$event.target.style.display='none'">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
+                <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">1</div>
               <div class="podium-name">{{ getTop3(key)[0].pw_nickname }}</div>
@@ -619,13 +615,11 @@ document.addEventListener('DOMContentLoaded', function() {
               <div class="podium-stand stand1"></div>
             </div>
             <div class="podium-item podium-empty" v-else><div class="podium-stand stand1"></div></div>
-            <!-- 第 3 名（右） -->
+            <!-- 第3名（右） -->
             <div class="podium-item" v-if="getTop3(key)[2]">
               <div class="podium-avatar rank3">
                 <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" @error="$event.target.style.display='none'">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
+                <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">3</div>
               <div class="podium-name">{{ getTop3(key)[2].pw_nickname }}</div>
@@ -655,9 +649,6 @@ document.addEventListener('DOMContentLoaded', function() {
           <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
             <td style="white-space:nowrap;">
               <img v-if="val.avatar" :src="val.avatar" class="table-avatar" @error="$event.target.style.display='none'">
-              <svg v-else class="table-avatar" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;color:var(--text2);opacity:0.5;">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
               {{ val.pw_nickname || val.nickname }}
             </td>
             <td>{{ val.max_kills || '-' }}</td>
