@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
           <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
             <td style="white-space:nowrap;">
-              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" @error="$event.target.style.display='none'">
+              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
               {{ val.pw_nickname || val.nickname }}
             </td>
             <td>{{ val.max_kills || '-' }}</td>
