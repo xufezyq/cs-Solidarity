@@ -594,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第2名（左） -->
             <div class="podium-item" v-if="getTop3(key)[1]">
               <div class="podium-avatar rank2">
-                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">2</div>
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第1名（中） -->
             <div class="podium-item" v-if="getTop3(key)[0]">
               <div class="podium-avatar rank1">
-                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">1</div>
@@ -618,7 +618,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第3名（右） -->
             <div class="podium-item" v-if="getTop3(key)[2]">
               <div class="podium-avatar rank3">
-                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">3</div>
