@@ -594,8 +594,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第 2 名（左） -->
             <div class="podium-item" v-if="getTop3(key)[1]">
               <div class="podium-avatar rank2">
-                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" @error="getTop3(key)[1].avatar=''">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
+                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='' }" style="display:block;">
+                <svg :style="getTop3(key)[1].avatar ? 'display:none' : ''" style="width:24px;height:24px;color:var(--text2);opacity:0.5;" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
               </div>
@@ -608,8 +608,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第 1 名（中） -->
             <div class="podium-item" v-if="getTop3(key)[0]">
               <div class="podium-avatar rank1">
-                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" @error="getTop3(key)[0].avatar=''">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
+                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='' }" style="display:block;">
+                <svg :style="getTop3(key)[0].avatar ? 'display:none' : ''" style="width:24px;height:24px;color:var(--text2);opacity:0.5;" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
               </div>
@@ -622,8 +622,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第 3 名（右） -->
             <div class="podium-item" v-if="getTop3(key)[2]">
               <div class="podium-avatar rank3">
-                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" @error="getTop3(key)[2].avatar=''">
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;color:var(--text2);opacity:0.5;">
+                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='' }" style="display:block;">
+                <svg :style="getTop3(key)[2].avatar ? 'display:none' : ''" style="width:24px;height:24px;color:var(--text2);opacity:0.5;" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
               </div>
@@ -654,8 +654,8 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
           <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
             <td style="white-space:nowrap;">
-              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" @error="val.avatar=''">
-              <svg v-else class="table-avatar" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;color:var(--text2);opacity:0.5;">
+              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='inline-block' }">
+              <svg class="table-avatar" viewBox="0 0 24 24" fill="currentColor" style="display:none;color:var(--text2);opacity:0.5;">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
               {{ val.pw_nickname || val.nickname }}
@@ -918,7 +918,7 @@ createApp({
     async function loadAll() {
       loadOverview();
       loadInstances();
-      if (user.role === 'admin') { loadConfigList(); loadUserList(); loadBackups(); }
+      if (user.role === 'admin') { loadConfigList(); loadUserList(); }
       loadSteamData();
     }
 
@@ -973,7 +973,7 @@ createApp({
       try {
         const data = await api('/api/config/backups/list');
         config.backups = data.data?.backups || [];
-      } catch(e) {}
+      } catch(e) { showToast('备份列表加载失败: ' + e.message, 'error'); }
     }
     async function restoreBackup(name) {
       if (!confirm(`确认从 ${name} 恢复到 ${config.selectedFile}?`)) return;
@@ -1107,7 +1107,7 @@ createApp({
     });
     watch(currentPage, (p) => {
       if (p === 'logs') { logs.date = new Date().toISOString().slice(0,10); loadLogs(); }
-      if (p === 'config') loadConfigList();
+      if (p === 'config') { loadConfigList(); loadBackups(); }
       if (p === 'users') loadUserList();
     });
 
