@@ -917,7 +917,7 @@ class SteamAuto(BaseInstance):
         message = f"📊 【好友今日游玩统计 - {today}】\n\n"
         
         for steam_id, friend_data in stats_data.items():
-            nickname = friend_data.get('pw_nickname', '未知昵称')
+            nickname = friend_data.get('nickname', '未知昵称')
             games = friend_data.get('games', {})
             
             message += f"👤 {nickname}:\n"
