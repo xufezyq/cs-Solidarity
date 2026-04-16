@@ -762,20 +762,11 @@ class SteamAuto(BaseInstance):
 
     def check_status_changes(self):
         """检查好友游戏状态变化，并累计今日游玩时长"""
-        # 维护时间检查：避免在 00:15-08:00 进行状态检查和消息发送
-        try:
-            from core import check_maintenance
-            if check_maintenance():
-                log.info(f"[{datetime.now()}] 当前在维护时段，跳过游戏状态检查")
-                return
-        except (ImportError, AttributeError):
-            pass
-        
         friend_status_list = self.get_steam_friend_status()
-        
+
         if not friend_status_list:
             return
-        
+
         # 收集本次检查产生的所有通知，按游戏名称分组
         game_start_messages = {}  # game_name -> [nickname1, nickname2, ...]
         game_stop_messages = {}  # game_name -> [(nickname, duration_str), ...]
@@ -884,6 +875,14 @@ class SteamAuto(BaseInstance):
 
         # 合并所有消息，限制单条长度避免微信截断
         if messages:
+            # 维护时间内跳过消息发送，但仍更新状态和累计时长
+            try:
+                from core import check_maintenance
+                if check_maintenance():
+                    log.info(f"[{datetime.now()}] 当前在维护时段，跳过消息发送")
+                    return
+            except (ImportError, AttributeError):
+                pass
             combined = "\n".join(messages)
             # 微信单条消息建议不超过 2000 字符，超过则分批发送
             max_len = 1800
