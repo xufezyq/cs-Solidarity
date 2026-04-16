@@ -30,6 +30,12 @@
 - 支持监听全部好友或指定好友
 - 可选完美平台战绩查询（CS2）
 
+![Steam好友游戏状态播报](docs/images/steam好友游戏状态播报.png)
+![CS2更新播报](docs/images/cs2更新播报.png)
+![完美战绩播报](docs/images/完美战绩播报.png)
+![完美今日胜负统计播报](docs/images/完美今日胜负统计播报.png)
+![完美历史战绩统计播报](docs/images/完美历史战绩统计播报.png)
+
 ### ⏰ 每日定时消息 (DailyAuto)
 - 指定时间自动发送固定消息到指定群组或好友
 - 支持维护时段自动跳过
@@ -47,6 +53,10 @@
 - 支持图像识别、表情符号处理
 - 主动消息和定时任务
 
+![KoriChat示例](docs/images/KouriChat示例1.png)
+![KoriChat群聊示例](docs/images/KouriChat群聊示例1.png)
+![KoriChat示例2](docs/images/KouriChat示例2.png)
+
 > 📖 **详细文档**：[KoriChat 使用指南](./KouriChat/README.md)
 
 ### 📢 信息推送 (InfoPush)
@@ -58,6 +68,11 @@
 - 实时查看机器人状态、实例信息、日志
 - 远程配置编辑、控制启停、用户管理
 - Vue 3 前端 + FastAPI 后端，响应式布局
+
+![Web登录界面](docs/images/Web登录界面.png)
+![Web仪表盘界面](docs/images/Web仪表盘界面.png)
+![Web Steam数据界面](docs/images/WebSteam数据界面1.png)
+![Web Stream数据界面](docs/images/WebStream数据界面2.png)
 
 > 📖 **详细文档**：[Web 控制面板使用指南](./web/README.md)
 
