@@ -3,7 +3,7 @@
   "check_interval": 60,
   "enable_news_check": true,
   "check_news_interval": 3600,
-  "code_update_message": "【cs-Solidarity】已经成功启动，当前版本：v{version}\n\n更新内容：\n- 修复了一些bug\n\nWeb 控制面板：http://159.75.169.14:11029/\n该项目已开源至：https://github.com/xufezyq/cs-Solidarity\nplease give the project a Star.",
+  "code_update_message": "【cs-Solidarity】已经成功启动，当前版本：v{version}\n\n更新内容：\n- 优化代码逻辑\n- 优化完美战绩播报\n\n控制面板：http://159.75.169.14:11029/\n该项目已开源至：https://github.com/xufezyq/cs-Solidarity\nplease give the project a Star.",
   "wechat_groups": [
     "【CS】团结友爱"
   ],
