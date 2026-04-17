@@ -185,10 +185,8 @@ class PwStatsReporter:
                         player_avatar_map[pid] = avatar
                     if pid:
                         player_detail_map[pid] = {
-                            'threeKill': player.get('threeKill', 0),
                             'fourKill': player.get('fourKill', 0),
                             'fiveKill': player.get('fiveKill', 0),
-                            'vs3': player.get('vs3', 0),
                             'vs4': player.get('vs4', 0),
                             'vs5': player.get('vs5', 0),
                         }
@@ -456,7 +454,18 @@ class PwStatsReporter:
 
             # MVP 称号
             title_line = ""
-            if mvp_title and mvp_nick:
+            stats_list = mvp_info.get('statsList', [])
+            if stats_list:
+                title_line = f"👑 MVP: {mvp_nick}\n"
+                for stat in stats_list:
+                    stats_desc = stat.get('statsDesc', '')
+                    data_desc = re.sub(r'<[^>]+>', '', stat.get('dataDesc', ''))
+                    if stats_desc:
+                        if data_desc:
+                            title_line += f"   ◆ {stats_desc}：{data_desc}\n"
+                        else:
+                            title_line += f"   ◆ {stats_desc}\n"
+            elif mvp_title and mvp_nick:
                 title_line = f"👑 MVP: {mvp_nick} | {mvp_title}"
                 if mvp_data_desc:
                     title_line += f" | {mvp_data_desc}"
@@ -483,35 +492,30 @@ class PwStatsReporter:
                 mvp_tag = ' ⭐MVP' if is_mvp else ''
                 pvpStars = data.get('pvpStars', 0)
 
-                # 多杀和残局
+                tags = mvp_tag
                 player_detail = match_player_details.get(match_id, {}).get(steam_id, {})
-                three_kill = player_detail.get('threeKill', 0)
                 four_kill = player_detail.get('fourKill', 0)
                 five_kill = player_detail.get('fiveKill', 0)
-                vs3 = player_detail.get('vs3', 0)
                 vs4 = player_detail.get('vs4', 0)
                 vs5 = player_detail.get('vs5', 0)
-
-                tags = mvp_tag
                 if five_kill > 0:
                     tags += ' 🔥五杀'
                 if four_kill > 0:
-                    tags += ' 💥四杀'
-                if three_kill > 0:
-                    tags += ' 💥三杀'
+                    tags += ' 🔥四杀'
                 if vs5 > 0:
                     tags += ' 🎯1v5'
                 if vs4 > 0:
                     tags += ' 🎯1v4'
-                if vs3 > 0:
-                    tags += ' 🎯1v3'
 
                 r_emoji = '🟢' if result == '胜利' else ('🔴' if result == '失败' else '🟡')
-                stars_str = f"⭐×{pvpStars}" if pvpStars > 0 else ''
 
                 msg += f"{r_emoji} {nickname}{tags}\n"
-                msg += f"  {kills}/{deaths}/{assists}  pwRT:{pwRating:.2f}  WE:{we:.1f}\n"
-                msg += f"  分数:{pvpScore} ({score_sign}{score_change}) | {stars_str}\n"
+                msg += f"  {kills}/{deaths}/{assists} | pwRT:{pwRating:.2f} | WE:{we:.1f}\n"
+                stars_str = f"⭐×{pvpStars}" if pvpStars > 0 else ''
+                if stars_str:
+                    msg += f"  分数:{pvpScore} ({score_sign}{score_change}) | {stars_str}\n"
+                else:
+                    msg += f"  分数:{pvpScore} ({score_sign}{score_change})\n"
 
             messages.append(msg)
 
