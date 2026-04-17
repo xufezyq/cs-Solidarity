@@ -18,7 +18,8 @@
       "Bash(python -m py_compile utils/flash_detector.py)",
       "Bash(python -m py_compile \"KouriChat/src/handlers/message.py\")",
       "Bash(python -m py_compile instances/steam_auto.py)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "WebSearch"
     ]
   }
 }

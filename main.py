@@ -434,7 +434,8 @@ def start_instances(instances):
             # 检查是否允许检测新消息
             if not ENABLE_FLASH_DETECT:
                 if idle_cycle_count % 10 == 0:  # 每 10 次循环打印一次日志
-                    debug("[闪烁检测] 跳过：检测功能已禁用")
+                    # debug("[闪烁检测] 跳过：检测功能已禁用")
+                    pass
                 time.sleep(0.1)
                 continue
             
