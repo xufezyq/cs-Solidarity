@@ -11,3 +11,4 @@ pywinauto
 pycaw
 comtypes
 httpx
+setproctitle

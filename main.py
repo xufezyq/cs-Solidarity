@@ -13,6 +13,13 @@ from utils.logger import setup_logger, info, debug, error, warning
 from version import VERSION, get_version_info
 import win32gui
 
+# 设置进程名
+try:
+    import setproctitle
+    setproctitle.setproctitle("cs-Solidarity")
+except ImportError:
+    pass  # 忽略导入失败，兼容没有安装 setproctitle 的环境
+
 import logging
 
 # 强制 UTF-8 输出
