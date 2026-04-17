@@ -61,13 +61,11 @@ class PwStatsReporter:
         match_player_details = details['player_details']
         match_base_info = details['base_info']
         match_mvp_info = details['mvp_info']
-        match_advance_info = details['advance_info']
         player_avatar_map = details['avatar_map']
-        match_all_players = details['all_players']
 
         # 收集所有玩家的数据，用于合并和排序
         all_players = self._collect_player_data(
-            match_groups, match_pw_nicknames, match_all_players
+            match_groups, match_pw_nicknames
         )
 
         # 更新统计数据
@@ -120,22 +118,22 @@ class PwStatsReporter:
         match_player_details = {}
         match_base_info = {}
         match_mvp_info = {}
-        match_advance_info = {}
-        match_all_players = {}
 
         for match_id in match_groups:
             try:
+                # 1. 获取全场数据
                 detail = await self.pw_api.get_match_detail(match_id)
                 if isinstance(detail, int) or not detail.get('players'):
                     match_pw_nicknames[match_id] = {}
                     match_player_details[match_id] = {}
                     match_base_info[match_id] = {}
                     match_mvp_info[match_id] = {}
-                    match_all_players[match_id] = []
-                    match_advance_info[match_id] = {}
                     continue
 
-                # 对局基本信息
+                # 2. 构建监控好友的 playerId 集合
+                monitored_player_ids = {str(data.get('playerId', '')) for _, data in match_groups[match_id] if data.get('playerId')}
+
+                # 3. 提取全场基础信息（所有玩家共享）
                 base = detail.get('base', {})
                 match_base_info[match_id] = {
                     'halfScore1': base.get('halfScore1', 0),
@@ -146,54 +144,59 @@ class PwStatsReporter:
                     'greenMatch': base.get('greenMatch', False),
                 }
 
-                # MVP 称号
-                try:
-                    mvp_info = await self.pw_api.get_match_mvp(match_id)
-                    if not isinstance(mvp_info, int) and mvp_info:
-                        match_mvp_info[match_id] = {
-                            'statsDesc': mvp_info.get('statsDesc', ''),
-                            'dataDesc': mvp_info.get('dataDesc', ''),
-                            'mvp_nickname': mvp_info.get('nickName', ''),
-                            'statsList': mvp_info.get('statsList', []),
-                        }
-                    else:
-                        match_mvp_info[match_id] = {}
-                except Exception as e:
-                    self.log(f"[{datetime.now()}] 获取MVP信息失败 ({match_id}): {e}")
-                    match_mvp_info[match_id] = {}
-
-                # 高级数据
-                try:
-                    advance_data = await self.pw_api.get_match_advance(match_id)
-                    if not isinstance(advance_data, int) and advance_data:
-                        if isinstance(advance_data, list):
-                            match_advance_info[match_id] = {item.get('steamId', ''): item for item in advance_data}
-                except Exception as e:
-                    self.log(f"[{datetime.now()}] 获取高级数据失败 ({match_id}): {e}")
-                    match_advance_info[match_id] = {}
-
-                # 提取玩家昵称和详情
+                # 4. 提取好友相关数据（仅监控好友）
                 nick_map = {}
                 player_detail_map = {}
                 for player in detail['players']:
                     pid = str(player.get('playerId', ''))
+                    if pid not in monitored_player_ids:
+                        continue
                     pw_nick = player.get('nickName', '')
                     avatar = player.get('avatar', '')
-                    if pid and pw_nick:
+                    if pw_nick:
                         nick_map[pid] = pw_nick
-                    if pid and avatar:
+                    if avatar:
                         player_avatar_map[pid] = avatar
-                    if pid:
-                        player_detail_map[pid] = {
-                            'fourKill': player.get('fourKill', 0),
-                            'fiveKill': player.get('fiveKill', 0),
-                            'vs4': player.get('vs4', 0),
-                            'vs5': player.get('vs5', 0),
-                        }
+                    player_detail_map[pid] = {
+                        'fourKill': player.get('fourKill', 0),
+                        'fiveKill': player.get('fiveKill', 0),
+                        'vs4': player.get('vs4', 0),
+                        'vs5': player.get('vs5', 0),
+                    }
 
                 match_pw_nicknames[match_id] = nick_map
                 match_player_details[match_id] = player_detail_map
-                match_all_players[match_id] = detail['players']
+
+                # 5. 按需获取额外数据（仅当好友需要时）
+                match_mvp_info[match_id] = {}
+
+                # 5.1 MVP 称号（仅当好友是MVP时才获取）
+                friend_is_mvp = any(
+                    player.get('mvp', False) and str(player.get('playerId', '')) in monitored_player_ids
+                    for player in detail['players']
+                )
+                if friend_is_mvp:
+                    try:
+                        mvp_info = await self.pw_api.get_match_mvp(match_id)
+                        if not isinstance(mvp_info, int) and mvp_info:
+                            match_mvp_info[match_id] = {
+                                'statsDesc': mvp_info.get('statsDesc', ''),
+                                'dataDesc': mvp_info.get('dataDesc', ''),
+                                'mvp_nickname': mvp_info.get('nickName', ''),
+                                'statsList': mvp_info.get('statsList', []),
+                            }
+                    except Exception as e:
+                        self.log(f"[{datetime.now()}] 获取MVP信息失败 ({match_id}): {e}")
+
+                # 5.2 高级数据（预留接口，暂未使用）
+                # try:
+                #     advance_data = await self.pw_api.get_match_advance(match_id)
+                #     if not isinstance(advance_data, int) and advance_data:
+                #         if isinstance(advance_data, list):
+                #             match_advance_info[match_id] = {item.get('steamId', ''): item for item in advance_data}
+                # except Exception as e:
+                #     self.log(f"[{datetime.now()}] 获取高级数据失败 ({match_id}): {e}")
+
                 self.log(f"[{datetime.now()}] 对局 {match_id} 获取到 {len(nick_map)} 个完美昵称")
 
             except Exception as e:
@@ -202,21 +205,16 @@ class PwStatsReporter:
                 match_player_details[match_id] = {}
                 match_base_info[match_id] = {}
                 match_mvp_info[match_id] = {}
-                match_all_players[match_id] = []
-                match_advance_info[match_id] = {}
 
         return {
             'nicknames': match_pw_nicknames,
             'player_details': match_player_details,
             'base_info': match_base_info,
             'mvp_info': match_mvp_info,
-            'advance_info': match_advance_info,
             'avatar_map': player_avatar_map,
-            'all_players': match_all_players,
         }
 
-    def _collect_player_data(self, match_groups: dict, match_pw_nicknames: dict,
-                             match_all_players: dict) -> list:
+    def _collect_player_data(self, match_groups: dict, match_pw_nicknames: dict) -> list:
         """收集所有玩家的数据"""
         all_players = []
 
