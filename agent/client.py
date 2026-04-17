@@ -69,7 +69,8 @@ class AgentClient:
                 capture_output=True,
                 text=True,
             )
-            has_stash = stash_result.returncode == 0
+            # 检查是否真的有修改被暂存（返回码为 0 但可能是因为无修改）
+            has_stash = stash_result.returncode == 0 and "No local changes to save" not in stash_result.stderr
             if has_stash:
                 log.info("本地修改已暂存")
             else:
@@ -86,6 +87,18 @@ class AgentClient:
                 log.info("✅ Git 拉取成功")
             else:
                 log.warning(f"⚠️ Git 拉取失败: {pull_result.stderr.strip()}")
+                # 尝试普通的 git pull（非 rebase）
+                log.info("尝试普通 git pull...")
+                pull_result2 = subprocess.run(
+                    ["git", "pull"],
+                    cwd=self.root_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                if pull_result2.returncode == 0:
+                    log.info("✅ 普通 Git 拉取成功")
+                else:
+                    log.error(f"❌ 普通 Git 拉取也失败: {pull_result2.stderr.strip()}")
 
             # git stash pop: 恢复本地修改
             if has_stash:
