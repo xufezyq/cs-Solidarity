@@ -827,27 +827,27 @@ class SteamAuto(BaseInstance):
         # 定义排行榜类别
         categories = [
             ('🔫 击杀王',   'max_kills',   True,  '杀'),
-            ('🫡 精神支持', 'min_kills',   False, '杀'),
+            ('🤪 精神支持', 'min_kills',   False, '杀'),
             ('💀 唐宋八大家','max_deaths', True,  '死'),
             ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
-            ('📊 RT 之神',   'max_rating',  True,  ''),
+            ('👑 RT 之神',   'max_rating',  True,  ''),
             ('🧸 吉祥物',   'min_rating',  False, ''),
             ('⚡ PW RT 之神','max_pw_rating',True, ''),
-            ('👤 纯路人',   'min_pw_rating',False, ''),
+            ('❓ 纯路人',   'min_pw_rating',False, ''),
             ('💪 WE 之神',   'max_we',      True,  ''),
             ('😅 不懂装懂', 'min_we',      False, ''),
-            ('🎯 得分王',   'max_score',   True,  '分'),
-            ('📉 吊车尾',   'min_score',   False, '分'),
+            ('🎖️ 得分王',   'max_score',   True,  '分'),
+            ('🗑️ 吊车尾',   'min_score',   False, '分'),
         ]
 
         lines = ["🏆 历史战绩排行榜", ""]
         category_groups = [
-            ['🔫', '🫡'],      # 击杀类
+            ['🔫', '🤪'],      # 击杀类
             ['💀', '🦎'],      # 死亡类
-            ['📊', '🧸'],      # Rating 类
-            ['⚡' , '👤'],      # PW Rating
+            ['👑', '🧸'],      # Rating 类
+            ['⚡' , '❓'],      # PW Rating
             ['💪', '😅'],      # WE 类
-            ['🎯', '📉'],      # 得分类
+            ['🎯', '🗑️'],      # 得分类
         ]
         
         current_group = 0
