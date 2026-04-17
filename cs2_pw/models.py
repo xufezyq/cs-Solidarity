@@ -728,6 +728,8 @@ class MatchTitel(TypedDict):
     """数据描述"""
     type: int
     """描述类型"""
+    statsList: List[MatchTitelSats]
+    """成就列表，包含多个称号"""
 
 
 class MatchPlayer(TypedDict):
