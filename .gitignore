@@ -29,11 +29,17 @@ env/
 *.log
 logs/
 
-# batch files
+# batch files (except specific ones)
 *.bat
+!run.bat
+!start_agent.bat
+!start_web.bat
 
 # @AutomationLog.txt
 @AutomationLog.txt
+
+# Bot PID file
+.bot.pid
 
 # Documentation
 # docs
@@ -49,3 +55,6 @@ web/backups/
 
 # KouriChat 配置文件
 KouriChat/data/config/
+
+# backups
+backups/

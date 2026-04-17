@@ -1,8 +1,8 @@
 {
   "debug_mode": false,
   "enable_send": true,
-  "enable_receive": true,
-  "enable_flash_detect": true,
+  "enable_receive": false,
+  "enable_flash_detect": false,
   "maintenance": {
     "start_hour": 0,
     "start_minute": 15,

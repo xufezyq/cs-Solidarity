@@ -66,7 +66,7 @@
     {
       "steamid": "76561199262650715",
       "personaname": "electronic",
-      "pw_nickname": "electronic"
+      "pw_nickname": "皮帅侠"
     },
     {
       "steamid": "76561198383859685",
@@ -140,7 +140,7 @@
       "max_deaths": 31,
       "min_deaths": 8,
       "avatar": "https://img.wmpvp.com/pvp/97/d1/97d1db970fb07f1619f5848ac9cdf3121645709717.jpeg",
-      "last_match_id": "PVP@9212571822939840396"
+      "last_match_id": "PVP@9215949558677600140"
     },
     "76561198986231197": {
       "pw_nickname": "牛皮侠",
@@ -157,56 +157,58 @@
       "max_deaths": 34,
       "min_deaths": 12,
       "avatar": "https://img.wmpvp.com/pvp/ac/2b/ac2b0655659a16f235f46d6ab8445c3b1769863167.webp",
-      "last_match_id": "PVP@9212571822939840396"
+      "last_match_id": "PVP@9206449766387643916"
     },
     "76561199103253412": {
       "pw_nickname": "神厨丨小福贵",
       "max_kills": 27,
-      "min_kills": 6,
+      "min_kills": 4,
       "max_rating": 1.71,
       "min_rating": 0.31,
       "max_pw_rating": 1.6,
-      "min_pw_rating": 0.63,
+      "min_pw_rating": 0.51,
       "max_we": 13.116,
-      "min_we": 4.0963,
-      "max_score": 1958,
+      "min_we": 3.5897,
+      "max_score": 1967,
       "min_score": 1531,
       "max_deaths": 22,
-      "min_deaths": 11,
+      "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/1d/3b/1d3b723c8645b8eb145114f3cd5532c81767184502.webp",
-      "last_match_id": "PVP@9219819794382040332"
+      "last_match_id": "PVP@9212712595409601804"
     },
     "76561199262650715": {
-      "pw_nickname": "electronic",
+      "pw_nickname": "皮帅侠",
       "max_kills": 25,
       "min_kills": 5,
-      "max_rating": 1.46,
+      "max_rating": 1.64,
       "min_rating": 0.32,
-      "max_pw_rating": 1.34,
+      "max_pw_rating": 1.53,
       "min_pw_rating": 0.62,
-      "max_we": 11.8249,
+      "max_we": 13.825,
       "min_we": 2.0012,
-      "max_score": 2027,
+      "max_score": 2080,
       "min_score": 1761,
       "max_deaths": 20,
-      "min_deaths": 15
+      "min_deaths": 8,
+      "avatar": "https://img.wmpvp.com/pvp/0a/24/0a249aa512dab5b601981d217c945d7c1729406944.png",
+      "last_match_id": "PVP@9215949558677600140"
     },
     "76561199142850248": {
       "pw_nickname": "人民万岁小灰灰",
       "max_kills": 28,
-      "min_kills": 10,
+      "min_kills": 8,
       "max_rating": 1.61,
       "min_rating": 0.53,
       "max_pw_rating": 1.43,
       "min_pw_rating": 0.79,
       "max_we": 12.308,
       "min_we": 5.1614,
-      "max_score": 1935,
+      "max_score": 1968,
       "min_score": 1679,
       "max_deaths": 24,
       "min_deaths": 11,
       "avatar": "https://img.wmpvp.com/pvp/48/db/48dbf3a64a448f69b0d53a4c3faea4791739791493.png",
-      "last_match_id": "PVP@9209334862482678796"
+      "last_match_id": "PVP@9213768126542505484"
     },
     "76561198383859685": {
       "pw_nickname": "皮干侠",
@@ -229,18 +231,18 @@
       "pw_nickname": "皮剑侠",
       "max_kills": 25,
       "min_kills": 4,
-      "max_rating": 1.28,
+      "max_rating": 1.31,
       "min_rating": 0.28,
       "max_pw_rating": 1.43,
       "min_pw_rating": 0.44,
-      "max_we": 11.4806,
+      "max_we": 12.0439,
       "min_we": 2.7098,
       "max_score": 2005,
       "min_score": 1630,
       "max_deaths": 31,
       "min_deaths": 9,
       "avatar": "https://img.wmpvp.com/pvp/36/a9/36a91f00aad2a78e584dba55f6e270191772610688.webp",
-      "last_match_id": "PVP@9212571822939840396"
+      "last_match_id": "PVP@9215949558677600140"
     },
     "76561198347252622": {
       "pw_nickname": "皮能侠",
@@ -252,46 +254,46 @@
       "min_pw_rating": 0.69,
       "max_we": 13.2703,
       "min_we": 4.0635,
-      "max_score": 2155,
+      "max_score": 2188,
       "min_score": 2024,
       "max_deaths": 32,
       "min_deaths": 6,
       "avatar": "https://img.wmpvp.com/pvp/e5/3f/e53ffd2d041b79f3367168eefc07fa491691408498.jpeg",
-      "last_match_id": "PVP@9216512464102428940"
+      "last_match_id": "PVP@9215949558677600140"
     },
     "76561199447107976": {
       "pw_nickname": "中华丨小当家",
-      "max_kills": 24,
-      "min_kills": 6,
+      "max_kills": 26,
+      "min_kills": 4,
       "max_rating": 1.76,
-      "min_rating": 0.37,
+      "min_rating": 0.31,
       "max_pw_rating": 1.65,
-      "min_pw_rating": 0.63,
+      "min_pw_rating": 0.45,
       "max_we": 13.116,
       "min_we": 4.3009,
-      "max_score": 1912,
+      "max_score": 2038,
       "min_score": 1602,
       "max_deaths": 21,
       "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/e7/4c/e74c524f8f47835dcab68f55959e99f91766921303.webp",
-      "last_match_id": "PVP@9219819794382040332"
+      "last_match_id": "PVP@9212079277998340236"
     },
     "76561198987925371": {
       "pw_nickname": "Hunter的红酒瓶。",
-      "max_kills": 22,
+      "max_kills": 33,
       "min_kills": 5,
-      "max_rating": 1.64,
+      "max_rating": 1.74,
       "min_rating": 0.38,
-      "max_pw_rating": 1.58,
+      "max_pw_rating": 1.67,
       "min_pw_rating": 0.49,
-      "max_we": 13.6501,
+      "max_we": 13.714,
       "min_we": 2.8398,
-      "max_score": 1997,
+      "max_score": 2082,
       "min_score": 1678,
       "max_deaths": 21,
       "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/de/65/de65a74d484904ece1a4dbdf62ccbf7f1607501754.png?v=20250710",
-      "last_match_id": "PVP@9219819794382040332"
+      "last_match_id": "PVP@9212079277998340236"
     },
     "76561198412776807": {
       "pw_nickname": "皮雳侠",
@@ -302,13 +304,13 @@
       "max_pw_rating": 1.75,
       "min_pw_rating": 0.79,
       "max_we": 14.7041,
-      "min_we": 5.776,
-      "max_score": 2128,
+      "min_we": 5.4235,
+      "max_score": 2162,
       "min_score": 1784,
       "max_deaths": 28,
       "min_deaths": 7,
       "avatar": "https://cdn.wmpvp.com/avatars/a1e1e00263edbb76b6c3fbedc5e15d74def55fa2.jpg",
-      "last_match_id": "PVP@9212571822939840396"
+      "last_match_id": "PVP@9215949558677600140"
     }
   },
   "friend_pw_leaderboard": {
