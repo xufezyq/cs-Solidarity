@@ -469,13 +469,16 @@ class SteamAuto(BaseInstance):
         # 为每场对局调用 get_match_detail 获取完美平台昵称（同一 matchId 只调一次）
         match_pw_nicknames = {}  # match_id -> {steam_id: pw_nickname}
         player_avatar_map = {}   # steam_id -> avatar_url (最新一场对局的头像)
+        match_player_details = {}  # match_id -> {playerId: {fiveKill, vs5}}
         for match_id in match_groups:
             try:
                 detail = await self.pw_api.get_match_detail(match_id)
                 if isinstance(detail, int) or not detail.get('players'):
                     match_pw_nicknames[match_id] = {}
+                    match_player_details[match_id] = {}
                     continue
                 nick_map = {}
+                player_detail_map = {}
                 for player in detail['players']:
                     pid = str(player.get('playerId', ''))
                     pw_nick = player.get('nickName', '')
@@ -484,11 +487,18 @@ class SteamAuto(BaseInstance):
                         nick_map[pid] = pw_nick
                     if pid and avatar:
                         player_avatar_map[pid] = avatar
+                    if pid:
+                        player_detail_map[pid] = {
+                            'fiveKill': player.get('fiveKill', 0),
+                            'vs5': player.get('vs5', 0),
+                        }
                 match_pw_nicknames[match_id] = nick_map
+                match_player_details[match_id] = player_detail_map
                 log.info(f"[{datetime.now()}] 对局 {match_id} 获取到 {len(nick_map)} 个完美昵称")
             except Exception as e:
                 log.info(f"[{datetime.now()}] 获取对局详情失败 ({match_id}): {e}")
                 match_pw_nicknames[match_id] = {}
+                match_player_details[match_id] = {}
 
         # 收集所有玩家的数据，用于合并和排序
         all_players = []  # [(steam_id, data, map_name, score1, score2), ...]
@@ -722,10 +732,17 @@ class SteamAuto(BaseInstance):
                     is_mvp = data.get('pvpMvp', False)
                     mvp_tag = ' ⭐MVP' if is_mvp else ''
 
+                    # 从对局详情获取五杀和1v5数据
+                    player_detail = match_player_details.get(match_id, {}).get(steam_id, {})
+                    five_kill = player_detail.get('fiveKill', 0)
+                    vs5 = player_detail.get('vs5', 0)
+                    five_kill_tag = ' 🔥五杀' if five_kill > 0 else ''
+                    vs5_tag = ' 🎯1v5' if vs5 > 0 else ''
+
                     # 结果 emoji
                     r_emoji = '🟢' if result == '胜利' else ('🔴' if result == '失败' else '🟡')
 
-                    msg += f"{r_emoji} {nickname}{mvp_tag}\n"
+                    msg += f"{r_emoji} {nickname}{mvp_tag}{five_kill_tag}{vs5_tag}\n"
                     msg += f"  {kills}/{deaths}/{assists}  pwRT:{pwRating:.2f}  WE:{we:.1f}\n"
                     msg += f"  分数:{pvpScore} ({score_sign}{score_change})\n"
 
