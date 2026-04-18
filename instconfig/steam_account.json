@@ -106,7 +106,7 @@
     {
       "steamid": "76561199447107976",
       "personaname": "小猫老弟",
-      "pw_nickname": "中华丨小当家"
+      "pw_nickname": "圣主灬"
     }
   ],
   "friend_pw_history_stats": {
@@ -157,7 +157,7 @@
       "max_deaths": 34,
       "min_deaths": 12,
       "avatar": "https://img.wmpvp.com/pvp/ac/2b/ac2b0655659a16f235f46d6ab8445c3b1769863167.webp",
-      "last_match_id": "PVP@9216371776503287180"
+      "last_match_id": "PVP@9215808831837162892"
     },
     "76561199103253412": {
       "pw_nickname": "神厨丨小福贵",
@@ -174,7 +174,7 @@
       "max_deaths": 22,
       "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/1d/3b/1d3b723c8645b8eb145114f3cd5532c81767184502.webp",
-      "last_match_id": "PVP@9212712595409601804"
+      "last_match_id": "PVP@9215738463479800972"
     },
     "76561199262650715": {
       "pw_nickname": "皮帅侠",
@@ -225,7 +225,7 @@
       "max_deaths": 27,
       "min_deaths": 6,
       "avatar": "https://img.wmpvp.com/pvp/18/28/1828165970172b73162cb4fd4120b0011772113452.webp",
-      "last_match_id": "PVP@9216512464102428940"
+      "last_match_id": "PVP@9215808831837162892"
     },
     "76561198126298848": {
       "pw_nickname": "皮剑侠",
@@ -254,15 +254,15 @@
       "min_pw_rating": 0.69,
       "max_we": 13.2703,
       "min_we": 4.0635,
-      "max_score": 2188,
+      "max_score": 2259,
       "min_score": 2024,
       "max_deaths": 32,
       "min_deaths": 6,
       "avatar": "https://img.wmpvp.com/pvp/e5/3f/e53ffd2d041b79f3367168eefc07fa491691408498.jpeg",
-      "last_match_id": "PVP@9215949558677600140"
+      "last_match_id": "PVP@9215808831837162892"
     },
     "76561199447107976": {
-      "pw_nickname": "中华丨小当家",
+      "pw_nickname": "圣主灬",
       "max_kills": 26,
       "min_kills": 4,
       "max_rating": 1.76,
@@ -276,13 +276,13 @@
       "max_deaths": 21,
       "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/e7/4c/e74c524f8f47835dcab68f55959e99f91766921303.webp",
-      "last_match_id": "PVP@9212079277998340236"
+      "last_match_id": "PVP@9215738463479800972"
     },
     "76561198987925371": {
       "pw_nickname": "Hunter的红酒瓶。",
       "max_kills": 33,
       "min_kills": 5,
-      "max_rating": 1.74,
+      "max_rating": 1.76,
       "min_rating": 0.38,
       "max_pw_rating": 1.67,
       "min_pw_rating": 0.49,
@@ -293,7 +293,7 @@
       "max_deaths": 21,
       "min_deaths": 10,
       "avatar": "https://img.wmpvp.com/pvp/de/65/de65a74d484904ece1a4dbdf62ccbf7f1607501754.png?v=20250710",
-      "last_match_id": "PVP@9212079277998340236"
+      "last_match_id": "PVP@9216934732886214412"
     },
     "76561198412776807": {
       "pw_nickname": "皮雳侠",
@@ -305,12 +305,12 @@
       "min_pw_rating": 0.79,
       "max_we": 14.7041,
       "min_we": 5.4235,
-      "max_score": 2162,
+      "max_score": 2177,
       "min_score": 1784,
       "max_deaths": 28,
       "min_deaths": 7,
       "avatar": "https://cdn.wmpvp.com/avatars/a1e1e00263edbb76b6c3fbedc5e15d74def55fa2.jpg",
-      "last_match_id": "PVP@9216371776503287180"
+      "last_match_id": "PVP@9215808831837162892"
     }
   },
   "friend_pw_leaderboard": {
