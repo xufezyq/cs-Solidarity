@@ -3,8 +3,9 @@ cs-Solidarity Agent — WebSocket 客户端
 
 主动连接到 Web Server，接收请求并转发给 handler 处理，同时通过 watcher 推送日志。
 
-用法：
-    python -m agent.client --server ws://B_IP:11029/ws/agent --token xxx --root D:\code\cs-Solidarity
+用法::
+
+    python -m agent.client --server ws://B_IP:11029/ws/agent --token xxx --root D:\\code\\cs-Solidarity
 """
 
 import asyncio
@@ -17,6 +18,13 @@ import sys
 import signal
 from datetime import datetime
 from pathlib import Path
+
+# 设置进程名
+try:
+    import setproctitle
+    setproctitle.setproctitle("cs-Solidarity Agent")
+except ImportError:
+    pass  # 忽略导入失败，兼容没有安装 setproctitle 的环境
 
 import websockets
 
@@ -68,6 +76,7 @@ class AgentClient:
                 cwd=self.root_dir,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
             )
             # 检查是否真的有修改被暂存（返回码为 0 但可能是因为无修改）
             has_stash = stash_result.returncode == 0 and "No local changes to save" not in stash_result.stderr
@@ -82,6 +91,7 @@ class AgentClient:
                 cwd=self.root_dir,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
             )
             if pull_result.returncode == 0:
                 log.info("✅ Git 拉取成功")
@@ -94,6 +104,7 @@ class AgentClient:
                     cwd=self.root_dir,
                     capture_output=True,
                     text=True,
+                    encoding='utf-8',
                 )
                 if pull_result2.returncode == 0:
                     log.info("✅ 普通 Git 拉取成功")
@@ -107,6 +118,7 @@ class AgentClient:
                     cwd=self.root_dir,
                     capture_output=True,
                     text=True,
+                    encoding='utf-8',
                 )
                 if stash_pop_result.returncode == 0:
                     log.info("本地修改已恢复")

@@ -12,6 +12,13 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# 设置进程名
+try:
+    import setproctitle
+    setproctitle.setproctitle("cs-Solidarity Web")
+except ImportError:
+    pass  # 忽略导入失败，兼容没有安装 setproctitle 的环境
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

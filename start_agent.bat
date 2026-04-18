@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title cs-Solidarity Agent
+title cs-Solidarity Agent - WebSocket Client
 
 cd /d "%~dp0"
 
