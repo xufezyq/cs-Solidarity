@@ -471,7 +471,7 @@ class PwStatsReporter:
 
             msg = f"{result_emoji} {map_name}  {score_info}\n"
             msg += f"{'─' * 14}\n"
-            msg += title_line
+            msg += title_line + "\n"
 
             # 按 WE 排序
             players_sorted = sorted(players, key=lambda x: x[1].get('we', 0), reverse=True)
