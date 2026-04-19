@@ -135,9 +135,13 @@ class PwStatsReporter:
 
                 # 3. 提取全场基础信息（所有玩家共享）
                 base = detail.get('base', {})
+                fh1 = base.get('firstHalfScore1', 0)
+                fh2 = base.get('firstHalfScore2', 0)
                 match_base_info[match_id] = {
-                    'halfScore1': base.get('halfScore1', 0),
-                    'halfScore2': base.get('halfScore2', 0),
+                    'firstHalfScore1': fh1,
+                    'firstHalfScore2': fh2,
+                    'secondHalfScore1': base.get('score1', 0) - fh1,
+                    'secondHalfScore2': base.get('score2', 0) - fh2,
                     'extraScore1': base.get('extraScore1', 0),
                     'extraScore2': base.get('extraScore2', 0),
                     'duration': base.get('duration', 0),
@@ -415,10 +419,12 @@ class PwStatsReporter:
 
             # 对局详情
             base_info = match_base_info.get(match_id, {})
-            half1 = base_info.get('halfScore1', 0)
-            half2 = base_info.get('halfScore2', 0)
-            extra1 = base_info.get('extraScore1', 0)
-            extra2 = base_info.get('extraScore2', 0)
+            fh1 = base_info.get('firstHalfScore1', 0)
+            fh2 = base_info.get('firstHalfScore2', 0)
+            sh1 = base_info.get('secondHalfScore1', 0)
+            sh2 = base_info.get('secondHalfScore2', 0)
+            ex1 = base_info.get('extraScore1', 0)
+            ex2 = base_info.get('extraScore2', 0)
             duration = base_info.get('duration', 0)
             green_match = base_info.get('greenMatch', False)
 
@@ -441,10 +447,10 @@ class PwStatsReporter:
 
             # 比分信息
             score_info = f"{score1}:{score2}"
-            if extra1 > 0 or extra2 > 0:
-                score_info += f" (半场 {half1}:{half2} | 加时 {extra1}:{extra2})"
-            elif half1 > 0 or half2 > 0:
-                score_info += f" (半场 {half1}:{half2})"
+            if ex1 > 0 or ex2 > 0:
+                score_info += f" (半场 {fh1}:{fh2}/{sh1}:{sh2} | 加时 {ex1}:{ex2})"
+            elif fh1 > 0 or fh2 > 0:
+                score_info += f" (半场 {fh1}:{fh2}/{sh1}:{sh2})"
             if duration > 0:
                 score_info += f" | {duration}分钟"
             if green_match:
