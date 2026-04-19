@@ -20,6 +20,12 @@ _wx_lock = threading.Lock()  # 防止多线程同时初始化
 _send_op_lock = threading.Lock()  # 防止多个线程同时执行 ChatWith+SendMsg（KoriChat Timer 与主线程冲突）
 
 
+def _get_main():
+    """获取 main.py 模块（在 sys.modules['main'] 被假模块占位时，通过 __main__ 绕过）"""
+    import sys
+    return sys.modules['__main__']
+
+
 def _bezier_move(from_x, from_y, to_x, to_y):
     """用 Bezier 曲线模拟人类鼠标移动轨迹
 
@@ -297,13 +303,16 @@ def send_message(message, group, at=None, at_all=False):
     4. 再次读取，捕获发送期间到达的新消息
     5. 合并预捕获 + 发送期间捕获的消息
     """
-    import main
-    
+    # 调试拦截：打印到日志而非发送到微信
+    if getattr(_get_main(), 'MOCK_SEND', False):
+        log.info(f"[MOCK→{group}]: {message}")
+        return []
+
     # 设置全局标志，确保整个发送过程期间主循环不会最小化窗口
-    with main._send_lock:
-        main._sending_count += 1
-        main._is_sending = True
-        main._last_send_time = time.time()
+    with _get_main()._send_lock:
+        _get_main()._sending_count += 1
+        _get_main()._is_sending = True
+        _get_main()._last_send_time = time.time()
     
     try:
         wx = get_wechat()
@@ -422,8 +431,8 @@ def send_message(message, group, at=None, at_all=False):
                 log.debug(traceback.format_exc())
                 raise
             # 更新发送时间戳
-            with main._send_lock:
-                main._last_send_time = time.time()
+            with _get_main()._send_lock:
+                _get_main()._last_send_time = time.time()
 
             # ── 第五步：等待消息出现在聊天记录中 ──
             sent_id = None
@@ -446,7 +455,7 @@ def send_message(message, group, at=None, at_all=False):
             if sent_id:
                 log.debug(f"[send] 消息已确认发送 (ID={sent_id})")
             else:
-                warning(f"[send] 消息可能未成功发送到 {group}")
+                log.warning(f"[send] 消息可能未成功发送到 {group}")
 
             # ── 第六步：捕获发送期间到达的新消息 ──
             post_caught = []
@@ -472,19 +481,19 @@ def send_message(message, group, at=None, at_all=False):
                             post_caught.append(nm)
 
                     if post_caught:
-                        info(f"[send] 发送期间捕获 {len(post_caught)} 条新消息")
+                        log.info(f"[send] 发送期间捕获 {len(post_caught)} 条新消息")
             except Exception as e:
-                debug(f"[send] 捕获新消息失败: {e}")
+                log.debug(f"[send] 捕获新消息失败: {e}")
 
             return pre_caught + post_caught
     
     finally:
         # 发送完成后重置标志和计数器
-        with main._send_lock:
-            main._sending_count -= 1
-            if main._sending_count <= 0:
-                main._is_sending = False
-                main._sending_count = 0
+        with _get_main()._send_lock:
+            _get_main()._sending_count -= 1
+            if _get_main()._sending_count <= 0:
+                _get_main()._is_sending = False
+                _get_main()._sending_count = 0
 
 
 def send_messages(messages, group, at=None, at_all=False):
@@ -493,8 +502,6 @@ def send_messages(messages, group, at=None, at_all=False):
     与 send_message 不同，此方法一次发送多条消息，期间保持 _sending_count > 0，
     防止主循环在消息之间最小化窗口。
     """
-    import main
-    
     if not messages:
         return []
 
@@ -504,10 +511,10 @@ def send_messages(messages, group, at=None, at_all=False):
     # ════════════════════════════════════════════════════════
     # 标记开始发送（整个批量发送期间保持）
     # ════════════════════════════════════════════════════════
-    with main._send_lock:
-        main._sending_count += 1
-        main._is_sending = True
-        main._last_send_time = time.time()
+    with _get_main()._send_lock:
+        _get_main()._sending_count += 1
+        _get_main()._is_sending = True
+        _get_main()._last_send_time = time.time()
     
     try:
         wx = get_wechat()
@@ -555,7 +562,13 @@ def send_messages(messages, group, at=None, at_all=False):
             time.sleep(typing_time)
 
             try:
-                if (at and isinstance(at, list)) or at_all:
+                # 提取字典消息中的 at 参数（与 send_message 保持一致）
+                first_msg_obj = messages[0] if messages else ""
+                actual_at = first_msg_obj.get("at") if isinstance(first_msg_obj, dict) else at
+                actual_at_all = first_msg_obj.get("at_all") if isinstance(first_msg_obj, dict) else at_all
+                first_msg = first_msg_obj.get("content") if isinstance(first_msg_obj, dict) else first_msg_obj
+
+                if (actual_at and isinstance(actual_at, list)) or actual_at_all:
                     # 有 @ 时：@名字 + 回车选人，粘贴消息，回车发送
                     import uiautomation as uia
                     from wxauto.utils import SetClipboardText
@@ -574,15 +587,15 @@ def send_messages(messages, group, at=None, at_all=False):
                     uia.SendKeys('{Ctrl}a', waitTime=0.05)
                     time.sleep(0.1)
 
-                    if at_all:
+                    if actual_at_all:
                         log.info("[send] 输入 @所有人 回车")
                         uia.SendKeys('@所有人', waitTime=0.1)
                         time.sleep(0.5)
                         uia.SendKeys('{Enter}', waitTime=0.1)
                         time.sleep(0.2)
 
-                    if at and isinstance(at, list):
-                        for member in at:
+                    if actual_at and isinstance(actual_at, list):
+                        for member in actual_at:
                             log.info(f"[send] 输入 @{member} 回车")
                             uia.SendKeys(f'@{member}', waitTime=0.1)
                             time.sleep(0.5)
@@ -601,14 +614,16 @@ def send_messages(messages, group, at=None, at_all=False):
                     remaining = messages[1:] if len(messages) > 1 else []
                     if remaining:
                         time.sleep(random.uniform(0.5, 1.5))
-                        wx.SendMsgs(remaining, group)
+                        clean_remaining = [m.get("content") if isinstance(m, dict) else m for m in remaining]
+                        wx.SendMsgs(clean_remaining, group)
                         log.debug(f"[send] 批量发送剩余 {len(remaining)} 条消息")
                 else:
-                    wx.SendMsgs(messages, group)
+                    clean_messages = [m.get("content") if isinstance(m, dict) else m for m in messages]
+                    wx.SendMsgs(clean_messages, group)
                 log.debug(f"[send] 批量发送 {len(messages)} 条消息到 {group}")
                 # 更新发送时间戳
-                with main._send_lock:
-                    main._last_send_time = time.time()
+                with _get_main()._send_lock:
+                    _get_main()._last_send_time = time.time()
             except Exception as e:
                 log.error(f"[send] 批量发送失败: {e}")
                 return pre_caught
@@ -670,18 +685,21 @@ def send_messages(messages, group, at=None, at_all=False):
 
     finally:
         # 标记发送完成
-        with main._send_lock:
-            main._sending_count -= 1
-            if main._sending_count <= 0:
-                main._is_sending = False
-                main._sending_count = 0
-            log.debug(f"[send] 批量发送完成，剩余计数: {main._sending_count}")
+        with _get_main()._send_lock:
+            _get_main()._sending_count -= 1
+            if _get_main()._sending_count <= 0:
+                _get_main()._is_sending = False
+                _get_main()._sending_count = 0
+            log.debug(f"[send] 批量发送完成，剩余计数: {_get_main()._sending_count}")
 
 
 def get_wechat():
     """获取WeChat实例，延迟初始化（线程安全）"""
     global _wx
     if _wx is None:
+        if getattr(_get_main(), 'MOCK_SEND', False):
+            _wx = True
+            return _wx
         with _wx_lock:
             if _wx is None:
                 _wx = WeChat()
@@ -697,6 +715,10 @@ def init_wechat():
     """显式初始化WeChat实例（线程安全）"""
     global _wx
     if _wx is None:
+        if getattr(_get_main(), 'MOCK_SEND', False):
+            log.info("[MOCK] 跳过微信初始化（mock_send 已开启）")
+            _wx = True  # 标记为已初始化，但非真实实例
+            return _wx
         with _wx_lock:
             if _wx is None:
                 _wx = WeChat()
@@ -706,6 +728,8 @@ def init_wechat():
 
 def get_new_messages():
     """获取所有新消息（受互斥锁保护，避免与发送操作冲突）"""
+    if getattr(_get_main(), 'MOCK_SEND', False):
+        return {}
     wx = get_wechat()
     if wx:
         try:

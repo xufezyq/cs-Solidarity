@@ -1,0 +1,112 @@
+{
+  "enabled": true,
+  "admin_users": [],
+  "wechat_groups": ["文件传输助手"],
+  "target_sessions": ["文件传输助手"],
+  "display_timezone": "UTC+8",
+  "data_sources": {
+    "fan_studio": {
+      "enabled": true,
+      "china_earthquake_warning": false,
+      "china_earthquake_warning_provincial": true,
+      "taiwan_cwa_earthquake": true,
+      "taiwan_cwa_report": true,
+      "china_cenc_earthquake": true,
+      "japan_jma_eew": false,
+      "usgs_earthquake": true,
+      "china_weather_alarm": true,
+      "china_tsunami": true
+    },
+    "p2p_earthquake": {
+      "enabled": true,
+      "japan_jma_eew": true,
+      "japan_jma_earthquake": true,
+      "japan_jma_tsunami": true
+    },
+    "wolfx": {
+      "enabled": true,
+      "japan_jma_eew": true,
+      "china_cenc_eew": false,
+      "taiwan_cwa_eew": true,
+      "japan_jma_earthquake": false,
+      "china_cenc_earthquake": true
+    },
+    "global_quake": {
+      "enabled": true
+    }
+  },
+  "local_monitoring": {
+    "enabled": false,
+    "latitude": 39.9042,
+    "longitude": 116.4074,
+    "place_name": "本地",
+    "strict_mode": false,
+    "intensity_threshold": 4.0
+  },
+  "strategies": {
+    "cenc_fusion": {
+      "enabled": true,
+      "timeout": 10
+    },
+    "cwa_eew_fusion": {
+      "enabled": true,
+      "timeout": 6
+    }
+  },
+  "earthquake_filters": {
+    "keyword_filter": {
+      "enabled": false,
+      "blacklist": [],
+      "whitelist": []
+    },
+    "intensity_filter": {
+      "enabled": true,
+      "min_magnitude": 2.0,
+      "min_intensity": 4.0
+    },
+    "scale_filter": {
+      "enabled": true,
+      "min_magnitude": 2.0,
+      "min_scale": 1.0
+    },
+    "magnitude_only_filter": {
+      "enabled": true,
+      "min_magnitude": 4.5
+    },
+    "global_quake_filter": {
+      "enabled": true,
+      "min_magnitude": 4.5,
+      "min_intensity": 5.0
+    }
+  },
+  "push_frequency_control": {
+    "cea_cwa_report_n": 1,
+    "jma_report_n": 3,
+    "gq_report_n": 5,
+    "final_report_always_push": true,
+    "ignore_non_final_reports": false
+  },
+  "weather_config": {
+    "enabled": true,
+    "min_level": "orange"
+  },
+  "websocket_config": {
+    "reconnect_interval": 30,
+    "connection_timeout": 30,
+    "max_retry_count": 10,
+    "fallback_retry_interval": 60
+  },
+  "web_admin": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 11030,
+    "password": ""
+  },
+  "telemetry_config": {
+    "enabled": false
+  },
+  "debug_config": {
+    "log_raw_messages": false,
+    "startup_silence_period": 0
+  }
+}

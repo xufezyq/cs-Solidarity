@@ -48,6 +48,7 @@ MAINTENANCE_END = dt_time(8, 0)     # 维护结束时间
 ENABLE_SEND = True                   # 是否允许发送消息
 ENABLE_RECEIVE = True                # 是否允许接收消息（处理消息）
 ENABLE_FLASH_DETECT = True           # 是否检测新消息（闪烁检测）
+MOCK_SEND = False                     # 调试模式：拦截所有发送改为打印日志
 
 # ============================================================
 # 维护时间检查
@@ -272,7 +273,7 @@ def detect_flash():
 # ============================================================
 def load_master_config(config_file):
     global DEBUG_MODE, MAINTENANCE_START, MAINTENANCE_END
-    global ENABLE_SEND, ENABLE_RECEIVE, ENABLE_FLASH_DETECT
+    global ENABLE_SEND, ENABLE_RECEIVE, ENABLE_FLASH_DETECT, MOCK_SEND
     if not Path(config_file).exists():
         return {}
     try:
@@ -302,6 +303,7 @@ def load_master_config(config_file):
     ENABLE_SEND = cfg.get('enable_send', True)
     ENABLE_RECEIVE = cfg.get('enable_receive', True)
     ENABLE_FLASH_DETECT = cfg.get('enable_flash_detect', True)
+    MOCK_SEND = cfg.get('mock_send', False)
     
     return cfg
 
@@ -536,9 +538,8 @@ def main():
     info("cs-Solidarity 启动")
     info("=" * 50)
 
-    init_wechat()
-
     master_cfg = load_master_config('config.json')
+    init_wechat()
     instances = create_instances(master_cfg)
     if not instances:
         warning("没有可用实例，退出")

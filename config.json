@@ -1,5 +1,6 @@
 {
   "debug_mode": false,
+  "mock_send": true,
   "enable_send": true,
   "enable_receive": false,
   "enable_flash_detect": false,
@@ -21,6 +22,10 @@
     {
       "type": "chat",
       "config": "instconfig/chat_openclaw.json"
+    },
+    {
+      "type": "disaster_warning",
+      "config": "instconfig/disaster_warning.json"
     }
   ]
 }

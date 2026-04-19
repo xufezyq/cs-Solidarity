@@ -76,6 +76,16 @@
 
 > 📖 **详细文档**：[Web 控制面板使用指南](./web/README.md)
 
+### 🌪️ 灾害预警 (DisasterWarning)
+- 实时地震预警推送（CENC、CWA、JMA EEW、USGS）
+- 气象预警监控（中国气象局）
+- 海啸信息追踪
+- 数据源融合（Fan Studio、Wolfx、P2P、Global Quake）
+- Web 管理界面（端口 11030）
+- 模拟预警测试功能
+
+![灾害预警界面](docs/images/灾害预警界面.png)
+
 ---
 
 ## 🚀 快速开始
@@ -125,6 +135,10 @@ pip install -r requirements.txt
     {
       "type": "korichat",
       "config": "instconfig/korichat_config.json"
+    },
+    {
+      "type": "disaster_warning",
+      "config": "instconfig/disaster_warning.json"
     }
   ]
 }
@@ -169,6 +183,7 @@ python main.py
 | `chat` | AI 聊天机器人 | `instconfig/chat_deepseek.json` |
 | `korichat` | KoriChat 智能助手 | `instconfig/korichat_config.json` |
 | `infopush` | 信息推送 | `instconfig/info_push_config.json` |
+| `disaster_warning` | 灾害预警 | `instconfig/disaster_warning.json` |
 
 ### 配置示例
 
@@ -272,14 +287,14 @@ python main.py
 # AI 回复时自动添加@标签
 self.send_message({
     "target": chat_id,
-    "content": "@MONO 1 什么 1，快去休息。"
+    "content": "@User 莫诺 kourichat副运行者"
 })
 
 # 系统会自动：
-# 1. 提取@用户：MONO
+# 1. 提取@用户：User
 # 2. 从消息内容中移除@标签
 # 3. 调用真正的微信@功能（输入@ → 选择成员 → 回车确认）
-# 4. 发送消息："1 什么 1，快去休息。"
+# 4. 发送消息："莫诺 kourichat副运行者"
 ```
 
 ### 消息队列机制
@@ -337,7 +352,8 @@ cs-Solidarity/
 ├── utils/                 # 工具函数
 ├── wxauto/                # 微信自动化库
 ├── KouriChat/             # KoriChat 子项目
-└── web/                   # Web 控制面板
+├── web/                   # Web 控制面板
+└── Plugins/               # 插件 (disaster_warning 等)
 ```
 
 ### 调试技巧
@@ -403,6 +419,7 @@ cs-Solidarity/
 - [实例开发指南](./docs/instance-development.md) - 如何开发新实例
 - [KoriChat 使用指南](./KouriChat/README.md) - KoriChat 详细文档
 - [Web 控制面板](./web/README.md) - Web 面板使用教程
+- [灾害预警插件](./Plugins/disaster_warning/README.md) - 灾害预警使用文档
 
 ---
 
@@ -418,6 +435,7 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 - [wxauto](https://github.com/cluic/wxauto) - 微信自动化库
 - [KouriChat](https://github.com/KouriChat/KouriChat) - 智能聊天助手
+- [astrbot_plugin_disaster_warning](https://github.com/DBJD-CR/astrbot_plugin_disaster_warning) - 灾害预警插件
 
 ---
 

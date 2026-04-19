@@ -56,5 +56,8 @@ web/backups/
 # KouriChat 配置文件
 KouriChat/data/config/
 
+# Plugins 数据目录
+Plugins/data/
+
 # backups
 backups/
