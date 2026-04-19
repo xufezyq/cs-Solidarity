@@ -31,7 +31,7 @@ except ImportError:
 _config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, config_path='config.json', debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
@@ -51,7 +51,7 @@ class SteamAuto(BaseInstance):
         # 新闻检查相关
         self.enable_news_check = enable_news_check
         self.check_news_interval = check_news_interval  # 新闻检查间隔（秒），默认 1 小时
-        # cached_news_titles 将在 check_cs2_news 中首次使用时初始化
+        self.cached_news_gids = set(cached_news_gids) if cached_news_gids else set()  # 新闻缓存，从配置加载
         
         # 完美平台配置
         self.perfect_world_config = perfect_world_config or {}
@@ -276,6 +276,7 @@ class SteamAuto(BaseInstance):
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
+            cached_news_gids=config.get('cached_news_gids'),
             config_path=config_path,
             debug=debug_mode
         )
@@ -365,6 +366,7 @@ class SteamAuto(BaseInstance):
             if len(self.cached_news_gids) == 0:
                 current_gids = set(news.get('gid', '') for news in news_items)
                 self.cached_news_gids = current_gids
+                self.save_news_cache()  # 首次初始化也要保存到配置文件
                 log.info(f"[{datetime.now()}] 首次运行，已初始化新闻缓存，当前缓存 {len(self.cached_news_gids)} 条")
                 return
             
@@ -408,6 +410,7 @@ class SteamAuto(BaseInstance):
                 
                 # 更新缓存：保留最新的 5 条 gid
                 self.cached_news_gids = current_gids
+                self.save_news_cache()  # 持久化到配置文件
                 log.info(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
             else:
                 log.info(f"[{datetime.now()}] 无新新闻，最新 5 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
@@ -685,6 +688,17 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
+
+    def save_news_cache(self, config_path=None):
+        """保存新闻缓存到配置文件"""
+        try:
+            target_config_path = config_path or self.config_path
+            config = self.load_config(target_config_path)
+            config['cached_news_gids'] = list(self.cached_news_gids)
+            self.save_config(config, target_config_path)
+            log.info(f"[{datetime.now()}] 新闻缓存已保存到 {target_config_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存新闻缓存失败: {e}")
 
     def save_leaderboard(self, config_path=None):
         """保存排行榜持有者到配置文件"""
