@@ -135,8 +135,8 @@ class PwStatsReporter:
 
                 # 3. 提取全场基础信息（所有玩家共享）
                 base = detail.get('base', {})
-                fh1 = base.get('firstHalfScore1', 0)
-                fh2 = base.get('firstHalfScore2', 0)
+                fh1 = base.get('halfScore1', 0)
+                fh2 = base.get('halfScore2', 0)
                 match_base_info[match_id] = {
                     'firstHalfScore1': fh1,
                     'firstHalfScore2': fh2,
@@ -469,15 +469,16 @@ class PwStatsReporter:
                             title_line += f"   ◆ {stats_desc}：{data_desc}\n"
                         else:
                             title_line += f"   ◆ {stats_desc}\n"
+                title_line += "\n"
             elif mvp_title and mvp_nick:
                 title_line = f"👑 MVP: {mvp_nick} | {mvp_title}"
                 if mvp_data_desc:
                     title_line += f" | {mvp_data_desc}"
-                title_line += "\n"
+                title_line += "\n\n"
 
             msg = f"{result_emoji} {map_name}  {score_info}\n"
             msg += f"{'─' * 14}\n"
-            msg += title_line + "\n"
+            msg += title_line
 
             # 按 WE 排序
             players_sorted = sorted(players, key=lambda x: x[1].get('we', 0), reverse=True)
