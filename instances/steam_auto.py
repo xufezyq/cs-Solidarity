@@ -351,8 +351,8 @@ class SteamAuto(BaseInstance):
             pass
         
         try:
-            # 获取最新 5 条新闻
-            news_items = self.steam.get_steam_news(app_id=730, count=5)
+            # 获取最新 10 条新闻
+            news_items = self.steam.get_steam_news(app_id=730, count=10)
             
             if not news_items or len(news_items) == 0:
                 log.info(f"[{datetime.now()}] 未获取到 CS2 新闻")
@@ -408,12 +408,12 @@ class SteamAuto(BaseInstance):
                     log.info(f"[{datetime.now()}] 发送新新闻：{title}")
                     self.send_message(message)
                 
-                # 更新缓存：保留最新的 5 条 gid
+                # 更新缓存：保留最新的 10 条 gid
                 self.cached_news_gids = current_gids
                 self.save_news_cache()  # 持久化到配置文件
                 log.info(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
             else:
-                log.info(f"[{datetime.now()}] 无新新闻，最新 5 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
+                log.info(f"[{datetime.now()}] 无新新闻，最新 10 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
                 
         except Exception as e:
             log.info(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
