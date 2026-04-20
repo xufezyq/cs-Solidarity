@@ -26,6 +26,75 @@ class AgentHandler:
         self.pid_file = self.root_dir / ".bot.pid"
         log.info(f"AgentHandler 初始化，项目根目录: {self.root_dir}")
 
+    def _git_pull(self):
+        """执行 git pull，暂存本地修改后拉取，再恢复暂存"""
+        try:
+            # 检查是否是 git 仓库
+            git_dir = self.root_dir / ".git"
+            if not git_dir.is_dir():
+                log.debug("非 git 仓库，跳过拉取")
+                return
+
+            # git stash push -u: 暂存本地修改（含未跟踪文件）
+            stash_result = subprocess.run(
+                ["git", "stash", "push", "-u"],
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+            )
+            # 检查是否真的有修改被暂存（返回码为 0 但可能是因为无修改）
+            has_stash = stash_result.returncode == 0 and "No local changes to save" not in stash_result.stderr
+            if has_stash:
+                log.info("本地修改已暂存")
+            else:
+                log.debug("无本地修改需要暂存")
+
+            # git pull --rebase
+            pull_result = subprocess.run(
+                ["git", "pull", "--rebase"],
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+            )
+            if pull_result.returncode == 0:
+                log.info("✅ Git 拉取成功")
+            else:
+                log.warning(f"⚠️ Git 拉取失败: {pull_result.stderr.strip()}")
+                # 尝试普通的 git pull（非 rebase）
+                log.info("尝试普通 git pull...")
+                pull_result2 = subprocess.run(
+                    ["git", "pull"],
+                    cwd=str(self.root_dir),
+                    capture_output=True,
+                    text=True,
+                    encoding='utf-8',
+                )
+                if pull_result2.returncode == 0:
+                    log.info("✅ 普通 Git 拉取成功")
+                else:
+                    log.error(f"❌ 普通 Git 拉取也失败: {pull_result2.stderr.strip()}")
+
+            # git stash pop: 恢复本地修改
+            if has_stash:
+                stash_pop_result = subprocess.run(
+                    ["git", "stash", "pop"],
+                    cwd=str(self.root_dir),
+                    capture_output=True,
+                    text=True,
+                    encoding='utf-8',
+                )
+                if stash_pop_result.returncode == 0:
+                    log.info("本地修改已恢复")
+                else:
+                    log.warning(f"⚠️ 恢复本地修改失败（可能有冲突，请手动检查）: {stash_pop_result.stderr.strip()}")
+
+        except FileNotFoundError:
+            log.warning("git 命令未找到，跳过拉取")
+        except Exception as e:
+            log.warning(f"Git 拉取出错: {e}")
+
     def handle(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """分发请求到对应的处理方法"""
         handlers = {
@@ -449,6 +518,9 @@ class AgentHandler:
                     return {"success": False, "error": f"Bot 已在运行 (PID: {pid})"}
             except Exception:
                 pass
+
+        # 启动前先拉取最新代码
+        self._git_pull()
 
         main_py = self.root_dir / "main.py"
         if not main_py.exists():

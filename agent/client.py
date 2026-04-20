@@ -12,8 +12,6 @@ import asyncio
 import argparse
 import json
 import logging
-import os
-import subprocess
 import sys
 import signal
 from datetime import datetime
@@ -61,75 +59,6 @@ class AgentClient:
         """Watcher 回调：将推送消息放入队列"""
         await self._push_queue.put(make_push(event, data))
 
-    def _git_pull(self):
-        """执行 git pull，暂存本地修改后拉取，再恢复暂存"""
-        try:
-            # 检查是否是 git 仓库
-            git_dir = Path(self.root_dir) / ".git"
-            if not git_dir.is_dir():
-                log.debug("非 git 仓库，跳过拉取")
-                return
-
-            # git stash push -u: 暂存本地修改（含未跟踪文件）
-            stash_result = subprocess.run(
-                ["git", "stash", "push", "-u"],
-                cwd=self.root_dir,
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-            )
-            # 检查是否真的有修改被暂存（返回码为 0 但可能是因为无修改）
-            has_stash = stash_result.returncode == 0 and "No local changes to save" not in stash_result.stderr
-            if has_stash:
-                log.info("本地修改已暂存")
-            else:
-                log.debug("无本地修改需要暂存")
-
-            # git pull --rebase
-            pull_result = subprocess.run(
-                ["git", "pull", "--rebase"],
-                cwd=self.root_dir,
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-            )
-            if pull_result.returncode == 0:
-                log.info("✅ Git 拉取成功")
-            else:
-                log.warning(f"⚠️ Git 拉取失败: {pull_result.stderr.strip()}")
-                # 尝试普通的 git pull（非 rebase）
-                log.info("尝试普通 git pull...")
-                pull_result2 = subprocess.run(
-                    ["git", "pull"],
-                    cwd=self.root_dir,
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                )
-                if pull_result2.returncode == 0:
-                    log.info("✅ 普通 Git 拉取成功")
-                else:
-                    log.error(f"❌ 普通 Git 拉取也失败: {pull_result2.stderr.strip()}")
-
-            # git stash pop: 恢复本地修改
-            if has_stash:
-                stash_pop_result = subprocess.run(
-                    ["git", "stash", "pop"],
-                    cwd=self.root_dir,
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                )
-                if stash_pop_result.returncode == 0:
-                    log.info("本地修改已恢复")
-                else:
-                    log.warning(f"⚠️ 恢复本地修改失败（可能有冲突，请手动检查）: {stash_pop_result.stderr.strip()}")
-
-        except FileNotFoundError:
-            log.warning("git 命令未找到，跳过拉取")
-        except Exception as e:
-            log.warning(f"Git 拉取出错: {e}")
-
     async def run(self):
         """主循环：连接 → 处理消息 → 断线重连"""
         self._running = True
@@ -137,8 +66,6 @@ class AgentClient:
 
         while self._running:
             try:
-                # 拉取最新代码（保留本地 JSON 修改），在后台线程执行避免阻塞事件循环
-                await asyncio.get_event_loop().run_in_executor(None, self._git_pull)
                 log.info(f"正在连接 Server: {self.server_url}")
                 async with websockets.connect(
                     self.server_url,
