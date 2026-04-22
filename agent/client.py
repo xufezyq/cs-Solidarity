@@ -166,7 +166,9 @@ class AgentClient:
                 log.error(f"推送失败: {e}")
 
     def stop(self):
-        """停止 Agent"""
+        """停止 Agent（幂等）"""
+        if not self._running:
+            return
         self._running = False
         self.watcher.stop()
 
@@ -193,11 +195,17 @@ def main():
     log.info(f"  Root:   {root}")
 
     client = AgentClient(args.server, args.token, str(root))
+    _shutting_down = False
 
     # Windows 下处理 Ctrl+C
     def signal_handler(sig, frame):
+        nonlocal _shutting_down
+        if _shutting_down:
+            return
+        _shutting_down = True
         log.info("收到退出信号，正在关闭...")
         client.stop()
+        sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
