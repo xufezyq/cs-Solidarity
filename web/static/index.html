@@ -99,19 +99,20 @@ input, textarea, select { font-family:inherit; }
 .github-login-btn {
   display:flex; align-items:center; justify-content:center; gap:10px;
   width:100%; padding:12px; border-radius:var(--radius-sm);
-  background:linear-gradient(135deg, #24292e, #1b1f23);
-  color:#fff; font-size:14px; font-weight:600;
+  background:rgba(255,255,255,0.04);
+  color:var(--text); font-size:14px; font-weight:600;
   text-decoration:none; transition:all .2s;
-  border:1px solid rgba(255,255,255,0.1);
+  border:1px solid var(--glass-border);
 }
 .github-login-btn:hover {
   transform:translateY(-1px);
-  box-shadow:0 4px 16px rgba(0,0,0,0.3);
-  background:linear-gradient(135deg, #2d333b, #22272e);
+  background:rgba(255,255,255,0.08);
+  border-color:var(--glass-border-hover);
+  box-shadow:0 4px 16px rgba(124,108,255,0.15);
 }
 .github-login-btn .star-badge {
-  background:rgba(255,255,255,0.15); padding:2px 8px;
-  border-radius:10px; font-size:12px;
+  background:rgba(124,108,255,0.2); padding:2px 8px;
+  border-radius:10px; font-size:12px; color:var(--accent);
 }
 
 /* ═══════════════════════ Layout ═══════════════════════ */
@@ -402,7 +403,7 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
         <!-- GitHub 登录按钮 -->
         <div style="margin-top:20px;">
           <a href="https://github.com/xufezyq/cs-Solidarity" target="_blank" class="github-login-btn">
-            <svg height="20" width="20" viewBox="0 0 16 16" fill="#fff" style="flex-shrink:0;">
+            <svg height="20" width="20" viewBox="0 0 16 16" fill="var(--accent)" style="flex-shrink:0;">
               <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
             <span>GitHub</span>
@@ -553,11 +554,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <i class="nav-icon mdi" :class="item.icon"></i><span class="nav-label">{{ item.label }}</span>
   </div>
   <div class="spacer"></div>
-  <div class="user-info">
-    <span class="uname">{{ user.display_name || user.username }}</span>
-    <span class="role">{{ user.role }}</span>
-    <span class="logout" @click="doLogout"><i class="mdi mdi-logout" style="margin-right:4px;"></i>退出</span>
-  </div>
   <!-- 侧边栏 GitHub 按钮 -->
   <div class="sidebar-github">
     <a href="https://github.com/xufezyq/cs-Solidarity" target="_blank" class="github-sidebar-btn">
@@ -569,6 +565,11 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="star-hint">点个 Star ⭐</div>
       </div>
     </a>
+  </div>
+  <div class="user-info">
+    <span class="uname">{{ user.display_name || user.username }}</span>
+    <span class="role">{{ user.role }}</span>
+    <span class="logout" @click="doLogout"><i class="mdi mdi-logout" style="margin-right:4px;"></i>退出</span>
   </div>
 </div>
 <div class="main">
@@ -681,6 +682,24 @@ document.addEventListener('DOMContentLoaded', function() {
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-steam" style="margin-right:8px;"></i>Steam 监控</h2>
     <div v-if="!steamDetail" class="card empty">Agent 未连接或未找到 Steam 实例</div>
     <template v-if="steamDetail">
+      <!-- 好友在线状态 -->
+      <div class="card card-enter" style="animation-delay:.05s">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="margin:0;"><i class="mdi mdi-account-multiple-check" style="margin-right:8px;"></i>好友在线状态</h2>
+          <button class="btn-sm" @click="loadSteamFriendsStatus"><i class="mdi mdi-refresh"></i> 刷新</button>
+        </div>
+        <div v-if="!steamFriendsStatusSorted.length" class="empty">暂无好友状态数据</div>
+        <div v-else class="friends-status-grid">
+          <div v-for="f in steamFriendsStatusSorted" :key="f.personaname"
+               class="friend-status-card" :class="f.state_class">
+            <div class="status-indicator"></div>
+            <div class="friend-info">
+              <div class="friend-name">{{ f.personaname }}</div>
+              <div class="friend-state">{{ f.gameextrainfo }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- 排行榜 -->
       <div class="card card-enter" v-if="steamDetail.friend_pw_leaderboard" style="animation-delay:.08s">
         <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
@@ -776,29 +795,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <td style="color:var(--text2);font-size:12px;">{{ f.steamid }}</td>
           </tr>
         </table>
-      </div>
-      <!-- Steam 好友在线状态 -->
-      <div class="card card-enter" style="animation-delay:.32s">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h2 style="margin:0;"><i class="mdi mdi-account-multiple-check" style="margin-right:8px;"></i>好友在线状态</h2>
-          <button class="btn-sm" @click="loadSteamFriendsStatus"><i class="mdi mdi-refresh"></i> 刷新</button>
-        </div>
-        <div v-if="!steamFriendsStatus.length" class="empty">暂无好友状态数据</div>
-        <div v-else class="friends-status-grid">
-          <div v-for="f in steamFriendsStatus" :key="f.personaname"
-               class="friend-status-card" :class="f.state_class">
-            <div class="status-indicator"></div>
-            <div class="friend-info">
-              <div class="friend-name">{{ f.personaname }}</div>
-              <div class="friend-state">
-                <span v-if="f.personastate === 2">🟡 {{ f.gameextrainfo }}</span>
-                <span v-else-if="f.personastate === 1">🟢 {{ f.personastate_text }}</span>
-                <span v-else-if="f.personastate === 0">🔴 {{ f.lastlogoff_text }}</span>
-                <span v-else>⚪ {{ f.personastate_text }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </template>
   </div>
@@ -1009,6 +1005,12 @@ createApp({
     const pendingRegs = ref([]);
     const steamDetail = ref(null);
     const steamFriendsStatus = ref([]);
+    const steamFriendsStatusSorted = computed(() => {
+      const priority = { 2: 0, 1: 1, 3: 2, 0: 3 };
+      return [...steamFriendsStatus.value].sort((a, b) => {
+        return (priority[a.personastate] ?? 99) - (priority[b.personastate] ?? 99);
+      });
+    });
     const filesData = reactive({ files: [], total_size: 0, total_size_text: '0 B' });
     const showUploadModal = ref(false);
     const selectedFile = ref(null);
@@ -1058,13 +1060,13 @@ createApp({
     const allNav = [
       { key:'dashboard', icon:'mdi-view-dashboard', label:'仪表盘', roles:['admin','user'] },
       { key:'steam',     icon:'mdi-steam', label:'Steam',   roles:['admin','user'] },
+      { key:'files',     icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
       { key:'instances', icon:'mdi-puzzle', label:'实例管理', roles:['admin','user'] },
       { key:'config',    icon:'mdi-cog', label:'配置编辑', roles:['admin'] },
       { key:'logs',      icon:'mdi-file-document', label:'日志', roles:['admin','user'] },
       { key:'control',   icon:'mdi-play-circle', label:'控制', roles:['admin'] },
       { key:'users',     icon:'mdi-account-group', label:'用户管理', roles:['admin'] },
       { key:'password',  icon:'mdi-lock', label:'修改密码', roles:['admin','user'] },
-      { key:'files', icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
     ];
     const visibleNav = computed(() => allNav.filter(n => n.roles.includes(user.role)));
 
@@ -1383,7 +1385,7 @@ createApp({
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
-      overview, instances, userList, steamDetail, steamFriendsStatus, newUser, pwForm, config, logs,
+      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
