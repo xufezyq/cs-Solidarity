@@ -95,6 +95,25 @@ input, textarea, select { font-family:inherit; }
 .login-box .btn:active { transform:translateY(0); }
 .login-box .err { color:var(--red); font-size:13px; margin-bottom:12px; text-align:center; }
 
+/* GitHub 登录按钮 */
+.github-login-btn {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; padding:12px; border-radius:var(--radius-sm);
+  background:linear-gradient(135deg, #24292e, #1b1f23);
+  color:#fff; font-size:14px; font-weight:600;
+  text-decoration:none; transition:all .2s;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.github-login-btn:hover {
+  transform:translateY(-1px);
+  box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  background:linear-gradient(135deg, #2d333b, #22272e);
+}
+.github-login-btn .star-badge {
+  background:rgba(255,255,255,0.15); padding:2px 8px;
+  border-radius:10px; font-size:12px;
+}
+
 /* ═══════════════════════ Layout ═══════════════════════ */
 #app { display:none; min-height:100vh; flex-direction:column; position:relative; z-index:1; }
 #app.show { display:flex; }
@@ -144,6 +163,25 @@ input, textarea, select { font-family:inherit; }
   .sidebar .user-info .uname { display:inline; font-size:14px; color:var(--text); }
   .sidebar .user-info .role { display:inline-block; font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(124,108,255,0.2); color:var(--accent); }
   .sidebar .user-info .logout { font-size:12px; }
+  .sidebar-github {
+    padding:16px 20px; border-top:1px solid var(--glass-border);
+  }
+  .github-sidebar-btn {
+    display:flex; align-items:center; gap:12px;
+    padding:12px; border-radius:12px;
+    background:rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.06);
+    text-decoration:none; transition:all .2s;
+  }
+  .github-sidebar-btn:hover {
+    background:rgba(0,0,0,0.1); border-color:rgba(0,0,0,0.12);
+    transform:translateY(-1px);
+  }
+  .github-sidebar-content { flex:1; overflow:hidden; }
+  .repo-name {
+    font-size:12px; font-weight:600; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .star-hint { font-size:11px; color:var(--text2); margin-top:2px; }
   .main { padding:28px; max-height:100vh; overflow-y:auto; }
 }
 
@@ -286,6 +324,45 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 .stand2 { width:64px; height:36px; background:linear-gradient(180deg, rgba(192,192,192,0.08), rgba(192,192,192,0.02)); border:1px solid rgba(192,192,192,0.1); border-bottom:none; }
 .stand3 { width:64px; height:24px; background:linear-gradient(180deg, rgba(205,127,50,0.08), rgba(205,127,50,0.02)); border:1px solid rgba(205,127,50,0.1); border-bottom:none; }
 
+/* Steam 好友状态 */
+.friends-status-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px;
+}
+.friend-status-card {
+  display:flex; align-items:center; gap:12px; padding:14px;
+  background:rgba(255,255,255,0.03); border-radius:12px;
+  border:1px solid rgba(255,255,255,0.05); transition:all .2s;
+}
+.friend-status-card:hover { background:rgba(255,255,255,0.06); }
+.friend-status-card .status-indicator {
+  width:12px; height:12px; border-radius:50%; flex-shrink:0;
+}
+.friend-status-card.online .status-indicator { background:var(--green); box-shadow:0 0 8px rgba(74,222,128,0.5); }
+.friend-status-card.offline .status-indicator { background:var(--red); box-shadow:0 0 8px rgba(248,113,113,0.5); }
+.friend-status-card.ingame .status-indicator { background:var(--yellow); box-shadow:0 0 8px rgba(251,191,36,0.5); }
+.friend-status-card.away .status-indicator { background:#9ca3af; }
+.friend-info { flex:1; min-width:0; }
+.friend-name {
+  font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.friend-state { font-size:12px; color:var(--text2); margin-top:4px; }
+
+/* 弹窗 */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center; z-index:9999;
+}
+.modal-content {
+  background:var(--glass-bg); backdrop-filter:blur(var(--blur));
+  border:1px solid var(--glass-border); border-radius:var(--radius);
+  padding:24px; min-width:360px; max-width:90%;
+}
+.modal-content h3 { margin:0 0 8px; }
+.modal-content input[type="file"] {
+  padding:8px; background:rgba(255,255,255,0.05);
+  border:1px solid var(--glass-border); border-radius:8px; width:100%;
+}
+
 /* Mobile */
 @media(max-width:768px) {
   .row { flex-direction:column; }
@@ -321,6 +398,16 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
         <div style="text-align:center;margin-top:14px;">
           <span style="color:var(--text2);font-size:13px;">还没有账号？</span>
           <a href="javascript:void(0)" onclick="showRegisterForm()" style="color:var(--accent);font-size:13px;margin-left:4px;">注册账号</a>
+        </div>
+        <!-- GitHub 登录按钮 -->
+        <div style="margin-top:20px;">
+          <a href="https://github.com/xufezyq/cs-Solidarity" target="_blank" class="github-login-btn">
+            <svg height="20" width="20" viewBox="0 0 16 16" fill="#fff" style="flex-shrink:0;">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            </svg>
+            <span>GitHub</span>
+            <span class="star-badge">⭐ Star</span>
+          </a>
         </div>
       </div>
       <!-- 注册表单 -->
@@ -470,6 +557,18 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="uname">{{ user.display_name || user.username }}</span>
     <span class="role">{{ user.role }}</span>
     <span class="logout" @click="doLogout"><i class="mdi mdi-logout" style="margin-right:4px;"></i>退出</span>
+  </div>
+  <!-- 侧边栏 GitHub 按钮 -->
+  <div class="sidebar-github">
+    <a href="https://github.com/xufezyq/cs-Solidarity" target="_blank" class="github-sidebar-btn">
+      <svg height="20" width="20" viewBox="0 0 16 16" fill="var(--text)">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      <div class="github-sidebar-content">
+        <div class="repo-name">xufezyq/cs-Solidarity</div>
+        <div class="star-hint">点个 Star ⭐</div>
+      </div>
+    </a>
   </div>
 </div>
 <div class="main">
@@ -678,7 +777,98 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
         </table>
       </div>
+      <!-- Steam 好友在线状态 -->
+      <div class="card card-enter" style="animation-delay:.32s">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="margin:0;"><i class="mdi mdi-account-multiple-check" style="margin-right:8px;"></i>好友在线状态</h2>
+          <button class="btn-sm" @click="loadSteamFriendsStatus"><i class="mdi mdi-refresh"></i> 刷新</button>
+        </div>
+        <div v-if="!steamFriendsStatus.length" class="empty">暂无好友状态数据</div>
+        <div v-else class="friends-status-grid">
+          <div v-for="f in steamFriendsStatus" :key="f.personaname"
+               class="friend-status-card" :class="f.state_class">
+            <div class="status-indicator"></div>
+            <div class="friend-info">
+              <div class="friend-name">{{ f.personaname }}</div>
+              <div class="friend-state">
+                <span v-if="f.personastate === 2">🟡 {{ f.gameextrainfo }}</span>
+                <span v-else-if="f.personastate === 1">🟢 {{ f.personastate_text }}</span>
+                <span v-else-if="f.personastate === 0">🔴 {{ f.lastlogoff_text }}</span>
+                <span v-else>⚪ {{ f.personastate_text }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
+  </div>
+
+  <!-- ═══════════ 文件管理 ═══════════ -->
+  <div v-if="currentPage==='files'">
+    <h2 style="margin-bottom:16px;"><i class="mdi mdi-folder-upload" style="margin-right:8px;"></i>文件管理</h2>
+
+    <div class="card card-enter">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <button class="btn-sm success" @click="showUploadModal = true">
+            <i class="mdi mdi-upload" style="margin-right:4px;"></i>上传文件
+          </button>
+          <button class="btn-sm" style="margin-left:8px;opacity:0.5;" disabled title="即将支持">
+            <i class="mdi mdi-folder-zip" style="margin-right:4px;"></i>下载文件夹
+          </button>
+        </div>
+        <div style="font-size:13px;color:var(--text2);">
+          总计: {{ filesData.total_size_text || '0 B' }}
+        </div>
+      </div>
+
+      <div v-if="!filesData.files.length" class="empty">暂无文件</div>
+      <table v-else>
+        <thead>
+          <tr>
+            <th>文件名</th>
+            <th>大小</th>
+            <th>上传时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="f in filesData.files" :key="f.filename">
+            <td>
+              <i class="mdi mdi-file-document" style="margin-right:8px;color:var(--text2);"></i>
+              {{ f.filename }}
+            </td>
+            <td>{{ f.size_text }}</td>
+            <td style="font-size:12px;color:var(--text2);">{{ f.uploaded_at?.replace('T',' ').slice(0,19) }}</td>
+            <td>
+              <button class="btn-sm" @click="downloadFile(f.filename)" style="margin-right:4px;">
+                <i class="mdi mdi-download"></i> 下载
+              </button>
+              <button class="btn-sm danger" @click="deleteFile(f)" :disabled="!f.can_delete">
+                <i class="mdi mdi-delete"></i> 删除
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 上传弹窗 -->
+    <div v-if="showUploadModal" class="modal-overlay" @click.self="showUploadModal = false">
+      <div class="modal-content">
+        <h3>上传文件</h3>
+        <input type="file" id="fileUploadInput" @change="handleFileSelect" style="margin:16px 0;">
+        <div v-if="selectedFile" style="margin-bottom:16px;">
+          已选择: {{ selectedFile.name }} ({{ (selectedFile.size/1024).toFixed(1) }} KB)
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn-sm" @click="showUploadModal = false">取消</button>
+          <button class="btn-sm success" @click="uploadFile" :disabled="!selectedFile || uploading">
+            {{ uploading ? '上传中...' : '上传' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═══════════ 日志 ═══════════ -->
@@ -818,6 +1008,11 @@ createApp({
     const userList = ref([]);
     const pendingRegs = ref([]);
     const steamDetail = ref(null);
+    const steamFriendsStatus = ref([]);
+    const filesData = reactive({ files: [], total_size: 0, total_size_text: '0 B' });
+    const showUploadModal = ref(false);
+    const selectedFile = ref(null);
+    const uploading = ref(false);
     const newUser = reactive({ username: '', password: '', role: 'user' });
     const pwForm = reactive({ old: '', new1: '', new2: '' });
 
@@ -869,6 +1064,7 @@ createApp({
       { key:'control',   icon:'mdi-play-circle', label:'控制', roles:['admin'] },
       { key:'users',     icon:'mdi-account-group', label:'用户管理', roles:['admin'] },
       { key:'password',  icon:'mdi-lock', label:'修改密码', roles:['admin','user'] },
+      { key:'files', icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
     ];
     const visibleNav = computed(() => allNav.filter(n => n.roles.includes(user.role)));
 
@@ -911,6 +1107,7 @@ createApp({
       loadInstances();
       if (user.role === 'admin') { loadConfigList(); loadUserList(); loadBackups(); }
       loadSteamData();
+      loadSteamFriendsStatus();
     }
 
     async function loadOverview() {
@@ -1087,6 +1284,87 @@ createApp({
       const si = instances.value.find(i => i.type === 'steam');
       if (si?.detail) steamDetail.value = si.detail;
     }
+    async function loadSteamFriendsStatus() {
+      try {
+        const data = await api('/api/status/steam/friends-status');
+        steamFriendsStatus.value = data.data?.friends || [];
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadFiles() {
+      try {
+        const data = await api('/api/files');
+        filesData.files = data.data?.files || [];
+        filesData.total_size = data.data?.total_size || 0;
+        filesData.total_size_text = formatSize(filesData.total_size);
+      } catch(e) { console.error(e); }
+    }
+
+    function formatSize(size) {
+      for (let unit of ['B', 'KB', 'MB', 'GB']) {
+        if (size < 1024) return size.toFixed(1) + ' ' + unit;
+        size /= 1024;
+      }
+      return size.toFixed(1) + ' TB';
+    }
+
+    function handleFileSelect(e) {
+      selectedFile.value = e.target.files[0];
+    }
+
+    async function uploadFile() {
+      if (!selectedFile.value) return;
+      uploading.value = true;
+
+      const formData = new FormData();
+      formData.append('file', selectedFile.value);
+
+      try {
+        const headers = { 'Authorization': `Bearer ${token.value}` };
+        const res = await fetch('/api/files', {
+          method: 'POST',
+          headers,
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '上传失败');
+        showToast('文件上传成功');
+        showUploadModal.value = false;
+        selectedFile.value = null;
+        loadFiles();
+      } catch(e) {
+        showToast(e.message, 'error');
+      } finally {
+        uploading.value = false;
+      }
+    }
+
+    async function deleteFile(f) {
+      if (!confirm(`确认删除 ${f.filename}?`)) return;
+      try {
+        await api(`/api/files/${f.filename}`, { method: 'DELETE' });
+        showToast('删除成功');
+        loadFiles();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    async function downloadFile(filename) {
+      try {
+        const headers = { 'Authorization': `Bearer ${token.value}` };
+        const res = await fetch(`/api/files/${filename}`, { headers });
+        if (!res.ok) throw new Error('下载失败');
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
 
     // ── 自动刷新 ──
     let refreshTimer;
@@ -1100,15 +1378,18 @@ createApp({
       if (p === 'logs') { logs.date = new Date().toISOString().slice(0,10); loadLogs(); }
       if (p === 'config') loadConfigList();
       if (p === 'users') loadUserList();
+      if (p === 'files') loadFiles();
     });
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
-      overview, instances, userList, steamDetail, newUser, pwForm, config, logs,
+      overview, instances, userList, steamDetail, steamFriendsStatus, newUser, pwForm, config, logs,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
-      pendingRegs, loadPendingRegs, approveReg, rejectReg,
+      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
+      filesData, showUploadModal, selectedFile, uploading,
+      loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize,
     };
     window.__vueApp = appExports;
     return appExports;
