@@ -31,7 +31,7 @@ except ImportError:
 _config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_message="", check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
@@ -45,7 +45,7 @@ class SteamAuto(BaseInstance):
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
-        self.code_update_message = code_update_message
+        self.code_update_lines = code_update_lines or []
         self.check_interval = check_interval
         
         # 新闻检查相关
@@ -230,7 +230,7 @@ class SteamAuto(BaseInstance):
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
-            code_update_message=config.get('code_update_message', ''),
+            code_update_lines=config.get('code_update_lines', []),
             check_interval=config.get('check_interval', 60),
             perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
@@ -974,9 +974,9 @@ class SteamAuto(BaseInstance):
         """
         # 首次启动时发送更新消息（非调试模式）
         # 注意：此时 send_message 已被主框架替换为入队函数，会受维护时间检查控制
-        if self.code_update_message and not self.debug:
+        if self.code_update_lines and not self.debug:
             log.info(f"[{datetime.now()}] 准备发送启动更新消息")
-            msg = self.code_update_message.replace('{version}', APP_VERSION)
+            msg = "\n".join(self.code_update_lines).replace('{version}', APP_VERSION)
             self.send_message(msg)
             log.info(f"[{datetime.now()}] 启动更新消息已加入队列")
             # 等待一小段时间让主线程处理队列
