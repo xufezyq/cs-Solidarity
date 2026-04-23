@@ -44,3 +44,12 @@ async def get_instances(current_user: User = Depends(get_current_user)):
 async def get_agent_status(current_user: User = Depends(get_current_user)):
     """获取 Agent 连接状态"""
     return {"success": True, "data": bridge.get_status()}
+
+
+@router.get("/steam/friends-status")
+async def get_steam_friends_status(current_user: User = Depends(get_current_user)):
+    """获取 Steam 好友在线状态"""
+    result = await bridge.send_request("steam.friends_status")
+    if not result.get("success"):
+        return {"success": True, "data": {"friends": [], "error": result.get("error", "获取失败")}}
+    return {"success": True, "data": result.get("data", {})}

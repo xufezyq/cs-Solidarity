@@ -483,12 +483,13 @@ class SteamAuto(BaseInstance):
             game_id = friend.get('gameid', None)
             game_name = friend.get('gameextrainfo', '未游玩游戏')
             personastate = friend.get('personastate', 0)  # 0: 离线, 1: 在线, 2: 忙碌, 3: 离开, 4: 暂离, 5: 求交易, 6: 求组队
-            
+            lastlogoff = friend.get('lastlogoff')  # 上次离线时间
+
             # 获取该好友的上一次状态
             prev_game_id = self.friend_game_status.get(steam_id, {}).get('gameid')
             prev_game_name = self.friend_game_status.get(steam_id, {}).get('game_name')
             prev_start_time = self.friend_game_status.get(steam_id, {}).get('start_time')
-            
+
             current_time = time.time()
 
             # 检查游戏状态变化：从无游戏变为有游戏
@@ -497,27 +498,28 @@ class SteamAuto(BaseInstance):
                 if game_name not in game_start_messages:
                     game_start_messages[game_name] = []
                 game_start_messages[game_name].append(nickname)
-                
+
                 # 保存当前状态及开始时间
                 self.friend_game_status[steam_id] = {
                     'gameid': game_id,
                     'game_name': game_name,
                     'personastate': personastate,
                     'nickname': nickname,
-                    'start_time': current_time
+                    'start_time': current_time,
+                    'lastlogoff': lastlogoff
                 }
-            
+
             # 检查游戏状态变化：从有游戏变为无游戏
             elif (not game_id or game_id == '0') and prev_game_id and prev_game_id != '0':
                 # 计算游玩时长
                 duration = current_time - prev_start_time if prev_start_time else 0
                 duration_str = self.format_duration(duration)
-                
+
                 # 按游戏名称分组收集
                 if prev_game_name not in game_stop_messages:
                     game_stop_messages[prev_game_name] = []
                 game_stop_messages[prev_game_name].append((nickname, duration_str))
-                
+
                 # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
                 if prev_game_id == '730' and self.pw_api:
                     stopped_cs2_friends.append(steam_id)
@@ -537,7 +539,8 @@ class SteamAuto(BaseInstance):
                     'game_name': game_name,
                     'personastate': personastate,
                     'nickname': nickname,
-                    'start_time': None
+                    'start_time': None,
+                    'lastlogoff': lastlogoff
                 }
             
             # 保存状态（其他情况）
@@ -547,7 +550,8 @@ class SteamAuto(BaseInstance):
                     'game_name': game_name,
                     'personastate': personastate,
                     'nickname': nickname,
-                    'start_time': current_time if (game_id and game_id != '0') else None
+                    'start_time': current_time if (game_id and game_id != '0') else None,
+                    'lastlogoff': lastlogoff
                 }
 
         # 生成合并的消息
@@ -601,6 +605,46 @@ class SteamAuto(BaseInstance):
                         batch = batch + "\n" + msg if batch else msg
                 if batch:
                     self.send_message(batch)
+
+        # 保存好友状态到配置文件，供 Web 面板读取
+        self.save_friend_status()
+
+    def save_friend_status(self, config_path=None):
+        """保存好友状态到配置文件，供 Web 面板读取"""
+        if not self.monitored_friends:
+            return
+
+        target_config_path = config_path or self.config_path
+
+        try:
+            with open(target_config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return
+
+        # 更新 monitored_friends 中的状态字段
+        monitored_friends = config.get('monitored_friends', [])
+        updated = False
+
+        for friend in monitored_friends:
+            steam_id = friend.get('steamid')
+            if not steam_id:
+                continue
+
+            # 从内存状态中获取最新状态
+            game_status = self.friend_game_status.get(steam_id, {})
+
+            # 只有当状态存在时才更新
+            if game_status:
+                friend['personastate'] = game_status.get('personastate', 0)
+                friend['gameextrainfo'] = game_status.get('game_name', '')
+                friend['lastlogoff'] = game_status.get('lastlogoff')
+                updated = True
+
+        if updated:
+            config['monitored_friends'] = monitored_friends
+            self.save_config(config, target_config_path)
+            log.debug(f"[{datetime.now()}] 好友状态已保存到配置文件")
 
     def get_friend_game_stats(self):
         """获取好友今天的游玩统计信息"""

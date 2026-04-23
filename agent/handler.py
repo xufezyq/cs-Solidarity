@@ -108,6 +108,11 @@ class AgentHandler:
             "log.list": self._log_list,
             "status.overview": self._status_overview,
             "status.instances": self._status_instances,
+            "steam.friends_status": self._steam_friends_status,
+            "files.list": self._files_list,
+            "files.upload": self._files_upload,
+            "files.delete": self._files_delete,
+            "files.download": self._files_download,
             "bot.start": self._bot_start,
             "bot.stop": self._bot_stop,
             "bot.restart": self._bot_restart,
@@ -594,3 +599,187 @@ class AgentHandler:
         import time
         time.sleep(2)
         return self._bot_start(params)
+
+    # ── Steam 好友状态 ──
+
+    def _steam_friends_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """获取 Steam 好友在线状态"""
+        import time
+
+        config_file = self.root_dir / "instconfig" / "steam_account.json"
+        if not config_file.exists():
+            return {"success": False, "error": "steam_account.json 不存在"}
+
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception as e:
+            return {"success": False, "error": f"读取配置失败: {e}"}
+
+        friends = config.get("monitored_friends", [])
+        now = time.time()
+
+        state_text = {0: "离线", 1: "在线", 2: "游戏中", 3: "离开"}
+        state_class = {0: "offline", 1: "online", 2: "ingame", 3: "away"}
+
+        def time_ago(ts):
+            if not ts:
+                return None
+            diff = now - ts
+            if diff < 60:
+                return "刚刚"
+            if diff < 3600:
+                return f"{int(diff / 60)}分钟前"
+            if diff < 86400:
+                return f"{int(diff / 3600)}小时前"
+            return f"{int(diff / 86400)}天前"
+
+        result = []
+        for f in friends:
+            personastate = f.get("personastate", 0)
+            lastlogoff = f.get("lastlogoff")
+
+            # 构建显示文本（状态 + 详情）
+            if personastate == 2:  # 游戏中
+                game_info = f.get("gameextrainfo") or ""
+                display_text = f"游戏中 · {game_info}" if game_info else "游戏中"
+            elif personastate == 0:  # 离线
+                time_str = time_ago(lastlogoff) if lastlogoff else ""
+                display_text = f"离线 · {time_str}" if time_str else "离线"
+            elif personastate == 1:  # 在线
+                display_text = "在线"
+            elif personastate == 3:  # 离开
+                display_text = "离开"
+            else:
+                display_text = ""
+
+            friend_info = {
+                "personaname": f.get("personaname") or f.get("nickname", "未知"),
+                "personastate": personastate,
+                "personastate_text": state_text.get(personastate, "未知"),
+                "state_class": state_class.get(personastate, "offline"),
+                "gameextrainfo": display_text,
+            }
+            result.append(friend_info)
+
+        return {
+            "success": True,
+            "data": {
+                "friends": result,
+                "last_update": datetime.now().isoformat()
+            }
+        }
+
+    # ── 文件管理 ──
+
+    def _get_shared_dir(self) -> Path:
+        """获取共享文件目录"""
+        shared_dir = self.root_dir / "shared_files"
+        shared_dir.mkdir(parents=True, exist_ok=True)
+        return shared_dir
+
+    def _files_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """列出共享文件"""
+        shared_dir = self._get_shared_dir()
+        files = []
+        total_size = 0
+
+        for f in sorted(shared_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if f.is_file():
+                stat = f.stat()
+                files.append({
+                    "filename": f.name,
+                    "size": stat.st_size,
+                    "size_text": self._format_size(stat.st_size),
+                    "uploader": f"./{f.name}",
+                    "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                })
+                total_size += stat.st_size
+
+        return {"success": True, "data": {"files": files, "total_size": total_size}}
+
+    def _files_upload(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """上传文件"""
+        import base64
+
+        filename = params.get("filename", "")
+        content_b64 = params.get("content", "")
+
+        if not filename:
+            return {"success": False, "error": "文件名不能为空"}
+
+        # 安全检查：防止路径穿越
+        if ".." in filename or "/" in filename or "\\" in filename:
+            return {"success": False, "error": "文件名无效"}
+
+        try:
+            content = base64.b64decode(content_b64)
+        except Exception as e:
+            return {"success": False, "error": f"文件内容解码失败: {e}"}
+
+        file_path = self._get_shared_dir() / filename
+
+        # 如果文件已存在，添加时间戳
+        if file_path.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            stem = file_path.stem
+            ext = file_path.suffix
+            file_path = file_path.parent / f"{stem}_{timestamp}{ext}"
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        log.info(f"文件已上传: {file_path.name}")
+        return {"success": True, "data": {"filename": file_path.name, "size": len(content)}}
+
+    def _files_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """删除文件"""
+        filename = params.get("filename", "")
+
+        if not filename:
+            return {"success": False, "error": "文件名不能为空"}
+
+        file_path = self._get_shared_dir() / filename
+
+        if not file_path.exists():
+            return {"success": False, "error": "文件不存在"}
+
+        file_path.unlink()
+        log.info(f"文件已删除: {filename}")
+        return {"success": True, "data": {"message": f"{filename} 已删除"}}
+
+    def _files_download(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """下载文件"""
+        import base64
+
+        filename = params.get("filename", "")
+
+        if not filename:
+            return {"success": False, "error": "文件名不能为空"}
+
+        file_path = self._get_shared_dir() / filename
+
+        if not file_path.exists():
+            return {"success": False, "error": "文件不存在"}
+
+        with open(file_path, "rb") as f:
+            content = f.read()
+
+        content_b64 = base64.b64encode(content).decode("utf-8")
+
+        return {
+            "success": True,
+            "data": {
+                "filename": filename,
+                "content": content_b64,
+                "size": len(content)
+            }
+        }
+
+    def _format_size(self, size: int) -> str:
+        """格式化文件大小"""
+        for unit in ["B", "KB", "MB", "GB"]:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"

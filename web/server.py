@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from web.auth import init_users
 from web.auth import decode_token
 from web.bridge import bridge
-from web.api import auth, users, config, status, logs, control
+from web.api import auth, users, config, status, logs, control, files
 
 # ── 日志 ──
 logging.basicConfig(
@@ -95,6 +95,7 @@ app.include_router(config.router)
 app.include_router(status.router)
 app.include_router(logs.router)
 app.include_router(control.router)
+app.include_router(files.router)
 
 
 # ── Agent WebSocket 端点 ──
