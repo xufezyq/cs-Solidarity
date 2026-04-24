@@ -12,6 +12,7 @@ from web.bridge import bridge
 router = APIRouter(prefix="/api/files", tags=["文件管理"])
 
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1GB
+CHUNK_SIZE = 1024 * 1024  # 1MB per chunk
 
 
 @router.get("")
@@ -35,25 +36,36 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    """上传文件"""
-    # 读取文件内容
+    """上传文件（分块传输）"""
     content = await file.read()
+    file_size = len(content)
 
-    # 检查文件大小
-    if len(content) > MAX_FILE_SIZE:
+    if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="文件大小不能超过 1GB")
 
-    # Base64 编码
-    content_b64 = base64.b64encode(content).decode("utf-8")
+    # 分块上传
+    offset = 0
+    chunk_index = 0
+    total_chunks = (file_size + CHUNK_SIZE - 1) // CHUNK_SIZE
 
-    result = await bridge.send_request("files.upload", {
-        "filename": file.filename,
-        "content": content_b64,
-        "uploader": current_user.username
-    })
+    while offset < file_size:
+        chunk = content[offset:offset + CHUNK_SIZE]
+        chunk_b64 = base64.b64encode(chunk).decode("utf-8")
 
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "上传失败"))
+        result = await bridge.send_request("files.upload", {
+            "filename": file.filename,
+            "chunk": chunk_b64,
+            "chunk_index": chunk_index,
+            "total_chunks": total_chunks,
+            "uploader": current_user.username,
+            "file_size": file_size,
+        }, timeout=60.0)
+
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "上传失败"))
+
+        offset += len(chunk)
+        chunk_index += 1
 
     return {"success": True, "data": result.get("data", {})}
 
@@ -91,7 +103,27 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
         raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
 
     data = result.get("data", {})
-    content = base64.b64decode(data.get("content", ""))
+    download_id = data.get("download_id")
+
+    # 等待块收集完成（最多等 5 分钟）
+    import time
+    for _ in range(300):
+        if download_id in bridge._file_chunks and bridge._file_chunks[download_id].get("ready"):
+            break
+        time.sleep(1)
+
+    if download_id not in bridge._file_chunks or not bridge._file_chunks[download_id].get("ready"):
+        raise HTTPException(status_code=504, detail="文件块收集超时")
+
+    dc = bridge._file_chunks[download_id]
+    # 合并块
+    import base64
+    chunks_list = [dc["chunks"][i] for i in range(dc["total"]) if i in dc["chunks"]]
+    content_b64 = "".join(chunks_list)
+    content = base64.b64decode(content_b64)
+
+    # 清理
+    del bridge._file_chunks[download_id]
 
     return StreamingResponse(
         iter([content]),

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import glob
 import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -685,13 +686,21 @@ class AgentHandler:
         total_size = 0
 
         for f in sorted(shared_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
-            if f.is_file():
+            if f.is_file() and not f.name.endswith(".meta.json"):
                 stat = f.stat()
+                meta_path = f.with_suffix(f.suffix + ".meta.json")
+                uploader = "unknown"
+                if meta_path.exists():
+                    try:
+                        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                        uploader = meta.get("uploader", "unknown")
+                    except Exception:
+                        pass
                 files.append({
                     "filename": f.name,
                     "size": stat.st_size,
                     "size_text": self._format_size(stat.st_size),
-                    "uploader": f"./{f.name}",
+                    "uploader": uploader,
                     "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 })
                 total_size += stat.st_size
@@ -699,11 +708,13 @@ class AgentHandler:
         return {"success": True, "data": {"files": files, "total_size": total_size}}
 
     def _files_upload(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """上传文件"""
-        import base64
-
+        """上传文件（分块接收）"""
         filename = params.get("filename", "")
-        content_b64 = params.get("content", "")
+        chunk_data = params.get("chunk", "")
+        chunk_index = params.get("chunk_index", 0)
+        total_chunks = params.get("total_chunks", 1)
+        uploader = params.get("uploader", "unknown")
+        file_size = params.get("file_size", 0)
 
         if not filename:
             return {"success": False, "error": "文件名不能为空"}
@@ -712,25 +723,61 @@ class AgentHandler:
         if ".." in filename or "/" in filename or "\\" in filename:
             return {"success": False, "error": "文件名无效"}
 
+        import base64
+        shared_dir = self._get_shared_dir()
+
+        if chunk_index == 0:
+            # 首次上传，创建文件
+            file_path = shared_dir / filename
+            # 如果文件已存在，添加时间戳
+            if file_path.exists():
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                stem = file_path.stem
+                ext = file_path.suffix
+                file_path = file_path.parent / f"{stem}_{timestamp}{ext}"
+
+            # 记录进行中的上传（文件路径，uploader）
+            if not hasattr(self, '_upload_progress'):
+                self._upload_progress = {}
+            self._upload_progress[filename] = {"file_path": file_path, "uploader": uploader, "chunks": {}}
+
+            # 创建空文件准备接收
+            file_path.touch()
+        else:
+            # 验证进行中的上传
+            if not hasattr(self, '_upload_progress') or filename not in self._upload_progress:
+                return {"success": False, "error": "上传上下文无效，请从头开始"}
+            file_path = self._upload_progress[filename]["file_path"]
+
+        # 解码并写入块
         try:
-            content = base64.b64decode(content_b64)
+            chunk_bytes = base64.b64decode(chunk_data)
         except Exception as e:
-            return {"success": False, "error": f"文件内容解码失败: {e}"}
+            return {"success": False, "error": f"块数据解码失败: {e}"}
 
-        file_path = self._get_shared_dir() / filename
+        # 追加到文件
+        with open(file_path, "ab") as f:
+            f.write(chunk_bytes)
+        self._upload_progress[filename]["chunks"][chunk_index] = len(chunk_bytes)
 
-        # 如果文件已存在，添加时间戳
-        if file_path.exists():
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            stem = file_path.stem
-            ext = file_path.suffix
-            file_path = file_path.parent / f"{stem}_{timestamp}{ext}"
-
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-        log.info(f"文件已上传: {file_path.name}")
-        return {"success": True, "data": {"filename": file_path.name, "size": len(content)}}
+        # 检查是否完成
+        received_chunks = len(self._upload_progress[filename]["chunks"])
+        if received_chunks >= total_chunks:
+            # 完成：写入元数据
+            actual_size = file_path.stat().st_size
+            meta_path = file_path.with_suffix(file_path.suffix + ".meta.json")
+            meta = {
+                "uploader": self._upload_progress[filename]["uploader"],
+                "uploaded_at": datetime.now().isoformat(),
+                "file_size": actual_size,
+            }
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, ensure_ascii=False)
+            del self._upload_progress[filename]
+            log.info(f"文件已上传: {file_path.name} (uploader={meta['uploader']})")
+            return {"success": True, "data": {"filename": file_path.name, "size": actual_size}}
+        else:
+            return {"success": True, "data": {"chunk_received": chunk_index + 1, "total_chunks": total_chunks}}
 
     def _files_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """删除文件"""
@@ -744,15 +791,21 @@ class AgentHandler:
         if not file_path.exists():
             return {"success": False, "error": "文件不存在"}
 
+        # 删除元数据文件（如果存在）
+        meta_path = file_path.with_suffix(file_path.suffix + ".meta.json")
+        if meta_path.exists():
+            meta_path.unlink()
+
         file_path.unlink()
         log.info(f"文件已删除: {filename}")
         return {"success": True, "data": {"message": f"{filename} 已删除"}}
 
     def _files_download(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """下载文件"""
+        """下载文件（分块推送）"""
         import base64
 
         filename = params.get("filename", "")
+        chunk_size = params.get("chunk_size", 1024 * 1024)  # 默认 1MB
 
         if not filename:
             return {"success": False, "error": "文件名不能为空"}
@@ -762,17 +815,33 @@ class AgentHandler:
         if not file_path.exists():
             return {"success": False, "error": "文件不存在"}
 
-        with open(file_path, "rb") as f:
-            content = f.read()
+        file_size = file_path.stat().st_size
+        total_chunks = (file_size + chunk_size - 1) // chunk_size
+        download_id = str(uuid.uuid4())[:8]
 
-        content_b64 = base64.b64encode(content).decode("utf-8")
+        with open(file_path, "rb") as f:
+            for i in range(total_chunks):
+                chunk_bytes = f.read(chunk_size)
+                chunk_b64 = base64.b64encode(chunk_bytes).decode("utf-8")
+                if hasattr(self, '_push_callback'):
+                    self._push_callback("file.chunk", {
+                        "download_id": download_id,
+                        "filename": filename,
+                        "chunk_index": i,
+                        "total_chunks": total_chunks,
+                        "chunk": chunk_b64,
+                        "file_size": file_size,
+                    })
+                else:
+                    log.warning("无可用推送回调，跳过块发送")
 
         return {
             "success": True,
             "data": {
+                "download_id": download_id,
                 "filename": filename,
-                "content": content_b64,
-                "size": len(content)
+                "size": file_size,
+                "chunks": total_chunks,
             }
         }
 

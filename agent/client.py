@@ -50,6 +50,7 @@ class AgentClient:
         self.token = token
         self.root_dir = root_dir
         self.handler = AgentHandler(root_dir)
+        self.handler._push_callback = self._on_push
         self.watcher = LogWatcher(root_dir, push_callback=self._on_push)
         self.ws = None
         self._running = False
