@@ -353,6 +353,12 @@ def start_instances(instances):
         threading.Thread(target=inst.start, daemon=True).start()
         info(f"实例 {name} ({type(inst).__name__}) 已启动")
 
+    # MOCK_SEND 模式下不操作微信，实例后台任务继续运行
+    if MOCK_SEND:
+        info("MOCK_SEND 已开启，跳过微信 GUI 操作，实例后台任务运行中...")
+        while True:
+            time.sleep(60)
+
     # 启动时先切换到文件传输助手，然后最小化
     wx = wechat_instance.get_wechat()
     if wx:
