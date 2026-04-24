@@ -242,6 +242,17 @@ table th:last-child { border-radius:0 8px 0 0; }
 .btn-sm.warn { background:linear-gradient(135deg, var(--yellow), #d97706); color:#000; box-shadow:0 2px 8px rgba(251,191,36,0.2); }
 .btn-sm.warn:hover { box-shadow:0 4px 12px rgba(251,191,36,0.35); }
 
+.progress-bar-wrap {
+  width:100%; height:8px; background:var(--card); border-radius:4px; overflow:hidden; margin-top:8px;
+}
+.progress-bar-fill {
+  height:100%; background:linear-gradient(90deg, var(--accent), #a78bfa); border-radius:4px;
+  transition: width 0.3s ease;
+}
+.progress-text {
+  font-size:12px; color:var(--text2); margin-top:4px;
+}
+
 /* Inputs */
 .input-sm {
   padding:8px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border);
@@ -818,6 +829,16 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
 
+      <div v-if="downloadProgress.active" style="margin-bottom:16px;padding:12px 16px;background:var(--card);border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:13px;"><i class="mdi mdi-download" style="margin-right:4px;"></i>{{ downloadProgress.filename }}</span>
+          <span style="font-size:12px;color:var(--text2);">{{ formatSize(downloadProgress.loaded) }} / {{ formatSize(downloadProgress.total) }}</span>
+        </div>
+        <div class="progress-bar-wrap" style="margin-top:0;">
+          <div class="progress-bar-fill" :style="{width: (downloadProgress.total ? Math.round(downloadProgress.loaded / downloadProgress.total * 100) : 0) + '%'}"></div>
+        </div>
+      </div>
+
       <div v-if="!filesData.files.length" class="empty">暂无文件</div>
       <table v-else>
         <thead>
@@ -856,6 +877,12 @@ document.addEventListener('DOMContentLoaded', function() {
         <input type="file" id="fileUploadInput" @change="handleFileSelect" style="margin:16px 0;">
         <div v-if="selectedFile" style="margin-bottom:16px;">
           已选择: {{ selectedFile.name }} ({{ (selectedFile.size/1024).toFixed(1) }} KB)
+        </div>
+        <div v-if="uploading" style="margin-bottom:16px;">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" :style="{width: uploadProgress + '%'}"></div>
+          </div>
+          <div class="progress-text">上传中... {{ uploadProgress }}%</div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
           <button class="btn-sm" @click="showUploadModal = false">取消</button>
@@ -1015,6 +1042,8 @@ createApp({
     const showUploadModal = ref(false);
     const selectedFile = ref(null);
     const uploading = ref(false);
+    const uploadProgress = ref(0);
+    const downloadProgress = reactive({ active: false, filename: '', loaded: 0, total: 0 });
     const newUser = reactive({ username: '', password: '', role: 'user' });
     const pwForm = reactive({ old: '', new1: '', new2: '' });
 
@@ -1317,22 +1346,36 @@ createApp({
     async function uploadFile() {
       if (!selectedFile.value) return;
       uploading.value = true;
+      uploadProgress.value = 0;
 
       const formData = new FormData();
       formData.append('file', selectedFile.value);
 
       try {
-        const headers = { 'Authorization': `Bearer ${token.value}` };
-        const res = await fetch('/api/files', {
-          method: 'POST',
-          headers,
-          body: formData
+        const res = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/api/files');
+          xhr.setRequestHeader('Authorization', `Bearer ${token.value}`);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              uploadProgress.value = Math.round((e.loaded / e.total) * 100);
+            }
+          };
+          xhr.onload = () => {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(data);
+            } else {
+              reject(new Error(data.detail || '上传失败'));
+            }
+          };
+          xhr.onerror = () => reject(new Error('网络错误'));
+          xhr.send(formData);
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || '上传失败');
         showToast('文件上传成功');
         showUploadModal.value = false;
         selectedFile.value = null;
+        uploadProgress.value = 0;
         loadFiles();
       } catch(e) {
         showToast(e.message, 'error');
@@ -1352,19 +1395,47 @@ createApp({
 
     async function downloadFile(filename) {
       try {
+        downloadProgress.active = true;
+        downloadProgress.filename = filename;
+        downloadProgress.loaded = 0;
+        downloadProgress.total = 0;
+
         const headers = { 'Authorization': `Bearer ${token.value}` };
         const res = await fetch(`/api/files/${filename}`, { headers });
         if (!res.ok) throw new Error('下载失败');
 
-        const blob = await res.blob();
+        const contentLength = parseInt(res.headers.get('Content-Length') || '0');
+        downloadProgress.total = contentLength;
+
+        const reader = res.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          loaded += value.length;
+          downloadProgress.loaded = loaded;
+          if (contentLength) {
+            downloadProgress.total = contentLength;
+          } else {
+            downloadProgress.total = loaded;
+          }
+        }
+
+        const blob = new Blob(chunks);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
+        showToast('下载完成');
       } catch(e) {
         showToast(e.message, 'error');
+      } finally {
+        downloadProgress.active = false;
       }
     }
 
@@ -1390,7 +1461,7 @@ createApp({
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
-      filesData, showUploadModal, selectedFile, uploading,
+      filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize,
     };
     window.__vueApp = appExports;
