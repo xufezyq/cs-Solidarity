@@ -30,6 +30,7 @@ class AgentBridge:
         self._lock = asyncio.Lock()
         self._log_subscribers: list = []  # 实例变量，非类变量
         self._file_chunks: Dict[str, Dict[str, Any]] = {}  # download_id -> {chunks, total, filename, file_size}
+        self._download_queues: Dict[str, asyncio.Queue] = {}  # download_id -> chunk queue for streaming
 
     @property
     def is_connected(self) -> bool:
@@ -131,23 +132,15 @@ class AgentBridge:
             event = msg.get("event", "")
             data = msg.get("data", {})
             await self._broadcast_push(event, data)
-            # 处理文件块推送（收集到内存，结果通过专用 API 获取）
+            # 处理文件块推送（流式写入下载队列）
             if event == "file.chunk":
                 download_id = data.get("download_id", "_default")
-                if download_id not in self._file_chunks:
-                    self._file_chunks[download_id] = {
-                        "chunks": {},
-                        "total": data.get("total_chunks", 0),
-                        "filename": data.get("filename", ""),
-                        "file_size": data.get("file_size", 0),
-                    }
-                idx = data.get("chunk_index", 0)
-                self._file_chunks[download_id]["chunks"][idx] = data.get("chunk", "")
-                # 检查是否收集完成
-                dc = self._file_chunks[download_id]
-                if len(dc["chunks"]) >= dc["total"]:
-                    # 标记完成，前端可通过 /api/files/download/<download_id> 获取
-                    dc["ready"] = True
+                queue = self._download_queues.get(download_id)
+                if queue:
+                    await queue.put(data.get("chunk", ""))
+                    received = len([c for c in queue._queue if c is not None])
+                    if received >= data.get("total_chunks", 0):
+                        await queue.put(None)  # None = 完成标记
             return
 
         if msg_type == "pong":

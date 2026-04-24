@@ -2,7 +2,9 @@
 Web API — 文件管理
 """
 
+import asyncio
 import base64
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
@@ -97,36 +99,33 @@ async def delete_file(filename: str, current_user: User = Depends(get_current_us
 
 @router.get("/{filename}")
 async def download_file(filename: str, current_user: User = Depends(get_current_user)):
-    """下载文件"""
-    result = await bridge.send_request("files.download", {"filename": filename})
-    if not result.get("success"):
-        raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
+    """下载文件（流式）"""
+    # 创建下载队列并注册到 bridge
+    download_id = str(uuid.uuid4())[:8]
+    queue = asyncio.Queue()
+    bridge._download_queues[download_id] = queue
 
-    data = result.get("data", {})
-    download_id = data.get("download_id")
+    try:
+        # 触发 agent 开始分块推送
+        result = await bridge.send_request("files.download", {
+            "filename": filename,
+            "chunk_size": 1024 * 1024,  # 1MB per chunk
+        })
+        if not result.get("success"):
+            raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
 
-    # 等待块收集完成（最多等 5 分钟）
-    import time
-    for _ in range(300):
-        if download_id in bridge._file_chunks and bridge._file_chunks[download_id].get("ready"):
-            break
-        time.sleep(1)
+        # 流式 yield：边收边发，不囤内存
+        async def async_generate():
+            while True:
+                chunk_b64 = await queue.get()
+                if chunk_b64 is None:
+                    break
+                yield base64.b64decode(chunk_b64)
 
-    if download_id not in bridge._file_chunks or not bridge._file_chunks[download_id].get("ready"):
-        raise HTTPException(status_code=504, detail="文件块收集超时")
-
-    dc = bridge._file_chunks[download_id]
-    # 合并块
-    import base64
-    chunks_list = [dc["chunks"][i] for i in range(dc["total"]) if i in dc["chunks"]]
-    content_b64 = "".join(chunks_list)
-    content = base64.b64decode(content_b64)
-
-    # 清理
-    del bridge._file_chunks[download_id]
-
-    return StreamingResponse(
-        iter([content]),
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+        return StreamingResponse(
+            async_generate(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    finally:
+        bridge._download_queues.pop(download_id, None)

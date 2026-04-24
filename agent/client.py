@@ -74,6 +74,7 @@ class AgentClient:
                     ping_interval=30,
                     ping_timeout=10,
                     close_timeout=5,
+                    max_size=10 * 1024 * 1024,  # 10MB max frame
                 ) as ws:
                     self.ws = ws
                     reconnect_delay = 1  # 连接成功，重置重连间隔

@@ -224,6 +224,7 @@ def main():
         host=args.host,
         port=args.port,
         log_level="info",
+        websocket_max_size=10 * 1024 * 1024,  # 10MB max WebSocket message
     )
 
 
