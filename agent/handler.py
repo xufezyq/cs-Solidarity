@@ -808,9 +808,7 @@ class AgentHandler:
         return {"success": True, "data": {"message": f"{filename} 已删除"}}
 
     def _files_download(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """下载文件（分块推送）"""
-        import base64
-
+        """下载文件（先返回元信息，再异步推送 chunk）"""
         filename = params.get("filename", "")
         chunk_size = params.get("chunk_size", 1024 * 1024)
         download_id = params.get("download_id", str(uuid.uuid4())[:8])
@@ -826,30 +824,52 @@ class AgentHandler:
         file_size = file_path.stat().st_size
         total_chunks = (file_size + chunk_size - 1) // chunk_size
 
-        with open(file_path, "rb") as f:
-            for i in range(total_chunks):
-                chunk_bytes = f.read(chunk_size)
-                chunk_b64 = base64.b64encode(chunk_bytes).decode("utf-8")
-                if hasattr(self, '_push_callback'):
-                    import asyncio
-                    loop = getattr(self, '_event_loop', None)
-                    if loop and loop.is_running():
-                        asyncio.run_coroutine_threadsafe(
-                            self._push_callback("file.chunk", {
-                                "download_id": download_id,
-                                "filename": filename,
-                                "chunk_index": i,
-                                "total_chunks": total_chunks,
-                                "chunk": chunk_b64,
-                                "file_size": file_size,
-                            }),
-                            loop
-                        )
+        # 异步推送 chunk（在后台线程中执行，不阻塞 response）
+        def _push_chunks():
+            import base64 as b64mod
+            with open(file_path, "rb") as f:
+                for i in range(total_chunks):
+                    chunk_bytes = f.read(chunk_size)
+                    chunk_b64 = b64mod.b64encode(chunk_bytes).decode("utf-8")
+                    if hasattr(self, '_push_callback'):
+                        import asyncio
+                        loop = getattr(self, '_event_loop', None)
+                        if loop and loop.is_running():
+                            future = asyncio.run_coroutine_threadsafe(
+                                self._push_callback("file.chunk", {
+                                    "download_id": download_id,
+                                    "filename": filename,
+                                    "chunk_index": i,
+                                    "total_chunks": total_chunks,
+                                    "chunk": chunk_b64,
+                                    "file_size": file_size,
+                                }),
+                                loop
+                            )
+                            future.result(timeout=30)
                     else:
-                        log.warning("事件循环不可用，跳过块发送")
-                else:
-                    log.warning("无可用推送回调，跳过块发送")
+                        log.warning("无可用推送回调，跳过块发送")
+            # 推送完成标记
+            if hasattr(self, '_push_callback'):
+                import asyncio
+                loop = getattr(self, '_event_loop', None)
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self._push_callback("file.chunk", {
+                            "download_id": download_id,
+                            "chunk_index": -1,
+                            "total_chunks": total_chunks,
+                            "chunk": None,
+                            "file_size": file_size,
+                        }),
+                        loop
+                    )
 
+        import threading
+        t = threading.Thread(target=_push_chunks, daemon=True)
+        t.start()
+
+        # 立即返回元信息，不等待 chunk 推送完成
         return {
             "success": True,
             "data": {

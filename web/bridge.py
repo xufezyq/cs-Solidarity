@@ -137,10 +137,11 @@ class AgentBridge:
                 download_id = data.get("download_id", "_default")
                 queue = self._download_queues.get(download_id)
                 if queue:
-                    await queue.put(data.get("chunk", ""))
-                    received = len([c for c in queue._queue if c is not None])
-                    if received >= data.get("total_chunks", 0):
-                        await queue.put(None)  # None = 完成标记
+                    chunk_data = data.get("chunk")
+                    if chunk_data is None and data.get("chunk_index", 0) < 0:
+                        await queue.put(None)
+                    else:
+                        await queue.put(chunk_data)
             return
 
         if msg_type == "pong":

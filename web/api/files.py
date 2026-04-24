@@ -133,7 +133,7 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
     bridge._download_queues[download_id] = queue
 
     try:
-        # 触发 agent 开始分块推送
+        # 触发 agent 开始分块推送（agent 会先返回元信息，再异步推送 chunk）
         result = await bridge.send_request("files.download", {
             "filename": filename,
             "chunk_size": 1024 * 1024,  # 1MB per chunk
@@ -141,6 +141,8 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
         })
         if not result.get("success"):
             raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
+
+        file_size = result.get("data", {}).get("size", 0)
 
         # 流式 yield：边收边发，不囤内存
         async def async_generate():
@@ -150,10 +152,16 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
                     break
                 yield base64.b64decode(chunk_b64)
 
+        headers = {
+            "Content-Disposition": f"attachment; filename={filename}",
+        }
+        if file_size > 0:
+            headers["Content-Length"] = str(file_size)
+
         return StreamingResponse(
             async_generate(),
             media_type="application/octet-stream",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers=headers,
         )
     finally:
         bridge._download_queues.pop(download_id, None)
