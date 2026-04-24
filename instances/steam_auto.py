@@ -270,7 +270,7 @@ class SteamAuto(BaseInstance):
             wechat_groups=config.get('wechat_groups', ['文件传输助手']),
             monitored_friends=config.get('monitored_friends', []),
             enable_all_friends=config.get('enable_all_friends', True),
-            code_update_message=config.get('code_update_message', ''),
+            code_update_lines=config.get('code_update_lines', []),
             check_interval=config.get('check_interval', 60),
             perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
