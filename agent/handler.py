@@ -641,24 +641,31 @@ class AgentHandler:
             lastlogoff = f.get("lastlogoff")
 
             # 构建显示文本（状态 + 详情）
-            if personastate == 2:  # 游戏中
-                game_info = f.get("gameextrainfo") or ""
-                display_text = f"游戏中 · {game_info}" if game_info else "游戏中"
-            elif personastate == 0:  # 离线
+            game_info = f.get("gameextrainfo") or ""
+
+            if game_info and personastate in (1, 2):
+                # 在线(1)或忙碌(2)且有游戏信息 → 游戏中
+                display_text = f"游戏中 · {game_info}"
+                effective_state = 2
+            elif personastate == 0:
                 time_str = time_ago(lastlogoff) if lastlogoff else ""
                 display_text = f"离线 · {time_str}" if time_str else "离线"
-            elif personastate == 1:  # 在线
+                effective_state = 0
+            elif personastate == 1:
                 display_text = "在线"
-            elif personastate == 3:  # 离开
+                effective_state = 1
+            elif personastate == 3:
                 display_text = "离开"
+                effective_state = 3
             else:
                 display_text = ""
+                effective_state = personastate
 
             friend_info = {
                 "personaname": f.get("personaname") or f.get("nickname", "未知"),
                 "personastate": personastate,
-                "personastate_text": state_text.get(personastate, "未知"),
-                "state_class": state_class.get(personastate, "offline"),
+                "personastate_text": state_text.get(effective_state, "未知"),
+                "state_class": state_class.get(effective_state, "offline"),
                 "gameextrainfo": display_text,
             }
             result.append(friend_info)

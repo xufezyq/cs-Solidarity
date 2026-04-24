@@ -196,9 +196,9 @@ class SteamAPI:
 
 if __name__ == "__main__":
     # 配置参数
-    API_KEY = "594FAD4869EEC7F9816B9600B5E2C3CE"  # 替换为你的API密钥
+    API_KEY = ""  # 替换为你的API密钥
     VANITY_URL = ""    # 目标用户的自定义URL（如："xxx123"），为空则使用下面的SteamID
-    STEAM_ID = "76561198383859685"  
+    STEAM_ID = ""  
 
     # 初始化SteamAPI实例
     steam_api = SteamAPI(API_KEY)
