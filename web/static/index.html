@@ -876,7 +876,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <h3>上传文件</h3>
         <input type="file" id="fileUploadInput" @change="handleFileSelect" style="margin:16px 0;">
         <div v-if="selectedFile" style="margin-bottom:16px;">
-          已选择: {{ selectedFile.name }} ({{ (selectedFile.size/1024).toFixed(1) }} KB)
+          已选择: {{ selectedFile.name }} ({{ formatSize(selectedFile.size) }})
         </div>
         <div v-if="uploading" style="margin-bottom:16px;">
           <div class="progress-bar-wrap">
@@ -1348,30 +1348,32 @@ createApp({
       uploading.value = true;
       uploadProgress.value = 0;
 
-      const formData = new FormData();
-      formData.append('file', selectedFile.value);
+      const file = selectedFile.value;
+      const CHUNK_SIZE = 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
       try {
-        const res = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', '/api/files');
-          xhr.setRequestHeader('Authorization', `Bearer ${token.value}`);
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              uploadProgress.value = Math.round((e.loaded / e.total) * 100);
-            }
-          };
-          xhr.onload = () => {
-            const data = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(data);
-            } else {
-              reject(new Error(data.detail || '上传失败'));
-            }
-          };
-          xhr.onerror = () => reject(new Error('网络错误'));
-          xhr.send(formData);
-        });
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+
+          const formData = new FormData();
+          formData.append('file', chunk, file.name);
+          formData.append('chunk_index', i);
+          formData.append('total_chunks', totalChunks);
+          formData.append('filename', file.name);
+
+          const res = await fetch('/api/files/chunk', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token.value}` },
+            body: formData
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '上传失败');
+
+          uploadProgress.value = Math.round(((i + 1) / totalChunks) * 100);
+        }
         showToast('文件上传成功');
         showUploadModal.value = false;
         selectedFile.value = null;

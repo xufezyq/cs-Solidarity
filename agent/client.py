@@ -63,6 +63,7 @@ class AgentClient:
     async def run(self):
         """主循环：连接 → 处理消息 → 断线重连"""
         self._running = True
+        self.handler._event_loop = asyncio.get_event_loop()
         reconnect_delay = 1
 
         while self._running:

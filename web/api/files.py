@@ -45,7 +45,7 @@ async def upload_file(
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="文件大小不能超过 1GB")
 
-    # 分块上传
+    # 分块上传到 Agent
     offset = 0
     chunk_index = 0
     total_chunks = (file_size + CHUNK_SIZE - 1) // CHUNK_SIZE
@@ -68,6 +68,33 @@ async def upload_file(
 
         offset += len(chunk)
         chunk_index += 1
+
+    return {"success": True, "data": result.get("data", {})}
+
+
+@router.post("/chunk")
+async def upload_chunk(
+    file: UploadFile = File(...),
+    chunk_index: int = 0,
+    total_chunks: int = 1,
+    filename: str = "",
+    current_user: User = Depends(get_current_user)
+):
+    """分块上传（前端逐块上传，进度更准确）"""
+    content = await file.read()
+    chunk_b64 = base64.b64encode(content).decode("utf-8")
+
+    result = await bridge.send_request("files.upload", {
+        "filename": filename,
+        "chunk": chunk_b64,
+        "chunk_index": chunk_index,
+        "total_chunks": total_chunks,
+        "uploader": current_user.username,
+        "file_size": -1,
+    }, timeout=60.0)
+
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "上传失败"))
 
     return {"success": True, "data": result.get("data", {})}
 
@@ -110,6 +137,7 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
         result = await bridge.send_request("files.download", {
             "filename": filename,
             "chunk_size": 1024 * 1024,  # 1MB per chunk
+            "download_id": download_id,
         })
         if not result.get("success"):
             raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
