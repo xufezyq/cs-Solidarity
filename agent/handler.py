@@ -643,7 +643,7 @@ class AgentHandler:
             # 构建显示文本（状态 + 详情）
             game_info = f.get("gameextrainfo") or ""
 
-            if game_info and personastate in (1, 2):
+            if game_info and game_info != "未游玩游戏" and personastate in (1, 2):
                 # 在线(1)或忙碌(2)且有游戏信息 → 游戏中
                 display_text = f"游戏中 · {game_info}"
                 effective_state = 2
