@@ -681,8 +681,8 @@ class AgentHandler:
     # ── 文件管理 ──
 
     def _get_shared_dir(self) -> Path:
-        """获取共享文件目录"""
-        shared_dir = self.root_dir / "shared_files"
+        """获取共享文件目录（相对于 agent/ 目录）"""
+        shared_dir = Path(__file__).resolve().parent / "shared_files"
         shared_dir.mkdir(parents=True, exist_ok=True)
         return shared_dir
 
