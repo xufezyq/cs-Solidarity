@@ -230,6 +230,7 @@ async def _upload_chunk_web(file: UploadFile, chunk_index: int, total_chunks: in
                 }
                 _upload_progress[upload_id] = entry
                 file_path.touch()
+            file_path = entry["file_path"]
         else:
             if not upload_id or upload_id not in _upload_progress:
                 raise HTTPException(status_code=400, detail="上传上下文无效，请从头开始")
