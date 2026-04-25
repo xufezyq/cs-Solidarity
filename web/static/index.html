@@ -816,13 +816,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <div class="card card-enter">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div>
+        <div style="display:flex;align-items:center;gap:8px;">
           <button class="btn-sm success" @click="showUploadModal = true">
             <i class="mdi mdi-upload" style="margin-right:4px;"></i>上传文件
           </button>
-          <button class="btn-sm" style="margin-left:8px;opacity:0.5;" disabled title="即将支持">
+          <button class="btn-sm" style="opacity:0.5;" disabled title="即将支持">
             <i class="mdi mdi-folder-zip" style="margin-right:4px;"></i>下载文件夹
           </button>
+          <span style="margin-left:8px;font-size:12px;color:var(--text2);">
+            存储:
+            <select class="input-sm" v-model="fileStorageMode" @change="switchStorageMode" style="min-width:80px;padding:2px 6px;font-size:12px;">
+              <option value="web">Web 本地</option>
+              <option value="agent">Agent 端</option>
+            </select>
+          </span>
         </div>
         <div style="font-size:13px;color:var(--text2);">
           总计: {{ filesData.total_size_text || '0 B' }}
@@ -1044,6 +1051,7 @@ createApp({
     const uploading = ref(false);
     const uploadProgress = ref(0);
     const downloadProgress = reactive({ active: false, filename: '', loaded: 0, total: 0 });
+    const fileStorageMode = ref('web');
     const newUser = reactive({ username: '', password: '', role: 'user' });
     const pwForm = reactive({ old: '', new1: '', new2: '' });
 
@@ -1328,7 +1336,19 @@ createApp({
         filesData.files = data.data?.files || [];
         filesData.total_size = data.data?.total_size || 0;
         filesData.total_size_text = formatSize(filesData.total_size);
+        if (data.data?.storage_mode) fileStorageMode.value = data.data.storage_mode;
       } catch(e) { console.error(e); }
+    }
+
+    async function switchStorageMode() {
+      try {
+        await api(`/api/files/mode?mode=${fileStorageMode.value}`, { method: 'PUT' });
+        showToast(`已切换为${fileStorageMode.value === 'web' ? 'Web 本地' : 'Agent 端'}存储`);
+        loadFiles();
+      } catch(e) {
+        showToast(e.message, 'error');
+        fileStorageMode.value = fileStorageMode.value === 'web' ? 'agent' : 'web';
+      }
     }
 
     function formatSize(size) {
@@ -1403,7 +1423,7 @@ createApp({
         downloadProgress.total = 0;
 
         const headers = { 'Authorization': `Bearer ${token.value}` };
-        const res = await fetch(`/api/files/${filename}`, { headers });
+        const res = await fetch(`/api/files/download/${filename}`, { headers });
         if (!res.ok) throw new Error('下载失败');
 
         const contentLength = parseInt(res.headers.get('Content-Length') || '0');
@@ -1463,8 +1483,8 @@ createApp({
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
-      filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress,
-      loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize,
+      filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
+      loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
     };
     window.__vueApp = appExports;
     return appExports;

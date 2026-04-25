@@ -695,7 +695,7 @@ class AgentHandler:
         for f in sorted(shared_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
             if f.is_file() and not f.name.endswith(".meta.json"):
                 stat = f.stat()
-                meta_path = f.with_suffix(f.suffix + ".meta.json")
+                meta_path = f.parent / f"{f.name}.meta.json"
                 uploader = "unknown"
                 if meta_path.exists():
                     try:
@@ -772,7 +772,7 @@ class AgentHandler:
         if received_chunks >= total_chunks:
             # 完成：写入元数据
             actual_size = file_path.stat().st_size
-            meta_path = file_path.with_suffix(file_path.suffix + ".meta.json")
+            meta_path = file_path.parent / f"{file_path.name}.meta.json"
             meta = {
                 "uploader": self._upload_progress[filename]["uploader"],
                 "uploaded_at": datetime.now().isoformat(),
@@ -799,7 +799,7 @@ class AgentHandler:
             return {"success": False, "error": "文件不存在"}
 
         # 删除元数据文件（如果存在）
-        meta_path = file_path.with_suffix(file_path.suffix + ".meta.json")
+        meta_path = file_path.parent / f"{file_path.name}.meta.json"
         if meta_path.exists():
             meta_path.unlink()
 
