@@ -12,7 +12,7 @@ import json
 import threading
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
 
@@ -154,14 +154,16 @@ async def _list_files_agent(current_user: User):
 
 @router.post("/init-upload")
 async def init_upload(
-    filename: str = "",
-    total_chunks: int = 1,
+    body: dict = Body(...),
     current_user: User = Depends(get_current_user)
 ):
     """初始化上传，获取 upload_id 和实际文件名（防止并发冲突）"""
     storage_mode = _get_storage_mode()
     if storage_mode != "web":
         raise HTTPException(status_code=400, detail="仅 web 存储模式支持此接口")
+
+    filename = body.get("filename", "")
+    total_chunks = body.get("total_chunks", 1)
 
     if not filename:
         raise HTTPException(status_code=400, detail="文件名不能为空")
