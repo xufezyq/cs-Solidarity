@@ -1372,7 +1372,20 @@ createApp({
       const CHUNK_SIZE = 1024 * 1024;
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
+      let uploadId = '';
+
       try {
+        // 1. 初始化上传，获取 upload_id
+        const initRes = await fetch('/api/files/init-upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token.value}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, total_chunks: totalChunks }),
+        });
+        const initData = await initRes.json();
+        if (!initRes.ok) throw new Error(initData.detail || '初始化上传失败');
+        uploadId = initData.data.upload_id;
+
+        // 2. 分块上传
         for (let i = 0; i < totalChunks; i++) {
           const start = i * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -1383,6 +1396,7 @@ createApp({
           formData.append('chunk_index', i);
           formData.append('total_chunks', totalChunks);
           formData.append('filename', file.name);
+          formData.append('upload_id', uploadId);
 
           const res = await fetch('/api/files/chunk', {
             method: 'POST',
