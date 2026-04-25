@@ -373,7 +373,10 @@ class SteamAuto(BaseInstance):
             # 提取当前新闻的 gid 集合
             current_gids = set()
             new_news_list = []
-            
+
+            log.info(f"[{datetime.now()}] API 返回的原始 gids: {[news.get('gid', '') for news in news_items]}")
+            log.info(f"[{datetime.now()}] 缓存 gids: {sorted(self.cached_news_gids)}")
+
             for news in news_items:
                 gid = news.get('gid', '')
                 current_gids.add(gid)
@@ -385,7 +388,9 @@ class SteamAuto(BaseInstance):
             # 如果有新新闻，全部发送
             if new_news_list:
                 log.info(f"[{datetime.now()}] 发现 {len(new_news_list)} 条新新闻")
-                
+                log.info(f"[{datetime.now()}] 当前缓存 gids: {sorted(self.cached_news_gids)}")
+                log.info(f"[{datetime.now()}] 本次新 gid: {[n.get('gid', '') for n in new_news_list]}")
+
                 # 按时间倒序排序（最新的在前）
                 # 注意：API 返回的已经是按时间倒序，新新闻应该也是倒序
                 # 但为了用户体验，我们从最新的开始发送（列表已经是倒序）
