@@ -12,7 +12,7 @@ import json
 import threading
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
 
@@ -191,10 +191,10 @@ async def init_upload(
 @router.post("/chunk")
 async def upload_chunk(
     file: UploadFile = File(...),
-    chunk_index: int = 0,
-    total_chunks: int = 1,
-    filename: str = "",
-    upload_id: str = "",
+    chunk_index: int = Form(0),
+    total_chunks: int = Form(1),
+    filename: str = Form(""),
+    upload_id: str = Form(""),
     current_user: User = Depends(get_current_user)
 ):
     storage_mode = _get_storage_mode()
