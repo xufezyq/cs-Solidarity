@@ -419,8 +419,10 @@ class SteamAuto(BaseInstance):
                     self.send_message(message)
 
                 # 更新缓存：只把新新闻 gid 加入缓存（用时间戳标记）
-                for gid in new_news_list:
-                    self.cached_news_gids[gid] = now_ts
+                for news in new_news_list:
+                    gid = news.get('gid', '')
+                    if gid:
+                        self.cached_news_gids[gid] = now_ts
 
                 # 限制缓存数量（最多 100 条），超出时删除最旧的
                 self._trim_news_cache()
