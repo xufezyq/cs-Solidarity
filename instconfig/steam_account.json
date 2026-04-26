@@ -21,7 +21,7 @@
       "steamid": "76561199009839689",
       "personaname": "难念的经",
       "pw_nickname": "皮张侠",
-      "personastate": 0,
+      "personastate": 1,
       "gameextrainfo": "未游玩游戏",
       "lastlogoff": 1776961912
     },
@@ -37,15 +37,15 @@
       "steamid": "76561198347252622",
       "personaname": "苦海胆",
       "pw_nickname": "皮能侠",
-      "personastate": 1,
-      "gameextrainfo": "PUBG: BATTLEGROUNDS",
-      "lastlogoff": 1777049878
+      "personastate": 0,
+      "gameextrainfo": "未游玩游戏",
+      "lastlogoff": 1777116416
     },
     {
       "steamid": "76561199142850248",
       "personaname": "不见见手青",
       "pw_nickname": "人民万岁小灰灰",
-      "personastate": 0,
+      "personastate": 1,
       "gameextrainfo": "未游玩游戏",
       "lastlogoff": 1777036118
     },
@@ -61,17 +61,17 @@
       "steamid": "76561198987925371",
       "personaname": "三重刘德华",
       "pw_nickname": "Hunter的红酒瓶。",
-      "personastate": 0,
+      "personastate": 1,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777053743
+      "lastlogoff": 1777135403
     },
     {
       "steamid": "76561198126298848",
       "personaname": "旧颜",
       "pw_nickname": "皮剑侠",
       "personastate": 1,
-      "gameextrainfo": "PUBG: BATTLEGROUNDS",
-      "lastlogoff": 1777048046
+      "gameextrainfo": "未游玩游戏",
+      "lastlogoff": 1777116398
     },
     {
       "steamid": "76561199110612255",
@@ -94,16 +94,16 @@
       "personaname": "大宝贝",
       "pw_nickname": "牛皮侠",
       "personastate": 1,
-      "gameextrainfo": "Counter-Strike 2",
-      "lastlogoff": 1777103826
+      "gameextrainfo": "未游玩游戏",
+      "lastlogoff": 1777129546
     },
     {
       "steamid": "76561198324071323",
       "personaname": "Oopy",
       "pw_nickname": "皮硬侠",
-      "personastate": 1,
-      "gameextrainfo": "PUBG: BATTLEGROUNDS",
-      "lastlogoff": 1777087839
+      "personastate": 0,
+      "gameextrainfo": "未游玩游戏",
+      "lastlogoff": 1777194426
     },
     {
       "steamid": "76561199262650715",
@@ -111,7 +111,7 @@
       "pw_nickname": "皮帅侠",
       "personastate": 1,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777047730
+      "lastlogoff": 1777129182
     },
     {
       "steamid": "76561198383859685",
@@ -119,15 +119,15 @@
       "pw_nickname": "皮干侠",
       "personastate": 1,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777058443
+      "lastlogoff": 1777187204
     },
     {
       "steamid": "76561198412776807",
       "personaname": "Sakura",
       "pw_nickname": "皮雳侠",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777075779
+      "lastlogoff": 1777192313
     },
     {
       "steamid": "76561199209601450",
@@ -149,9 +149,9 @@
       "steamid": "76561199059506806",
       "personaname": "强锁",
       "pw_nickname": "叄谢李杜诸公多不能文",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1775865069
+      "lastlogoff": 1777063391
     },
     {
       "steamid": "76561198413270779",
@@ -165,7 +165,7 @@
       "steamid": "76561198828073207",
       "personaname": "邮寄一束白玫瑰",
       "pw_nickname": "邮寄一束白玫瑰",
-      "personastate": 1,
+      "personastate": 3,
       "gameextrainfo": "未游玩游戏",
       "lastlogoff": 1776771695
     },
@@ -211,7 +211,7 @@
       "max_deaths": 31,
       "min_deaths": 8,
       "avatar": "https://img.wmpvp.com/pvp/97/d1/97d1db970fb07f1619f5848ac9cdf3121645709717.jpeg",
-      "last_match_id": "PVP@9206520224100912140"
+      "last_match_id": "PVP@9208983159696082444"
     },
     "76561198986231197": {
       "pw_nickname": "牛皮侠",
@@ -220,15 +220,15 @@
       "max_rating": 2.31,
       "min_rating": 0.34,
       "max_pw_rating": 1.88,
-      "min_pw_rating": 0.66,
+      "min_pw_rating": 0.64,
       "max_we": 14.6925,
       "min_we": 3.4764,
-      "max_score": 2370,
+      "max_score": 2391,
       "min_score": 2113,
       "max_deaths": 34,
       "min_deaths": 11,
       "avatar": "https://img.wmpvp.com/pvp/ac/2b/ac2b0655659a16f235f46d6ab8445c3b1769863167.webp",
-      "last_match_id": "PVP@9214260804728912524"
+      "last_match_id": "PVP@9219538463918736396"
     },
     "76561199103253412": {
       "pw_nickname": "神厨丨小福贵",
@@ -262,7 +262,7 @@
       "max_deaths": 22,
       "min_deaths": 8,
       "avatar": "https://img.wmpvp.com/pvp/0a/24/0a249aa512dab5b601981d217c945d7c1729406944.png",
-      "last_match_id": "PVP@9210742367692095244"
+      "last_match_id": "PVP@9208983159696082444"
     },
     "76561199142850248": {
       "pw_nickname": "人民万岁小灰灰",
@@ -279,7 +279,7 @@
       "max_deaths": 24,
       "min_deaths": 11,
       "avatar": "https://img.wmpvp.com/pvp/48/db/48dbf3a64a448f69b0d53a4c3faea4791739791493.png",
-      "last_match_id": "PVP@9216301489369410060"
+      "last_match_id": "PVP@9212149744837631628"
     },
     "76561198383859685": {
       "pw_nickname": "皮干侠",
@@ -296,7 +296,7 @@
       "max_deaths": 27,
       "min_deaths": 6,
       "avatar": "https://img.wmpvp.com/pvp/18/28/1828165970172b73162cb4fd4120b0011772113452.webp",
-      "last_match_id": "PVP@9210953466341872654"
+      "last_match_id": "PVP@9208983159696082444"
     },
     "76561198126298848": {
       "pw_nickname": "皮剑侠",
@@ -313,7 +313,7 @@
       "max_deaths": 31,
       "min_deaths": 8,
       "avatar": "https://img.wmpvp.com/pvp/36/a9/36a91f00aad2a78e584dba55f6e270191772610688.webp",
-      "last_match_id": "PVP@9210742367692095244"
+      "last_match_id": "PVP@9208983159696082444"
     },
     "76561198347252622": {
       "pw_nickname": "皮能侠",
@@ -381,7 +381,7 @@
       "max_deaths": 28,
       "min_deaths": 6,
       "avatar": "https://cdn.wmpvp.com/avatars/a1e1e00263edbb76b6c3fbedc5e15d74def55fa2.jpg",
-      "last_match_id": "PVP@9210742367692095244"
+      "last_match_id": "PVP@9208983159696082444"
     },
     "76561199059506806": {
       "pw_nickname": "叄谢李杜诸公多不能文",
