@@ -51,7 +51,11 @@ class SteamAuto(BaseInstance):
         # 新闻检查相关
         self.enable_news_check = enable_news_check
         self.check_news_interval = check_news_interval  # 新闻检查间隔（秒），默认 1 小时
-        self.cached_news_gids = set(cached_news_gids) if cached_news_gids else set()  # 新闻缓存，从配置加载
+        # 新闻缓存：{gid: timestamp}，最多保留 100 条，最久 30 天
+        self.cached_news_gids = {}  # 从配置加载时会被覆盖为 {gid: timestamp}
+        if cached_news_gids:
+            for gid in cached_news_gids:
+                self.cached_news_gids[gid] = time.time()  # 旧格式无时间戳，统一用当前时间标记（30 天内不会过期）
         
         # 完美平台配置
         self.perfect_world_config = perfect_world_config or {}
@@ -340,7 +344,7 @@ class SteamAuto(BaseInstance):
         """检查 CS2 是否有新新闻，如果有则发送通知"""
         if not self.enable_news_check:
             return
-        
+
         # 维护时间检查
         try:
             from core import check_maintenance
@@ -349,77 +353,82 @@ class SteamAuto(BaseInstance):
                 return
         except (ImportError, AttributeError):
             pass
-        
+
         try:
+            # 清理过期缓存（超过 30 天）
+            self._clean_news_cache()
+
             # 获取最新 10 条新闻
             news_items = self.steam.get_steam_news(app_id=730, count=10)
-            
+
             if not news_items or len(news_items) == 0:
                 log.info(f"[{datetime.now()}] 未获取到 CS2 新闻")
                 return
-            
+
             # 初始化缓存（如果还没有）
-            if not hasattr(self, 'cached_news_gids'):
-                self.cached_news_gids = set()
-            
-            # 如果是第一次运行（缓存为空），只初始化缓存不发送新闻
-            if len(self.cached_news_gids) == 0:
-                current_gids = set(news.get('gid', '') for news in news_items)
+            if not hasattr(self, 'cached_news_gids') or not self.cached_news_gids:
+                current_gids = {news.get('gid', ''): time.time() for news in news_items}
                 self.cached_news_gids = current_gids
                 self.save_news_cache()  # 首次初始化也要保存到配置文件
                 log.info(f"[{datetime.now()}] 首次运行，已初始化新闻缓存，当前缓存 {len(self.cached_news_gids)} 条")
                 return
-            
+
             # 提取当前新闻的 gid 集合
-            current_gids = set()
+            current_gids_set = set()
             new_news_list = []
 
             log.info(f"[{datetime.now()}] API 返回的原始 gids: {[news.get('gid', '') for news in news_items]}")
-            log.info(f"[{datetime.now()}] 缓存 gids: {sorted(self.cached_news_gids)}")
+            log.info(f"[{datetime.now()}] 缓存 gids: {sorted(self.cached_news_gids.keys())}")
 
+            now_ts = time.time()
             for news in news_items:
                 gid = news.get('gid', '')
-                current_gids.add(gid)
-                
+                current_gids_set.add(gid)
+
                 # 如果 gid 不在缓存中，说明是新新闻
                 if gid not in self.cached_news_gids:
                     new_news_list.append(news)
-            
+
             # 如果有新新闻，全部发送
             if new_news_list:
                 log.info(f"[{datetime.now()}] 发现 {len(new_news_list)} 条新新闻")
-                log.info(f"[{datetime.now()}] 当前缓存 gids: {sorted(self.cached_news_gids)}")
+                log.info(f"[{datetime.now()}] 当前缓存 gids: {sorted(self.cached_news_gids.keys())}")
                 log.info(f"[{datetime.now()}] 本次新 gid: {[n.get('gid', '') for n in new_news_list]}")
 
                 # 按时间倒序排序（最新的在前）
                 # 注意：API 返回的已经是按时间倒序，新新闻应该也是倒序
                 # 但为了用户体验，我们从最新的开始发送（列表已经是倒序）
-                
+
                 for news in new_news_list:
                     title = news.get('title', '无标题')
                     url = news.get('url', '#')
                     contents = news.get('contents', '无摘要')
-                    
+
                     # 截断摘要内容（最多 200 字）
                     if len(contents) > 300:
                         contents = contents[:300] + '...'
-                    
+
                     # 构建消息
                     message = f"【CS2 更新】\n\n"
                     message += f"{title}\n\n"
                     message += f"{contents}\n\n"
                     message += f"原文链接：{url}"
-                    
+
                     log.info(f"[{datetime.now()}] 发送新新闻：{title}")
                     self.send_message(message)
-                
-                # 更新缓存：保留最新的 10 条 gid
-                self.cached_news_gids = current_gids
+
+                # 更新缓存：只把新新闻 gid 加入缓存（用时间戳标记）
+                for gid in new_news_list:
+                    self.cached_news_gids[gid] = now_ts
+
+                # 限制缓存数量（最多 100 条），超出时删除最旧的
+                self._trim_news_cache()
+
                 self.save_news_cache()  # 持久化到配置文件
                 log.info(f"[{datetime.now()}] 新闻缓存已更新，当前缓存 {len(self.cached_news_gids)} 条")
             else:
                 log.info(f"[{datetime.now()}] 无新新闻，最新 10 条新闻 gid：{[n.get('gid', '') for n in news_items]}")
-                
+
         except Exception as e:
             log.info(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
 
@@ -738,12 +747,38 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
 
+    def _clean_news_cache(self):
+        """清理超过 30 天的缓存"""
+        if not self.cached_news_gids:
+            return
+        now_ts = time.time()
+        expired_days = 30 * 24 * 3600  # 30 天
+        expired_gids = [
+            gid for gid, ts in self.cached_news_gids.items()
+            if (now_ts - ts) > expired_days
+        ]
+        for gid in expired_gids:
+            del self.cached_news_gids[gid]
+        if expired_gids:
+            log.info(f"[{datetime.now()}] 清理了 {len(expired_gids)} 条过期新闻缓存")
+
+    def _trim_news_cache(self):
+        """限制缓存数量最多 100 条，超出时删除最旧的（timestamp 最小的）"""
+        if len(self.cached_news_gids) <= 100:
+            return
+        # 按 timestamp 排序（升序），删除最旧的直到 <= 100
+        sorted_gids = sorted(self.cached_news_gids.keys(), key=lambda g: self.cached_news_gids[g])
+        excess = len(self.cached_news_gids) - 100
+        for gid in sorted_gids[:excess]:
+            del self.cached_news_gids[gid]
+        log.info(f"[{datetime.now()}] 缓存超量，删除了 {excess} 条最旧记录")
+
     def save_news_cache(self, config_path=None):
         """保存新闻缓存到配置文件"""
         try:
             target_config_path = config_path or self.config_path
             config = self.load_config(target_config_path)
-            config['cached_news_gids'] = list(self.cached_news_gids)
+            config['cached_news_gids'] = list(self.cached_news_gids.keys())
             self.save_config(config, target_config_path)
             log.info(f"[{datetime.now()}] 新闻缓存已保存到 {target_config_path}")
         except Exception as e:
