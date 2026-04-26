@@ -189,8 +189,9 @@ class SteamAuto(BaseInstance):
             # 更新配置
             config['monitored_friends'] = friends_config
             config['enable_all_friends'] = False  # 自动填充后改为false
-            
+
             # 保存配置
+            self._update_last_save_time(config)
             self.save_config(config, config_path)
             
             log.info(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
@@ -657,6 +658,7 @@ class SteamAuto(BaseInstance):
 
         if updated:
             config['monitored_friends'] = monitored_friends
+            self._update_last_save_time(config)
             self.save_config(config, target_config_path)
             log.debug(f"[{datetime.now()}] 好友状态已保存到配置文件")
 
@@ -731,6 +733,7 @@ class SteamAuto(BaseInstance):
                         del friend['nickname']
                         changed = True
             if changed:
+                self._update_last_save_time(config)
                 self.save_config(config, target_config_path)
                 log.info(f"[{datetime.now()}] 完美平台昵称已保存到 {target_config_path}")
         except Exception as e:
@@ -742,6 +745,7 @@ class SteamAuto(BaseInstance):
             target_config_path = config_path or self.config_path
             config = self.load_config(target_config_path)
             config['friend_pw_history_stats'] = self.friend_pw_history_stats
+            self._update_last_save_time(config)
             self.save_config(config, target_config_path)
             log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
         except Exception as e:
@@ -778,11 +782,16 @@ class SteamAuto(BaseInstance):
         try:
             target_config_path = config_path or self.config_path
             config = self.load_config(target_config_path)
-            config['cached_news_gids'] = list(self.cached_news_gids.keys())
+            config['cached_news_gids'] = self.cached_news_gids
+            self._update_last_save_time(config)
             self.save_config(config, target_config_path)
             log.info(f"[{datetime.now()}] 新闻缓存已保存到 {target_config_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存新闻缓存失败: {e}")
+
+    def _update_last_save_time(self, config):
+        """更新配置的 last_update 时间戳"""
+        config['last_update'] = time.time()
 
     def save_leaderboard(self, config_path=None):
         """保存排行榜持有者到配置文件"""
@@ -790,6 +799,7 @@ class SteamAuto(BaseInstance):
             target_config_path = config_path or self.config_path
             config = self.load_config(target_config_path)
             config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
+            self._update_last_save_time(config)
             self.save_config(config, target_config_path)
             log.info(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
         except Exception as e:
