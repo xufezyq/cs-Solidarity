@@ -819,20 +819,30 @@ class SteamAuto(BaseInstance):
             return []
 
         # 定义所有排行榜类别：(key_name, display_name, emoji, data_field, is_max)
+        # min_* 类别只记录不播报（用户要求屏蔽最低数据的播报）
         categories = [
             ('max_kills', '击杀王', '🔫', 'max_kills', True),
-            ('min_kills', '精神支持', '🫡', 'min_kills', False),
             ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
-            ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
             ('max_rating', 'RT 之神', '📊', 'max_rating', True),
-            ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
             ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
-            ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
             ('max_we', 'WE 之神', '💪', 'max_we', True),
-            ('min_we', '不懂装懂', '😅', 'min_we', False),
             ('max_score', '得分王', '🎯', 'max_score', True),
-            ('min_score', '吊车尾', '📉', 'min_score', False),
         ]
+        # 旧版（含 min 类，恢复时取消注释）:
+        # categories = [
+        #     ('max_kills', '击杀王', '🔫', 'max_kills', True),
+        #     ('min_kills', '精神支持', '🫡', 'min_kills', False),
+        #     ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
+        #     ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
+        #     ('max_rating', 'RT 之神', '📊', 'max_rating', True),
+        #     ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
+        #     ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
+        #     ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
+        #     ('max_we', 'WE 之神', '💪', 'max_we', True),
+        #     ('min_we', '不懂装懂', '😅', 'min_we', False),
+        #     ('max_score', '得分王', '🎯', 'max_score', True),
+        #     ('min_score', '吊车尾', '📉', 'min_score', False),
+        # ]
 
         for cat_key, cat_name, emoji, field, is_max in categories:
             # 找出当前该类别的最佳/最差玩家
@@ -934,42 +944,62 @@ class SteamAuto(BaseInstance):
         if not valid_players:
             return None
 
-        # 定义排行榜类别
+        # 定义排行榜类别（只保留 max 类，最低数据类别已屏蔽播报）
         categories = [
             ('🔫 击杀王',   'max_kills',   True,  '杀'),
-            ('🤪 精神支持', 'min_kills',   False, '杀'),
             ('💀 唐宋八大家','max_deaths', True,  '死'),
-            ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
             ('👑 RT 之神',   'max_rating',  True,  ''),
-            ('🧸 吉祥物',   'min_rating',  False, ''),
             ('⚡ PW RT 之神','max_pw_rating',True, ''),
-            ('❓ 纯路人',   'min_pw_rating',False, ''),
             ('💪 WE 之神',   'max_we',      True,  ''),
-            ('😅 不懂装懂', 'min_we',      False, ''),
             ('🎖️ 得分王',   'max_score',   True,  '分'),
-            ('🗑️ 吊车尾',   'min_score',   False, '分'),
         ]
+        # 旧版（含 min 类，恢复时取消注释）:
+        # categories = [
+        #     ('🔫 击杀王',   'max_kills',   True,  '杀'),
+        #     ('🤪 精神支持', 'min_kills',   False, '杀'),
+        #     ('💀 唐宋八大家','max_deaths', True,  '死'),
+        #     ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
+        #     ('👑 RT 之神',   'max_rating',  True,  ''),
+        #     ('🧸 吉祥物',   'min_rating',  False, ''),
+        #     ('⚡ PW RT 之神','max_pw_rating',True, ''),
+        #     ('❓ 纯路人',   'min_pw_rating',False, ''),
+        #     ('💪 WE 之神',   'max_we',      True,  ''),
+        #     ('😅 不懂装懂', 'min_we',      False, ''),
+        #     ('🎖️ 得分王',   'max_score',   True,  '分'),
+        #     ('🗑️ 吊车尾',   'min_score',   False, '分'),
+        # ]
 
         lines = ["🏆 历史战绩排行榜", ""]
+        # 按顺序定义每组包含的 emoji，每个元素是一个 emoji 列表
+        # 只有在组的首个 emoji 出现时才切换组（避免屏蔽的 emoji 导致的错误分组）
         category_groups = [
-            ['🔫', '🤪'],      # 击杀类
-            ['💀', '🦎'],      # 死亡类
-            ['👑', '🧸'],      # Rating 类
-            ['⚡' , '❓'],      # PW Rating
-            ['💪', '😅'],      # WE 类
-            ['🎯', '🗑️'],      # 得分类
+            ['🔫'],      # 击杀类
+            ['💀'],      # 死亡类
+            ['👑'],      # Rating 类
+            ['⚡'],      # PW Rating
+            ['💪'],      # WE 类
+            ['🎯'],      # 得分类
         ]
-        
+        # 旧版（含 min 类的完整分组）:
+        # category_groups = [
+        #     ['🔫', '🤪'],      # 击杀类
+        #     ['💀', '🦎'],      # 死亡类
+        #     ['👑', '🧸'],      # Rating 类
+        #     ['⚡' , '❓'],      # PW Rating
+        #     ['💪', '😅'],      # WE 类
+        #     ['🎯', '🗑️'],      # 得分类
+        # ]
+
         current_group = 0
         for label, field, is_max, unit in categories:
             emoji = label.split()[0]
-            
+
             # 检查是否需要切换到下一组
             while current_group < len(category_groups) and emoji not in category_groups[current_group]:
                 current_group += 1
                 if current_group < len(category_groups):
                     lines.append("")  # 在组之间添加空行
-            
+
             if is_max:
                 candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
                 if not candidates:
