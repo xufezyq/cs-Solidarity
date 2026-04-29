@@ -6,15 +6,18 @@ cs-Solidarity Agent — 请求处理器
 
 import json
 import os
+import queue
 import shutil
 import subprocess
 import sys
 import glob
 import logging
 import uuid
+import threading
+import time as _time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +28,9 @@ class AgentHandler:
     def __init__(self, root_dir: str):
         self.root_dir = Path(root_dir).resolve()
         self.pid_file = self.root_dir / ".bot.pid"
+        self._chat_history: List[Dict[str, Any]] = []  # 聊天历史（内存）
+        self._chat_history_max = 500  # 最大历史条数
+        self._chat_lock = threading.Lock()
         log.info(f"AgentHandler 初始化，项目根目录: {self.root_dir}")
 
     def _git_pull(self):
@@ -117,6 +123,8 @@ class AgentHandler:
             "bot.start": self._bot_start,
             "bot.stop": self._bot_stop,
             "bot.restart": self._bot_restart,
+            "chat.send": self._chat_send,
+            "chat.history": self._chat_history_get,
         }
 
         handler = handlers.get(action)
@@ -879,6 +887,100 @@ class AgentHandler:
                 "chunks": total_chunks,
             }
         }
+
+    # ── 聊天 ──
+
+    def _chat_send(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """处理 Web 聊天消息：投入主循环队列，由主循环统一路由和处理"""
+        content = params.get("content", "").strip()
+        sender = params.get("sender", "WebUser")
+        chat_name = params.get("chat_name", "网页聊天室")
+
+        if not content:
+            return {"success": False, "error": "消息内容不能为空"}
+
+        try:
+            import main as bot_main
+
+            # 记录用户消息到历史
+            msg_id = str(uuid.uuid4())[:8]
+            timestamp = datetime.now().isoformat()
+            user_msg = {
+                "id": msg_id,
+                "chat_name": chat_name,
+                "sender": sender,
+                "content": content,
+                "timestamp": timestamp,
+                "source": "user",
+            }
+            self._add_chat_history(user_msg)
+
+            # 投入主循环的 web_msg_queue，由主循环统一处理
+            replies_q = queue.Queue()
+            done_event = threading.Event()
+
+            bot_main.web_msg_queue.put({
+                "content": content,
+                "sender": sender,
+                "chat_name": chat_name,
+                "replies": replies_q,
+                "event": done_event,
+            })
+
+            # 等待主循环处理完成（最多 60 秒）
+            done_event.wait(timeout=60)
+
+            # 再等一小段时间，让 KoriChat 等异步实例的回复到达
+            _time.sleep(2)
+
+            # 清除回复路由和上下文，防止后续回复误入
+            bot_main._web_replies_map.pop(chat_name, None)
+            bot_main._web_msg_context.pop(chat_name, None)
+
+            # 收集回复
+            replies = []
+            while not replies_q.empty():
+                reply = replies_q.get()
+                self._add_chat_history(reply)
+                replies.append(reply)
+
+                # 推送到 Web 客户端（实时）
+                if hasattr(self, '_push_callback'):
+                    import asyncio
+                    loop = getattr(self, '_event_loop', None)
+                    if loop and loop.is_running():
+                        asyncio.run_coroutine_threadsafe(
+                            self._push_callback("chat.message", reply),
+                            loop,
+                        )
+
+            return {
+                "success": True,
+                "data": {
+                    "message_id": msg_id,
+                    "replies": replies,
+                }
+            }
+
+        except ImportError as e:
+            return {"success": False, "error": f"Bot 模块未加载: {e}"}
+        except Exception as e:
+            log.error(f"处理聊天消息失败: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
+
+    def _chat_history_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """获取聊天历史"""
+        limit = min(params.get("limit", 100), self._chat_history_max)
+        with self._chat_lock:
+            history = self._chat_history[-limit:]
+        return {"success": True, "data": {"messages": history}}
+
+    def _add_chat_history(self, msg: Dict[str, Any]):
+        """添加消息到历史记录"""
+        with self._chat_lock:
+            self._chat_history.append(msg)
+            if len(self._chat_history) > self._chat_history_max:
+                self._chat_history = self._chat_history[-self._chat_history_max:]
 
     def _format_size(self, size: int) -> str:
         """格式化文件大小"""

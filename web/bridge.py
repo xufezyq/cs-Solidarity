@@ -29,6 +29,7 @@ class AgentBridge:
         self._pending_requests: Dict[str, asyncio.Future] = {}
         self._lock = asyncio.Lock()
         self._log_subscribers: list = []  # 实例变量，非类变量
+        self._chat_subscribers: list = []  # 聊天 WebSocket 订阅者
         self._file_chunks: Dict[str, Dict[str, Any]] = {}  # download_id -> {chunks, total, filename, file_size}
         self._download_queues: Dict[str, asyncio.Queue] = {}  # download_id -> chunk queue for streaming
 
@@ -132,6 +133,9 @@ class AgentBridge:
             event = msg.get("event", "")
             data = msg.get("data", {})
             await self._broadcast_push(event, data)
+            # 聊天消息：广播给聊天订阅者
+            if event == "chat.message":
+                await self._broadcast_chat(data)
             # 处理文件块推送（流式写入下载队列）
             if event == "file.chunk":
                 download_id = data.get("download_id", "_default")
@@ -155,6 +159,27 @@ class AgentBridge:
         """移除日志订阅者"""
         if ws in self._log_subscribers:
             self._log_subscribers.remove(ws)
+
+    def subscribe_chat(self, ws: WebSocket):
+        """添加聊天订阅者"""
+        self._chat_subscribers.append(ws)
+
+    def unsubscribe_chat(self, ws: WebSocket):
+        """移除聊天订阅者"""
+        if ws in self._chat_subscribers:
+            self._chat_subscribers.remove(ws)
+
+    async def _broadcast_chat(self, data: dict):
+        """广播聊天消息给所有聊天订阅者"""
+        msg = json.dumps({"type": "push", "event": "chat.message", "data": data}, ensure_ascii=False)
+        dead = []
+        for ws in self._chat_subscribers:
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.unsubscribe_chat(ws)
 
     async def _broadcast_push(self, event: str, data: dict):
         """广播推送消息给所有订阅者"""

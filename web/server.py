@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from web.auth import init_users
 from web.auth import decode_token
 from web.bridge import bridge
-from web.api import auth, users, config, status, logs, control, files
+from web.api import auth, users, config, status, logs, control, files, chat
 
 # ── 日志 ──
 logging.basicConfig(
@@ -96,6 +96,7 @@ app.include_router(status.router)
 app.include_router(logs.router)
 app.include_router(control.router)
 app.include_router(files.router)
+app.include_router(chat.router)
 
 
 # ── Agent WebSocket 端点 ──
@@ -192,6 +193,29 @@ async def websocket_logs(ws: WebSocket):
         pass
     finally:
         bridge.unsubscribe_logs(ws)
+
+
+# ── WebSocket 聊天推送 ──
+@app.websocket("/ws/chat")
+async def websocket_chat(ws: WebSocket):
+    """WebSocket 实时聊天消息推送"""
+    token = ws.query_params.get("token", "")
+    payload = decode_token(token)
+    if not payload:
+        await ws.close(code=4001, reason="认证失败")
+        return
+
+    await ws.accept()
+    bridge.subscribe_chat(ws)
+    try:
+        while True:
+            data = await ws.receive_text()
+            if data == "ping":
+                await ws.send_text("pong")
+    except WebSocketDisconnect:
+        pass
+    finally:
+        bridge.unsubscribe_chat(ws)
 
 
 # ── 健康检查 ──

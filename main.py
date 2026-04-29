@@ -48,6 +48,28 @@ MAINTENANCE_END = dt_time(8, 0)     # 维护结束时间
 ENABLE_SEND = True                   # 是否允许发送消息
 ENABLE_RECEIVE = True                # 是否允许接收消息（处理消息）
 ENABLE_FLASH_DETECT = True           # 是否检测新消息（闪烁检测）
+
+# 消息拦截器：用于 Web 聊天页面捕获实例回复
+# 回调签名: interceptor(instance_name, message)
+_on_message_interceptor = None
+
+# 当前正在处理消息的实例名（供 wechat_instance 拦截器使用）
+_current_processing_instance = None
+
+# 全局实例列表（供 Agent handler 访问）
+_instances = []
+
+# Web 聊天消息队列：Agent handler → 主循环处理
+# 格式: {"content": str, "sender": str, "chat_name": str, "replies": Queue, "event": threading.Event}
+web_msg_queue = queue.Queue()
+
+# Web 回复路由表：chat_name → replies_q
+_web_replies_map = {}
+# Web 消息上下文：chat_name → {"sender", "content"}（当前正在处理的消息）
+_web_msg_context = {}
+# 已捕获回复的上下文：(instance, target) → {"sender", "content"}
+# 拦截器在上下文有效时捕获，_intercepted_wx_send 读取后删除
+_captured_reply_contexts = {}
 MOCK_SEND = False                     # 调试模式：拦截所有发送改为打印日志
 
 # ============================================================
@@ -256,6 +278,106 @@ def process_receive_messages(instances):
     return total_count
 
 
+def _web_reply_interceptor(instance_name, message):
+    """持久化拦截器：捕获回复给网页，并记录上下文供 _intercepted_wx_send 使用"""
+    global _current_processing_instance
+    src = _current_processing_instance or instance_name
+
+    reply_content = ""
+    reply_target = ""
+    if isinstance(message, dict):
+        reply_content = message.get("content", str(message))
+        reply_target = message.get("target", "")
+    elif isinstance(message, str):
+        reply_content = message
+    else:
+        reply_content = str(message)
+
+    if not reply_content:
+        return
+
+    # 在上下文有效时捕获（handle_message 执行期间 _web_msg_context 是正确的）
+    ctx = _web_msg_context.get(reply_target)
+    if not ctx and len(_web_msg_context) == 1:
+        ctx = next(iter(_web_msg_context.values()))
+    if ctx:
+        _captured_reply_contexts[(src, reply_target)] = ctx
+
+    # 按 target 匹配，或回退到唯一注册的 chat_name
+    replies_q = _web_replies_map.get(reply_target)
+    if not replies_q and len(_web_replies_map) == 1:
+        replies_q = next(iter(_web_replies_map.values()))
+
+    if replies_q:
+        replies_q.put({
+            "id": str(time.time()),
+            "chat_name": reply_target,
+            "sender": src,
+            "content": reply_content,
+            "timestamp": datetime.now().isoformat(),
+            "source": "ai",
+        })
+
+
+def process_web_messages(instances):
+    """处理 Web 聊天消息队列，与 process_receive_messages 逻辑一致"""
+    global _on_message_interceptor, _current_processing_instance
+
+    # 确保持久化拦截器已注册
+    if _on_message_interceptor is not _web_reply_interceptor:
+        _on_message_interceptor = _web_reply_interceptor
+
+    processed = 0
+    while not web_msg_queue.empty():
+        try:
+            web_msg = web_msg_queue.get_nowait()
+        except queue.Empty:
+            break
+
+        content = web_msg.get("content", "")
+        sender = web_msg.get("sender", "WebUser")
+        chat_name = web_msg.get("chat_name", "网页聊天室")
+        replies_q = web_msg.get("replies")
+        done_event = web_msg.get("event")
+
+        if not content:
+            if done_event:
+                done_event.set()
+            continue
+
+        # 注册回复路由和消息上下文
+        if replies_q:
+            _web_replies_map[chat_name] = replies_q
+        _web_msg_context[chat_name] = {"sender": sender, "content": content}
+
+        # 创建消息对象（与 wxauto FriendMessage 接口兼容）
+        class WebMessage:
+            def __init__(self, content, sender):
+                self.content = content
+                self.sender = sender
+                self.id = str(time.time())
+                self.type = "text"
+
+        msg_obj = WebMessage(content, sender)
+
+        try:
+            # 路由到实例（与 process_receive_messages 逻辑完全一致）
+            targets = route_message_to_instances(content, instances)
+            for name, inst in targets:
+                _current_processing_instance = name
+                try:
+                    inst.handle_message(chat_name, msg_obj)
+                except Exception as e:
+                    error(f"[Web聊天] {name} 处理失败：{e}")
+            processed += 1
+        finally:
+            _current_processing_instance = None
+            if done_event:
+                done_event.set()
+
+    return processed
+
+
 # ============================================================
 # 通知检测
 # ============================================================
@@ -346,12 +468,40 @@ def start_instances(instances):
 
         def make_enqueue(n):
             def enqueue(message):
+                global _on_message_interceptor
                 msg_queue.put((n, message))
+                if _on_message_interceptor:
+                    try:
+                        _on_message_interceptor(n, message)
+                    except Exception as e:
+                        error(f"消息拦截器错误: {e}")
             return enqueue
         inst.send_message = make_enqueue(name)
 
         threading.Thread(target=inst.start, daemon=True).start()
         info(f"实例 {name} ({type(inst).__name__}) 已启动")
+
+    # 拦截 wechat_instance.send_message（所有消息发往微信的唯一出口）
+    _orig_wx_send = wechat_instance.send_message
+    def _intercepted_wx_send(message, group, at=None, at_all=False):
+        global _on_message_interceptor, _current_processing_instance
+        if _on_message_interceptor:
+            try:
+                src = _current_processing_instance or "wechat"
+                _on_message_interceptor(src, message)
+            except Exception as e:
+                error(f"微信发送拦截器错误: {e}")
+        # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
+        src = _current_processing_instance or "wechat"
+        ctx = _captured_reply_contexts.pop((src, group), None)
+        if ctx:
+            prefix = f"【网页提问】{ctx['sender']}: {ctx['content']}\n"
+            if isinstance(message, dict):
+                message = {**message, "content": prefix + message.get("content", "")}
+            elif isinstance(message, str):
+                message = prefix + message
+        return _orig_wx_send(message, group, at=at, at_all=at_all)
+    wechat_instance.send_message = _intercepted_wx_send
 
     # MOCK_SEND 模式下不操作微信，实例后台任务继续运行
     if MOCK_SEND:
@@ -384,6 +534,10 @@ def start_instances(instances):
     try:
         while True:
             now = time.time()
+
+            # ── 第零步：处理 Web 聊天消息（与微信收发无关，维护时间也处理）──
+            if not web_msg_queue.empty():
+                process_web_messages(instances)
 
             # ── 维护时间 ──
             if is_maintenance_time():
@@ -544,9 +698,11 @@ def main():
     info("cs-Solidarity 启动")
     info("=" * 50)
 
+    global _instances
     master_cfg = load_master_config('config.json')
     init_wechat()
     instances = create_instances(master_cfg)
+    _instances = instances
     if not instances:
         warning("没有可用实例，退出")
         return

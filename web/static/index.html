@@ -306,6 +306,8 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 /* Page fade */
 .page-enter { animation:pageIn .2s ease; }
 @keyframes pageIn { from{opacity:0} to{opacity:1} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.mdi-spin { animation: spin 1s linear infinite; display: inline-block; }
 
 /* Table avatar */
 .table-avatar { width:24px; height:24px; border-radius:50%; vertical-align:middle; margin-right:6px; object-fit:cover; }
@@ -1014,6 +1016,52 @@ document.addEventListener('DOMContentLoaded', function() {
       <button class="btn-sm success" @click="changePassword"><i class="mdi mdi-check"></i> 确认修改</button>
     </div>
   </div>
+
+  <!-- ═══════════ 聊天 ═══════════ -->
+  <div v-if="currentPage==='chat'" style="display:flex;flex-direction:column;height:calc(100vh - 40px);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h2 style="margin:0;"><i class="mdi mdi-chat-outline" style="margin-right:8px;"></i>聊天</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot" :class="chat.connected ? 'green' : 'red'"></span>
+        <span style="font-size:12px;color:var(--text2);">{{ chat.connected ? '已连接' : '未连接' }}</span>
+      </div>
+    </div>
+    <div class="card card-enter" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <!-- 消息列表 -->
+      <div id="chat-messages" style="flex:1;overflow-y:auto;padding:12px;min-height:0;">
+        <div v-if="chat.messages.length===0" style="text-align:center;color:var(--text2);padding:40px 0;">
+          <i class="mdi mdi-chat-outline" style="font-size:48px;opacity:0.3;"></i>
+          <p style="margin-top:8px;">暂无消息</p>
+        </div>
+        <div v-for="msg in chat.messages" :key="msg.id" style="margin-bottom:12px;">
+          <div :style="{display:'flex',justifyContent: msg.source==='user' ? 'flex-end' : 'flex-start'}">
+            <div :style="{
+              maxWidth:'75%',padding:'8px 14px',borderRadius:'12px',
+              background: msg.source==='user' ? 'var(--accent)' : 'var(--glass-bg)',
+              border: msg.source==='user' ? 'none' : '1px solid var(--glass-border)',
+              color:'var(--text)',wordBreak:'break-word',whiteSpace:'pre-wrap',
+            }">
+              <div style="font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;gap:12px;">
+                <span :style="{color: msg.source==='user' ? 'rgba(255,255,255,0.7)' : 'var(--text2)'}">{{ msg.sender }}</span>
+                <span :style="{color: msg.source==='user' ? 'rgba(255,255,255,0.5)' : 'var(--text2)'}">{{ formatChatTime(msg.timestamp) }}</span>
+              </div>
+              <div>{{ msg.content }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 输入框 -->
+      <div style="border-top:1px solid var(--glass-border);padding:12px;display:flex;gap:8px;">
+        <input class="input-sm" v-model="chat.input" placeholder="输入消息..."
+               style="flex:1;margin-bottom:0;" @keyup.enter="sendChatMessage" :disabled="chat.sending">
+        <button class="btn-sm success" @click="sendChatMessage" :disabled="chat.sending || !chat.input.trim()">
+          <i class="mdi mdi-send" v-if="!chat.sending"></i>
+          <i class="mdi mdi-loading mdi-spin" v-else></i>
+          {{ chat.sending ? '发送中' : '发送' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -1058,6 +1106,15 @@ createApp({
     const config = reactive({ files: [], selectedFile: '', content: '', modified: '', error: '', backups: [] });
     const logs = reactive({ date: new Date().toISOString().slice(0,10), level: '', keyword: '', lines: [], total: 0, page: 1, streaming: false, ws: null });
 
+    // ── 聊天状态 ──
+    const chat = reactive({
+      messages: [],
+      input: '',
+      sending: false,
+      ws: null,
+      connected: false,
+    });
+
     const typeIcons = { steam: 'mdi-steam', daily: 'mdi-clock', chat: 'mdi-robot', korichat: 'mdi-chat', infopush: 'mdi-newspaper' };
     const leaderboardLabels = {
       max_kills: '最高击杀', min_kills: '最低击杀', max_deaths: '最多死亡', min_deaths: '最少死亡',
@@ -1096,6 +1153,7 @@ createApp({
     // ── 导航菜单 ──
     const allNav = [
       { key:'dashboard', icon:'mdi-view-dashboard', label:'仪表盘', roles:['admin','user'] },
+      { key:'chat',      icon:'mdi-chat-outline', label:'聊天', roles:['admin','user'] },
       { key:'steam',     icon:'mdi-steam', label:'Steam',   roles:['admin','user'] },
       { key:'files',     icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
       { key:'instances', icon:'mdi-puzzle', label:'实例管理', roles:['admin','user'] },
@@ -1488,17 +1546,99 @@ createApp({
       if (p === 'config') loadConfigList();
       if (p === 'users') loadUserList();
       if (p === 'files') loadFiles();
+      if (p === 'chat') { loadChatHistory(); connectChatWs(); }
     });
+
+    // ── 聊天功能 ──
+    async function loadChatHistory() {
+      try {
+        const res = await api('/api/chat/history?limit=100');
+        if (res.success) {
+          chat.messages = res.data.messages || [];
+          scrollChatToBottom();
+        }
+      } catch(e) { /* 忽略 */ }
+    }
+
+    function connectChatWs() {
+      if (chat.ws) return;
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${location.host}/ws/chat?token=${token.value}`;
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => { chat.connected = true; };
+      ws.onclose = () => { chat.connected = false; chat.ws = null; };
+      ws.onerror = () => { chat.connected = false; };
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'push' && msg.event === 'chat.message') {
+            chat.messages.push(msg.data);
+            scrollChatToBottom();
+          }
+        } catch(err) { /* 忽略 */ }
+      };
+      chat.ws = ws;
+    }
+
+    function disconnectChatWs() {
+      if (chat.ws) {
+        chat.ws.close();
+        chat.ws = null;
+        chat.connected = false;
+      }
+    }
+
+    async function sendChatMessage() {
+      const content = chat.input.trim();
+      if (!content || chat.sending) return;
+      chat.sending = true;
+      chat.input = '';
+      // 乐观添加用户消息
+      const tempMsg = {
+        id: 'temp-' + Date.now(),
+        sender: user.username,
+        content: content,
+        timestamp: new Date().toISOString(),
+        source: 'user',
+      };
+      chat.messages.push(tempMsg);
+      scrollChatToBottom();
+      try {
+        await api('/api/chat/send', {
+          method: 'POST',
+          body: JSON.stringify({ content, sender: user.username }),
+        });
+        // AI 回复通过 WebSocket push 实时到达，不在这里添加
+      } catch(e) {
+        showToast(e.message || '发送失败', 'error');
+      } finally {
+        chat.sending = false;
+      }
+    }
+
+    function scrollChatToBottom() {
+      setTimeout(() => {
+        const el = document.getElementById('chat-messages');
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 50);
+    }
+
+    function formatChatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
-      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs,
+      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
+      loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, formatChatTime,
     };
     window.__vueApp = appExports;
     return appExports;
