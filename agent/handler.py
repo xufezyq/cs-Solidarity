@@ -26,9 +26,11 @@ class AgentHandler:
     def __init__(self, root_dir: str):
         self.root_dir = Path(root_dir).resolve()
         self.pid_file = self.root_dir / ".bot.pid"
-        self._chat_history: List[Dict[str, Any]] = []  # 聊天历史（内存）
+        self._chat_history_file = self.root_dir / "instconfig" / "chat_history.json"
+        self._chat_history: List[Dict[str, Any]] = []
         self._chat_history_max = 500  # 最大历史条数
         self._chat_lock = threading.Lock()
+        self._load_chat_history()
         log.info(f"AgentHandler 初始化，项目根目录: {self.root_dir}")
 
     def _git_pull(self):
@@ -962,6 +964,27 @@ class AgentHandler:
             self._chat_history.append(msg)
             if len(self._chat_history) > self._chat_history_max:
                 self._chat_history = self._chat_history[-self._chat_history_max:]
+            self._save_chat_history()
+
+    def _load_chat_history(self):
+        """从文件加载聊天历史"""
+        try:
+            if self._chat_history_file.exists():
+                with open(self._chat_history_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    self._chat_history = data[-self._chat_history_max:]
+                    log.info(f"已加载 {len(self._chat_history)} 条聊天历史")
+        except Exception as e:
+            log.warning(f"加载聊天历史失败: {e}")
+
+    def _save_chat_history(self):
+        """将聊天历史写入文件（调用方需持有 _chat_lock）"""
+        try:
+            with open(self._chat_history_file, "w", encoding="utf-8") as f:
+                json.dump(self._chat_history, f, ensure_ascii=False)
+        except Exception as e:
+            log.warning(f"保存聊天历史失败: {e}")
 
     def _format_size(self, size: int) -> str:
         """格式化文件大小"""
