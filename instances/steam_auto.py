@@ -31,13 +31,14 @@ except ImportError:
 _config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
-        
+
         self.steam = SteamAPI(self.steam_api_key)
         self.config_path = config_path # 保存配置文件路径
+        self.data_path = data_path or str(Path(config_path).parent / 'steam_data.json')
         self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
@@ -145,39 +146,49 @@ class SteamAuto(BaseInstance):
         """使好友列表缓存失效，下次调用将重新拉取"""
         self.cached_friend_list = None
     
-    def auto_fill_monitored_friends(self, config_path='config.json'):
-        """首次执行时自动填充monitored_friends"""
-        config = self.load_config(config_path)
-        monitored_friends = config.get('monitored_friends', [])
-        
+    def auto_fill_monitored_friends(self, data_path=None):
+        """首次执行时自动填充monitored_friends（写入数据文件）"""
+        target_data_path = data_path or self.data_path
+
+        # 从数据文件读取 monitored_friends
+        data = {}
+        if Path(target_data_path).exists():
+            try:
+                with open(target_data_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except Exception:
+                pass
+
+        monitored_friends = data.get('monitored_friends', [])
+
         # 判断是否需要填充：monitored_friends为空或只有空值
         need_fill = not monitored_friends or all(
-            not friend.get('steamid', '').strip() 
+            not friend.get('steamid', '').strip()
             for friend in monitored_friends if isinstance(friend, dict)
         )
-        
+
         if not need_fill:
             return
-        
+
         log.info(f"[{datetime.now()}] 首次执行，正在获取所有好友信息...")
-        
+
         try:
             # 获取好友列表（使用缓存，必要时可强制刷新）
             friend_list = self.get_cached_friend_list()
             if not friend_list:
                 log.info(f"[{datetime.now()}] 未获取到好友列表")
                 return
-            
+
             # 获取好友的详细信息
             friend_ids = [friend["steamid"] for friend in friend_list]
             friend_ids.append(self.steam_id)  # 把自己的状态也添加进去
             friend_status_list = self.steam.get_friend_status(friend_ids)
-            
+
             if not friend_status_list:
                 log.info(f"[{datetime.now()}] 未获取到好友详细信息")
                 return
-            
-            # 构建好友列表配置
+
+            # 构建好友列表
             friends_config = []
             for friend in friend_status_list:
                 friends_config.append({
@@ -185,30 +196,57 @@ class SteamAuto(BaseInstance):
                     "personaname": friend.get('personaname', '未知昵称'),
                     "pw_nickname": friend.get('personaname', '未知昵称')
                 })
-            
-            # 更新配置
-            config['monitored_friends'] = friends_config
-            config['enable_all_friends'] = False  # 自动填充后改为false
 
-            # 保存配置
-            self._update_last_save_time(config)
-            self.save_config(config, config_path)
-            
-            log.info(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到配置文件")
+            # 写入数据文件
+            data['monitored_friends'] = friends_config
+            self._update_last_save_time(data)
+            self.save_config(data, target_data_path)
+
+            # enable_all_friends 是配置项，写入配置文件
+            cfg = self.load_config(self.config_path)
+            cfg['enable_all_friends'] = False
+            self.save_config(cfg, self.config_path)
+
+            log.info(f"[{datetime.now()}] 成功填充 {len(friends_config)} 位好友的信息到数据文件")
             for friend in friends_config:
                 log.debug(f"  - {friend['pw_nickname']} ({friend['steamid']})")
-            
+
         except Exception as e:
             log.info(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
     
+    # 数据文件中的字段（运行时数据，与用户配置分离）
+    _DATA_FIELDS = ['monitored_friends', 'friend_pw_history_stats', 'friend_pw_leaderboard', 'cached_news_gids', 'last_update']
+
     @staticmethod
     def create_from_config(config_path='config.json'):
         """从配置文件创建 SteamAuto 实例"""
         config = SteamAuto.load_config(config_path)
 
+        # 推导数据文件路径
+        cfg_path = Path(config_path)
+        data_path = str(cfg_path.parent / 'steam_data.json')
+
+        # 首次迁移：将数据字段从 config 拆分到 data 文件
+        if not Path(data_path).exists():
+            SteamAuto._migrate_data_from_config(config_path, data_path)
+            config = SteamAuto.load_config(config_path)
+
+        # 加载数据文件
+        data = {}
+        if Path(data_path).exists():
+            try:
+                with open(data_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except Exception:
+                pass
+
+        # 合并：数据字段从 data 文件读取，配置字段从 config 读取
+        for key in SteamAuto._DATA_FIELDS:
+            if key in data:
+                config[key] = data[key]
+
         # 读取主配置文件的 debug_mode（从实例配置路径推导主配置位置）
         try:
-            cfg_path = Path(config_path)
             if cfg_path.parent.name == 'instconfig':
                 main_cfg_path = cfg_path.parent.parent / 'config.json'
             else:
@@ -222,7 +260,7 @@ class SteamAuto(BaseInstance):
         # 从环境变量读取敏感信息
         steam_api_key = os.getenv('STEAM_API_KEY') or config.get('steam_api_key')
         steam_id = os.getenv('STEAM_ID') or config.get('steam_id')
-        
+
         # 完美平台配置
         perfect_world_config = config.get('perfect_world_config', {})
         perfect_world_config['uid'] = os.getenv('PW_UID') or perfect_world_config.get('uid')
@@ -240,20 +278,29 @@ class SteamAuto(BaseInstance):
             perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
-            config_path=config_path
+            config_path=config_path,
+            data_path=data_path,
         )
-        
+
         # 首次执行时且好友信息为空，自动填充好友信息
-        # 注意：这会修改配置文件，是首次运行的一次性副作用
-        temp_instance.auto_fill_monitored_friends(config_path)
-        
-        # 重新加载配置（可能已被更新）
-        config = SteamAuto.load_config(config_path)
-        
+        temp_instance.auto_fill_monitored_friends(data_path)
+
+        # 重新加载数据（可能已被更新）
+        if Path(data_path).exists():
+            try:
+                with open(data_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                for key in SteamAuto._DATA_FIELDS:
+                    if key in data:
+                        config[key] = data[key]
+            except Exception:
+                pass
+
         # 显示配置信息
         log.debug("=" * 50)
         log.debug("配置信息：")
         log.debug(f"配置文件: {config_path}")
+        log.debug(f"数据文件: {data_path}")
         log.debug(f"WeChat 群组/个人数量: {len(config.get('wechat_groups', ['文件传输助手']))}")
         for idx, group in enumerate(config.get('wechat_groups', ['文件传输助手']), 1):
             log.debug(f"  {idx}. {group}")
@@ -283,11 +330,33 @@ class SteamAuto(BaseInstance):
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
             cached_news_gids=config.get('cached_news_gids'),
             config_path=config_path,
+            data_path=data_path,
             debug=debug_mode
         )
         # 加载已保存的排行榜数据
         instance.friend_pw_leaderboard = config.get('friend_pw_leaderboard', {})
         return instance
+
+    @staticmethod
+    def _migrate_data_from_config(config_path, data_path):
+        """首次迁移：将数据字段从配置文件拆分到数据文件"""
+        try:
+            config = SteamAuto.load_config(config_path)
+            data = {}
+            has_data = False
+            for key in SteamAuto._DATA_FIELDS:
+                if key in config:
+                    data[key] = config.pop(key)
+                    has_data = True
+            if has_data:
+                with _config_lock:
+                    with open(data_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    with open(config_path, 'w', encoding='utf-8') as f:
+                        json.dump(config, f, ensure_ascii=False, indent=2)
+                log.info(f"已将数据字段迁移到 {data_path}")
+        except Exception as e:
+            log.warning(f"数据迁移失败: {e}")
 
     def send_message(self, message):
         """
@@ -626,15 +695,13 @@ class SteamAuto(BaseInstance):
         # 保存好友状态到配置文件，供 Web 面板读取
         self.save_friend_status()
 
-    def save_friend_status(self, config_path=None):
-        """保存好友状态到配置文件，供 Web 面板读取"""
+    def save_friend_status(self):
+        """保存好友状态到数据文件，供 Web 面板读取"""
         if not self.monitored_friends:
             return
 
-        target_config_path = config_path or self.config_path
-
         try:
-            with open(target_config_path, 'r', encoding='utf-8') as f:
+            with open(self.data_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return
@@ -661,8 +728,8 @@ class SteamAuto(BaseInstance):
         if updated:
             config['monitored_friends'] = monitored_friends
             self._update_last_save_time(config)
-            self.save_config(config, target_config_path)
-            log.debug(f"[{datetime.now()}] 好友状态已保存到配置文件")
+            self.save_config(config, self.data_path)
+            log.debug(f"[{datetime.now()}] 好友状态已保存到数据文件")
 
     def get_friend_game_stats(self):
         """获取好友今天的游玩统计信息"""
@@ -716,12 +783,11 @@ class SteamAuto(BaseInstance):
             return {}
         return self.friend_pw_history_stats
     
-    def save_pw_nicknames(self, config_path=None):
-        """将获取到的完美平台昵称保存到配置文件的 monitored_friends 中"""
+    def save_pw_nicknames(self):
+        """将获取到的完美平台昵称保存到数据文件的 monitored_friends 中"""
         try:
-            target_config_path = config_path or self.config_path
-            config = self.load_config(target_config_path)
-            monitored_friends = config.get('monitored_friends', [])
+            data = self.load_config(self.data_path)
+            monitored_friends = data.get('monitored_friends', [])
             changed = False
             for friend in monitored_friends:
                 if isinstance(friend, dict):
@@ -735,21 +801,20 @@ class SteamAuto(BaseInstance):
                         del friend['nickname']
                         changed = True
             if changed:
-                self._update_last_save_time(config)
-                self.save_config(config, target_config_path)
-                log.info(f"[{datetime.now()}] 完美平台昵称已保存到 {target_config_path}")
+                self._update_last_save_time(data)
+                self.save_config(data, self.data_path)
+                log.info(f"[{datetime.now()}] 完美平台昵称已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存完美平台昵称失败: {e}")
 
-    def save_history_stats(self, config_path=None):
-        """保存历史战绩统计到配置文件"""
+    def save_history_stats(self):
+        """保存历史战绩统计到数据文件"""
         try:
-            target_config_path = config_path or self.config_path
-            config = self.load_config(target_config_path)
+            config = self.load_config(self.data_path)
             config['friend_pw_history_stats'] = self.friend_pw_history_stats
             self._update_last_save_time(config)
-            self.save_config(config, target_config_path)
-            log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {target_config_path}")
+            self.save_config(config, self.data_path)
+            log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
 
@@ -779,15 +844,14 @@ class SteamAuto(BaseInstance):
             del self.cached_news_gids[gid]
         log.info(f"[{datetime.now()}] 缓存超量，删除了 {excess} 条最旧记录")
 
-    def save_news_cache(self, config_path=None):
-        """保存新闻缓存到配置文件"""
+    def save_news_cache(self):
+        """保存新闻缓存到数据文件"""
         try:
-            target_config_path = config_path or self.config_path
-            config = self.load_config(target_config_path)
+            config = self.load_config(self.data_path)
             config['cached_news_gids'] = self.cached_news_gids
             self._update_last_save_time(config)
-            self.save_config(config, target_config_path)
-            log.info(f"[{datetime.now()}] 新闻缓存已保存到 {target_config_path}")
+            self.save_config(config, self.data_path)
+            log.info(f"[{datetime.now()}] 新闻缓存已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存新闻缓存失败: {e}")
 
@@ -795,15 +859,14 @@ class SteamAuto(BaseInstance):
         """更新配置的 last_update 时间戳"""
         config['last_update'] = time.time()
 
-    def save_leaderboard(self, config_path=None):
-        """保存排行榜持有者到配置文件"""
+    def save_leaderboard(self):
+        """保存排行榜持有者到数据文件"""
         try:
-            target_config_path = config_path or self.config_path
-            config = self.load_config(target_config_path)
+            config = self.load_config(self.data_path)
             config['friend_pw_leaderboard'] = self.friend_pw_leaderboard
             self._update_last_save_time(config)
-            self.save_config(config, target_config_path)
-            log.info(f"[{datetime.now()}] 排行榜数据已保存到 {target_config_path}")
+            self.save_config(config, self.data_path)
+            log.info(f"[{datetime.now()}] 排行榜数据已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存排行榜数据失败: {e}")
 

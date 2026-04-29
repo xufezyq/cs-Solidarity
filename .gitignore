@@ -53,8 +53,9 @@ web/registrations.json
 web/.secret_key
 web/backups/
 
-# Web 聊天历史（运行时数据）
+# 运行时数据
 instconfig/chat_history.json
+instconfig/steam_data.json
 
 # KouriChat 配置文件
 KouriChat/data/config/

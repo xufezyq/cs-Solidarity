@@ -471,6 +471,16 @@ class AgentHandler:
                     except Exception:
                         pass
 
+                # steam 实例：合并数据文件（运行时数据与配置分离）
+                if inst_type == "steam":
+                    data_file = detail_file.parent / "steam_data.json"
+                    if data_file.exists():
+                        try:
+                            with open(data_file, "r", encoding="utf-8") as f:
+                                inst_detail.update(json.load(f))
+                        except Exception:
+                            pass
+
             # 根据类型提取摘要信息
             summary = self._instance_summary(inst_type, inst_detail, item)
 
@@ -615,12 +625,15 @@ class AgentHandler:
         """获取 Steam 好友在线状态"""
         import time
 
+        data_file = self.root_dir / "instconfig" / "steam_data.json"
         config_file = self.root_dir / "instconfig" / "steam_account.json"
-        if not config_file.exists():
-            return {"success": False, "error": "steam_account.json 不存在"}
+        # 优先从数据文件读取，回退到配置文件（兼容未迁移的情况）
+        read_file = data_file if data_file.exists() else config_file
+        if not read_file.exists():
+            return {"success": False, "error": "steam_data.json 不存在"}
 
         try:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(read_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
         except Exception as e:
             return {"success": False, "error": f"读取配置失败: {e}"}
