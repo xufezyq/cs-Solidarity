@@ -6,7 +6,6 @@ cs-Solidarity Agent — 请求处理器
 
 import json
 import os
-import queue
 import shutil
 import subprocess
 import sys
@@ -14,7 +13,6 @@ import glob
 import logging
 import uuid
 import threading
-import time as _time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List
@@ -891,7 +889,7 @@ class AgentHandler:
     # ── 聊天 ──
 
     def _chat_send(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """处理 Web 聊天消息：投入主循环队列，由主循环统一路由和处理"""
+        """处理 Web 聊天消息：通过 TCP 发送到 Bot 主循环处理"""
         content = params.get("content", "").strip()
         sender = params.get("sender", "WebUser")
         chat_name = params.get("chat_name", "网页聊天室")
@@ -899,74 +897,57 @@ class AgentHandler:
         if not content:
             return {"success": False, "error": "消息内容不能为空"}
 
+        # 记录用户消息到历史
+        msg_id = str(uuid.uuid4())[:8]
+        timestamp = datetime.now().isoformat()
+        user_msg = {
+            "id": msg_id,
+            "chat_name": chat_name,
+            "sender": sender,
+            "content": content,
+            "timestamp": timestamp,
+            "source": "user",
+        }
+        self._add_chat_history(user_msg)
+
+        # 通过 TCP 发送到 Bot 进程
         try:
-            import main as bot_main
+            from bot.chat_server import send_chat_to_bot
+            result = send_chat_to_bot(params, timeout=65)
+        except ImportError:
+            return {"success": False, "error": "bot.chat_server 模块未加载"}
+        except Exception as e:
+            log.error(f"TCP 聊天请求失败: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
 
-            # 记录用户消息到历史
-            msg_id = str(uuid.uuid4())[:8]
-            timestamp = datetime.now().isoformat()
-            user_msg = {
-                "id": msg_id,
-                "chat_name": chat_name,
-                "sender": sender,
-                "content": content,
-                "timestamp": timestamp,
-                "source": "user",
-            }
-            self._add_chat_history(user_msg)
+        if not result.get("success"):
+            return result
 
-            # 投入主循环的 web_msg_queue，由主循环统一处理
-            replies_q = queue.Queue()
-            done_event = threading.Event()
-
-            bot_main.web_msg_queue.put({
-                "content": content,
-                "sender": sender,
-                "chat_name": chat_name,
-                "replies": replies_q,
-                "event": done_event,
-            })
-
-            # 等待主循环处理完成（最多 60 秒）
-            done_event.wait(timeout=60)
-
-            # 再等一小段时间，让 KoriChat 等异步实例的回复到达
-            _time.sleep(2)
-
-            # 清除回复路由和上下文，防止后续回复误入
-            bot_main._web_replies_map.pop(chat_name, None)
-            bot_main._web_msg_context.pop(chat_name, None)
-
-            # 收集回复
-            replies = []
-            while not replies_q.empty():
-                reply = replies_q.get()
-                self._add_chat_history(reply)
-                replies.append(reply)
-
-                # 推送到 Web 客户端（实时）
-                if hasattr(self, '_push_callback'):
-                    import asyncio
-                    loop = getattr(self, '_event_loop', None)
-                    if loop and loop.is_running():
+        # 记录回复到历史，逐条延迟推送到 Web 客户端（模拟真人节奏）
+        replies = result.get("data", {}).get("replies", [])
+        for i, reply in enumerate(replies):
+            self._add_chat_history(reply)
+            if hasattr(self, '_push_callback'):
+                import asyncio
+                import random
+                loop = getattr(self, '_event_loop', None)
+                if loop and loop.is_running():
+                    delay = 0 if i == 0 else random.uniform(2, 4)
+                    if delay > 0:
+                        async def _delayed_push(d, event, data):
+                            await asyncio.sleep(d)
+                            await self._push_callback(event, data)
+                        asyncio.run_coroutine_threadsafe(
+                            _delayed_push(delay, "chat.message", reply),
+                            loop,
+                        )
+                    else:
                         asyncio.run_coroutine_threadsafe(
                             self._push_callback("chat.message", reply),
                             loop,
                         )
 
-            return {
-                "success": True,
-                "data": {
-                    "message_id": msg_id,
-                    "replies": replies,
-                }
-            }
-
-        except ImportError as e:
-            return {"success": False, "error": f"Bot 模块未加载: {e}"}
-        except Exception as e:
-            log.error(f"处理聊天消息失败: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+        return result
 
     def _chat_history_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """获取聊天历史"""

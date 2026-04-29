@@ -351,6 +351,8 @@ class KoriChatInstance(BaseInstance):
 
                 if reply_mode == 'all':
                     log.debug("[KoriChat] 群聊配置为回复所有模式，不需要@机器人")
+                elif getattr(message, 'from_web', False):
+                    log.debug("[KoriChat] Web 消息，跳过触发检查")
                 else:
                     # 检查 @机器人 或 trigger 关键词
                     triggered_by_at = self._is_at_robot(content)

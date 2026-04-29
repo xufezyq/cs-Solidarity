@@ -11,6 +11,7 @@ from core.wechat_instance import _send_op_lock
 from utils.human_sim import human_delay, human_action_delay, random_poll_interval, random_human_pause
 from utils.logger import setup_logger, info, debug, error, warning
 from version import VERSION, get_version_info
+from bot.chat_server import start_chat_server
 import win32gui
 
 # 设置进程名
@@ -70,6 +71,10 @@ _web_msg_context = {}
 # 已捕获回复的上下文：(instance, target) → {"sender", "content"}
 # 拦截器在上下文有效时捕获，_intercepted_wx_send 读取后删除
 _captured_reply_contexts = {}
+# Web 聊天处理实例映射：chat_name → instance_name（用于异步回复时确定发送者）
+_web_processing_instances = {}
+# 拦截去重集合：(content, target) 已处理的消息
+_intercepted_msg_dedup = set()
 MOCK_SEND = False                     # 调试模式：拦截所有发送改为打印日志
 
 # ============================================================
@@ -278,6 +283,23 @@ def process_receive_messages(instances):
     return total_count
 
 
+def _get_persona_name(instance_name, chat_name):
+    """从实例配置获取人设显示名"""
+    if instance_name == "korichat":
+        try:
+            with open("instconfig/korichat_config.json", "r", encoding="utf-8") as f:
+                kcfg = json.load(f)
+            for gcc in kcfg.get("group_chat_config", []):
+                if gcc["groupName"] == chat_name:
+                    return Path(gcc["avatar"]).name
+            return Path(kcfg.get("avatar_dir", "AI")).name
+        except Exception:
+            return "AI"
+    elif instance_name == "chat":
+        return "Chat"
+    return instance_name
+
+
 def _web_reply_interceptor(instance_name, message):
     """持久化拦截器：捕获回复给网页，并记录上下文供 _intercepted_wx_send 使用"""
     global _current_processing_instance
@@ -296,6 +318,15 @@ def _web_reply_interceptor(instance_name, message):
     if not reply_content:
         return
 
+    # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
+    # 用 (content, target) 记录已处理的消息，避免重复入队
+    dedup_key = (reply_content[:200], reply_target)
+    if dedup_key in _intercepted_msg_dedup:
+        return
+    _intercepted_msg_dedup.add(dedup_key)
+    if len(_intercepted_msg_dedup) > 100:
+        _intercepted_msg_dedup.clear()
+
     # 在上下文有效时捕获（handle_message 执行期间 _web_msg_context 是正确的）
     ctx = _web_msg_context.get(reply_target)
     if not ctx and len(_web_msg_context) == 1:
@@ -309,10 +340,11 @@ def _web_reply_interceptor(instance_name, message):
         replies_q = next(iter(_web_replies_map.values()))
 
     if replies_q:
+        persona = _get_persona_name(src, reply_target)
         replies_q.put({
             "id": str(time.time()),
             "chat_name": reply_target,
-            "sender": src,
+            "sender": persona,
             "content": reply_content,
             "timestamp": datetime.now().isoformat(),
             "source": "ai",
@@ -338,11 +370,8 @@ def process_web_messages(instances):
         sender = web_msg.get("sender", "WebUser")
         chat_name = web_msg.get("chat_name", "网页聊天室")
         replies_q = web_msg.get("replies")
-        done_event = web_msg.get("event")
 
         if not content:
-            if done_event:
-                done_event.set()
             continue
 
         # 注册回复路由和消息上下文
@@ -357,6 +386,7 @@ def process_web_messages(instances):
                 self.sender = sender
                 self.id = str(time.time())
                 self.type = "text"
+                self.from_web = True
 
         msg_obj = WebMessage(content, sender)
 
@@ -365,6 +395,7 @@ def process_web_messages(instances):
             targets = route_message_to_instances(content, instances)
             for name, inst in targets:
                 _current_processing_instance = name
+                _web_processing_instances[chat_name] = name
                 try:
                     inst.handle_message(chat_name, msg_obj)
                 except Exception as e:
@@ -372,8 +403,9 @@ def process_web_messages(instances):
             processed += 1
         finally:
             _current_processing_instance = None
-            if done_event:
-                done_event.set()
+            # 不在这里清理 _web_replies_map 和 _web_msg_context
+            # 因为 KoriChat 等实例是异步回复的，清理太早会导致拦截器找不到回复队列
+            # 下次同 chat_name 的消息会覆盖旧值
 
     return processed
 
@@ -435,8 +467,9 @@ def create_instances(master_cfg):
     instances = []
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
-            instances.append((f"instance_{idx}", get_instance_from_item(item)))
-            info(f"实例 {idx} 创建成功 ({item.get('type', 'unknown')})")
+            inst_type = item.get('type', f'instance_{idx}')
+            instances.append((inst_type, get_instance_from_item(item)))
+            info(f"实例 {idx} ({inst_type}) 创建成功")
         except Exception as e:
             error(f"创建实例 {idx} 失败: {e}")
     return instances
@@ -468,13 +501,7 @@ def start_instances(instances):
 
         def make_enqueue(n):
             def enqueue(message):
-                global _on_message_interceptor
                 msg_queue.put((n, message))
-                if _on_message_interceptor:
-                    try:
-                        _on_message_interceptor(n, message)
-                    except Exception as e:
-                        error(f"消息拦截器错误: {e}")
             return enqueue
         inst.send_message = make_enqueue(name)
 
@@ -485,14 +512,15 @@ def start_instances(instances):
     _orig_wx_send = wechat_instance.send_message
     def _intercepted_wx_send(message, group, at=None, at_all=False):
         global _on_message_interceptor, _current_processing_instance
+        # 确定发送实例名：_current_processing_instance → _web_processing_instances → "wechat"
+        src = _current_processing_instance or _web_processing_instances.get(group) or "wechat"
+        # 拦截器始终触发，去重逻辑在 _web_reply_interceptor 内部处理
         if _on_message_interceptor:
             try:
-                src = _current_processing_instance or "wechat"
                 _on_message_interceptor(src, message)
             except Exception as e:
                 error(f"微信发送拦截器错误: {e}")
         # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
-        src = _current_processing_instance or "wechat"
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
             prefix = f"【网页提问】{ctx['sender']}: {ctx['content']}\n"
@@ -503,11 +531,31 @@ def start_instances(instances):
         return _orig_wx_send(message, group, at=at, at_all=at_all)
     wechat_instance.send_message = _intercepted_wx_send
 
+    # 同时拦截 send_messages（批量发送，KoriChat 的 $ 分割回复走此路径）
+    _orig_wx_sends = wechat_instance.send_messages
+    def _intercepted_wx_sends(messages, group, at=None, at_all=False):
+        global _on_message_interceptor, _current_processing_instance
+        src = _current_processing_instance or _web_processing_instances.get(group) or "wechat"
+        if _on_message_interceptor:
+            for msg in messages:
+                try:
+                    _on_message_interceptor(src, msg)
+                except Exception as e:
+                    error(f"微信发送拦截器错误: {e}")
+        ctx = _captured_reply_contexts.pop((src, group), None)
+        if ctx:
+            prefix = f"【网页提问】{ctx['sender']}: {ctx['content']}\n"
+            messages = [prefix + m for m in messages]
+        return _orig_wx_sends(messages, group, at=at, at_all=at_all)
+    wechat_instance.send_messages = _intercepted_wx_sends
+
     # MOCK_SEND 模式下不操作微信，实例后台任务继续运行
     if MOCK_SEND:
         info("MOCK_SEND 已开启，跳过微信 GUI 操作，实例后台任务运行中...")
         while True:
-            time.sleep(60)
+            if not web_msg_queue.empty():
+                process_web_messages(instances)
+            time.sleep(1)
 
     # 启动时先切换到文件传输助手，然后最小化
     wx = wechat_instance.get_wechat()
@@ -706,6 +754,11 @@ def main():
     if not instances:
         warning("没有可用实例，退出")
         return
+
+    # 启动聊天 TCP 服务器，让 Agent handler 可以通过 TCP 发送聊天消息
+    chat_server = start_chat_server()
+    if chat_server:
+        chat_server.set_context(instances, process_web_messages, web_msg_queue)
 
     try:
         start_instances(instances)

@@ -1023,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <h2 style="margin:0;"><i class="mdi mdi-chat-outline" style="margin-right:8px;"></i>聊天</h2>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="dot" :class="chat.connected ? 'green' : 'red'"></span>
-        <span style="font-size:12px;color:var(--text2);">{{ chat.connected ? '已连接' : '未连接' }}</span>
+        <span style="font-size:12px;color:var(--text2);">{{ chat.connected ? (chat.personaName || '已连接') : '未连接' }}</span>
       </div>
     </div>
     <div class="card card-enter" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
@@ -1113,6 +1113,7 @@ createApp({
       sending: false,
       ws: null,
       connected: false,
+      personaName: null,
     });
 
     const typeIcons = { steam: 'mdi-steam', daily: 'mdi-clock', chat: 'mdi-robot', korichat: 'mdi-chat', infopush: 'mdi-newspaper' };
@@ -1555,6 +1556,13 @@ createApp({
         const res = await api('/api/chat/history?limit=100');
         if (res.success) {
           chat.messages = res.data.messages || [];
+          // 从历史消息中提取人设名
+          for (let i = chat.messages.length - 1; i >= 0; i--) {
+            if (chat.messages[i].source !== 'user' && chat.messages[i].sender) {
+              chat.personaName = chat.messages[i].sender;
+              break;
+            }
+          }
           scrollChatToBottom();
         }
       } catch(e) { /* 忽略 */ }
@@ -1573,6 +1581,9 @@ createApp({
           const msg = JSON.parse(e.data);
           if (msg.type === 'push' && msg.event === 'chat.message') {
             chat.messages.push(msg.data);
+            if (msg.data.source !== 'user' && msg.data.sender) {
+              chat.personaName = msg.data.sender;
+            }
             scrollChatToBottom();
           }
         } catch(err) { /* 忽略 */ }

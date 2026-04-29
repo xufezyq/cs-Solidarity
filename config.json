@@ -10,6 +10,9 @@
     "end_hour": 8,
     "end_minute": 0
   },
+  "web_chat": {
+    "target_group": "【CS】团结友爱"
+  },
   "instances": [
     {
       "type": "steam",
