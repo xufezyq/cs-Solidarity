@@ -79,8 +79,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         action = msg.get("action", "")
         if action == "chat.send":
             return self._handle_chat_send(msg.get("params", {}))
-        elif action == "chat.history":
-            return {"success": True, "data": {"messages": []}}
+        # chat.history 由 Agent handler 直接处理（内存），不走 TCP
         return {"success": False, "error": f"未知操作: {action}"}
 
     def _handle_chat_send(self, params):

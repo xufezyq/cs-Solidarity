@@ -1542,7 +1542,8 @@ createApp({
         refreshTimer = setInterval(loadOverview, 30000);
       }
     });
-    watch(currentPage, (p) => {
+    watch(currentPage, (p, old) => {
+      if (old === 'chat') disconnectChatWs();
       if (p === 'logs') { logs.date = new Date().toISOString().slice(0,10); loadLogs(); }
       if (p === 'config') loadConfigList();
       if (p === 'users') loadUserList();
@@ -1568,13 +1569,23 @@ createApp({
       } catch(e) { /* 忽略 */ }
     }
 
+    let _chatReconnectTimer = null;
+    let _chatReconnectAttempts = 0;
+
     function connectChatWs() {
       if (chat.ws) return;
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${proto}//${location.host}/ws/chat?token=${token.value}`;
       const ws = new WebSocket(wsUrl);
-      ws.onopen = () => { chat.connected = true; };
-      ws.onclose = () => { chat.connected = false; chat.ws = null; };
+      ws.onopen = () => { chat.connected = true; _chatReconnectAttempts = 0; };
+      ws.onclose = () => {
+        chat.connected = false; chat.ws = null;
+        if (_chatReconnectAttempts < 10) {
+          const delay = Math.min(1000 * Math.pow(2, _chatReconnectAttempts), 30000);
+          _chatReconnectAttempts++;
+          _chatReconnectTimer = setTimeout(connectChatWs, delay);
+        }
+      };
       ws.onerror = () => { chat.connected = false; };
       ws.onmessage = (e) => {
         try {
@@ -1592,6 +1603,8 @@ createApp({
     }
 
     function disconnectChatWs() {
+      if (_chatReconnectTimer) { clearTimeout(_chatReconnectTimer); _chatReconnectTimer = null; }
+      _chatReconnectAttempts = 10; // 阻止 onclose 触发重连
       if (chat.ws) {
         chat.ws.close();
         chat.ws = null;

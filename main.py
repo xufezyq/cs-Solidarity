@@ -3,6 +3,7 @@ import threading
 import queue
 import time
 import sys
+from collections import OrderedDict
 import random
 from datetime import datetime, time as dt_time
 from pathlib import Path
@@ -73,8 +74,8 @@ _web_msg_context = {}
 _captured_reply_contexts = {}
 # Web 聊天处理实例映射：chat_name → instance_name（用于异步回复时确定发送者）
 _web_processing_instances = {}
-# 拦截去重集合：(content, target) 已处理的消息
-_intercepted_msg_dedup = set()
+# 拦截去重集合：(content, target) 已处理的消息（LRU，最多 200 条）
+_intercepted_msg_dedup = OrderedDict()
 MOCK_SEND = False                     # 调试模式：拦截所有发送改为打印日志
 
 # ============================================================
@@ -323,9 +324,9 @@ def _web_reply_interceptor(instance_name, message):
     dedup_key = (reply_content[:200], reply_target)
     if dedup_key in _intercepted_msg_dedup:
         return
-    _intercepted_msg_dedup.add(dedup_key)
-    if len(_intercepted_msg_dedup) > 100:
-        _intercepted_msg_dedup.clear()
+    _intercepted_msg_dedup[dedup_key] = None
+    if len(_intercepted_msg_dedup) > 200:
+        _intercepted_msg_dedup.popitem(last=False)
 
     # 在上下文有效时捕获（handle_message 执行期间 _web_msg_context 是正确的）
     ctx = _web_msg_context.get(reply_target)
@@ -349,6 +350,8 @@ def _web_reply_interceptor(instance_name, message):
             "timestamp": datetime.now().isoformat(),
             "source": "ai",
         })
+    else:
+        debug(f"[Web聊天] 回复未匹配到队列: target={reply_target!r}, src={src!r}, 已注册={list(_web_replies_map.keys())}")
 
 
 def process_web_messages(instances):
