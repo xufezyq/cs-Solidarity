@@ -627,8 +627,41 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
     </div>
+    <!-- 硬件信息 -->
+    <div class="row" style="margin-top:16px;">
+      <div class="card card-enter" style="flex:1;animation-delay:.05s">
+        <h2 style="margin-bottom:12px;"><i class="mdi mdi-server" style="margin-right:8px;"></i>Agent 服务器 <span style="font-size:12px;color:var(--text2);">{{ overview.hostname || '' }}</span></h2>
+        <template v-if="overview.hardware && overview.hardware.cpu_percent !== undefined">
+          <div style="margin-bottom:10px;" v-for="item in agentHwItems" :key="item.label">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+              <span style="color:var(--text2);">{{ item.label }}</span>
+              <span :style="{color: item.color}">{{ item.text }}</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
+              <div :style="{width:item.percent+'%',height:'100%',borderRadius:'3px',background:item.color,transition:'width .5s'}"></div>
+            </div>
+          </div>
+        </template>
+        <div v-else style="color:var(--text2);font-size:13px;padding:8px 0;">无数据</div>
+      </div>
+      <div class="card card-enter" style="flex:1;animation-delay:.1s">
+        <h2 style="margin-bottom:12px;"><i class="mdi mdi-web" style="margin-right:8px;"></i>Web 服务器 <span style="font-size:12px;color:var(--text2);">{{ webHardware.hostname || '' }}</span></h2>
+        <template v-if="webHardware.hardware && webHardware.hardware.cpu_percent !== undefined">
+          <div style="margin-bottom:10px;" v-for="item in webHwItems" :key="item.label">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+              <span style="color:var(--text2);">{{ item.label }}</span>
+              <span :style="{color: item.color}">{{ item.text }}</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
+              <div :style="{width:item.percent+'%',height:'100%',borderRadius:'3px',background:item.color,transition:'width .5s'}"></div>
+            </div>
+          </div>
+        </template>
+        <div v-else style="color:var(--text2);font-size:13px;padding:8px 0;">无数据</div>
+      </div>
+    </div>
     <!-- 最近日志 -->
-    <div class="card card-enter" style="animation-delay:.1s">
+    <div class="card card-enter" style="animation-delay:.15s">
       <h2><i class="mdi mdi-file-document" style="margin-right:8px;"></i>最近日志</h2>
       <div v-if="overview.recent_logs && overview.recent_logs.length">
         <div class="log-line" v-for="(line,i) in overview.recent_logs" :key="i"
@@ -1067,11 +1100,14 @@ document.addEventListener('DOMContentLoaded', function() {
           <option value="">KouriChat</option>
           <option v-for="p in chatPrefixes" :key="p.prefix" :value="p.prefix">{{ p.label }}</option>
         </select>
-        <button class="btn-sm" :class="chat.syncToWx ? 'success' : ''"
-                :style="{border: chat.syncToWx ? 'none' : '1px solid var(--glass-border)', background: chat.syncToWx ? '' : 'rgba(255,255,255,0.04)'}"
-                @click="chat.syncToWx = !chat.syncToWx"
-                :title="chat.syncToWx ? '同步到微信：开' : '同步到微信：关'">
-          <i :class="chat.syncToWx ? 'mdi mdi-share-variant' : 'mdi mdi-share-off-variant'"></i>
+        <button @click="chat.syncToWx = !chat.syncToWx"
+                style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;border:none;transition:all .2s;"
+                :style="chat.syncToWx
+                  ? 'background:rgba(76,175,80,0.2);color:#66bb6a;'
+                  : 'background:rgba(255,255,255,0.04);color:var(--text2);border:1px solid var(--glass-border);'"
+                :title="chat.syncToWx ? '点击关闭：回复仅在网页显示' : '点击开启：回复同步到微信'">
+          <i :class="chat.syncToWx ? 'mdi mdi-wechat' : 'mdi mdi-chat-outline'" style="font-size:14px;"></i>
+          <span>{{ chat.syncToWx ? '微信' : '仅网页' }}</span>
         </button>
         <input class="input-sm" v-model="chat.input" :placeholder="chat.prefix ? '输入 ' + chat.prefix + ' 后的内容...' : '输入消息...'"
                style="flex:1;margin-bottom:0;" @keyup.enter="sendChatMessage" :disabled="chat.sending">
@@ -1103,6 +1139,31 @@ createApp({
     const ctrlLoading = ref(false);
 
     const overview = reactive({});
+    const webHardware = reactive({});
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let i = 0;
+      let val = bytes;
+      while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+      return val.toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+    }
+    function hwBarColor(percent) {
+      if (percent >= 90) return 'var(--red)';
+      if (percent >= 70) return 'var(--yellow)';
+      return 'var(--green)';
+    }
+    function buildHwItems(hw) {
+      if (!hw || hw.cpu_percent === undefined) return [];
+      return [
+        { label: 'CPU', percent: hw.cpu_percent, text: hw.cpu_percent.toFixed(1) + '%  (' + hw.cpu_count + ' 核)', color: hwBarColor(hw.cpu_percent) },
+        { label: '内存', percent: hw.memory_percent, text: formatBytes(hw.memory_used) + ' / ' + formatBytes(hw.memory_total) + '  (' + hw.memory_percent.toFixed(1) + '%)', color: hwBarColor(hw.memory_percent) },
+        { label: '磁盘', percent: hw.disk_percent, text: formatBytes(hw.disk_used) + ' / ' + formatBytes(hw.disk_total) + '  (' + hw.disk_percent.toFixed(1) + '%)', color: hwBarColor(hw.disk_percent) },
+      ];
+    }
+    const agentHwItems = computed(() => buildHwItems(overview.hardware));
+    const webHwItems = computed(() => buildHwItems(webHardware.hardware));
     const instances = ref([]);
     const userList = ref([]);
     const pendingRegs = ref([]);
@@ -1235,6 +1296,7 @@ createApp({
     // ── 数据加载 ──
     async function loadAll() {
       loadOverview();
+      loadWebHardware();
       loadInstances();
       if (user.role === 'admin') { loadConfigList(); loadUserList(); loadBackups(); }
       loadSteamData();
@@ -1245,6 +1307,12 @@ createApp({
       try {
         const data = await api('/api/status/overview');
         if (data.data) Object.assign(overview, data.data);
+      } catch(e) { console.error(e); }
+    }
+    async function loadWebHardware() {
+      try {
+        const data = await api('/api/status/hardware');
+        if (data.data) Object.assign(webHardware, data.data);
       } catch(e) { console.error(e); }
     }
     async function loadInstances() {
@@ -1572,7 +1640,7 @@ createApp({
     onMounted(() => {
       if (token.value) {
         loadAll();
-        refreshTimer = setInterval(loadOverview, 30000);
+        refreshTimer = setInterval(() => { loadOverview(); loadWebHardware(); }, 30000);
       }
     });
     watch(currentPage, (p, old) => {
@@ -1690,7 +1758,7 @@ createApp({
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
-      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
+      overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,

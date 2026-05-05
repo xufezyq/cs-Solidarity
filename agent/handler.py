@@ -429,6 +429,26 @@ class AgentHandler:
             except Exception:
                 pass
 
+        # 硬件信息
+        hardware = {}
+        try:
+            import psutil
+            cpu_percent = psutil.cpu_percent(interval=0.3)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            hardware = {
+                "cpu_percent": cpu_percent,
+                "cpu_count": psutil.cpu_count(),
+                "memory_total": memory.total,
+                "memory_used": memory.used,
+                "memory_percent": memory.percent,
+                "disk_total": disk.total,
+                "disk_used": disk.used,
+                "disk_percent": disk.percent,
+            }
+        except Exception:
+            pass
+
         return {
             "success": True,
             "data": {
@@ -440,6 +460,7 @@ class AgentHandler:
                 "project_root": str(self.root_dir),
                 "hostname": os.environ.get("COMPUTERNAME", "unknown"),
                 "recent_logs": recent_logs,
+                "hardware": hardware,
             }
         }
 

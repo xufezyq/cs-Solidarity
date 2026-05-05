@@ -53,3 +53,33 @@ async def get_steam_friends_status(current_user: User = Depends(get_current_user
     if not result.get("success"):
         return {"success": True, "data": {"friends": [], "error": result.get("error", "获取失败")}}
     return {"success": True, "data": result.get("data", {})}
+
+
+@router.get("/hardware")
+async def get_hardware(source: str = "web", current_user: User = Depends(get_current_user)):
+    """获取硬件信息（web=本机, agent=Agent 机器）"""
+    try:
+        import psutil
+        import platform
+        cpu_percent = psutil.cpu_percent(interval=0.3)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        hardware = {
+            "cpu_percent": cpu_percent,
+            "cpu_count": psutil.cpu_count(),
+            "memory_total": memory.total,
+            "memory_used": memory.used,
+            "memory_percent": memory.percent,
+            "disk_total": disk.total,
+            "disk_used": disk.used,
+            "disk_percent": disk.percent,
+        }
+        return {
+            "success": True,
+            "data": {
+                "hardware": hardware,
+                "hostname": platform.node(),
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
