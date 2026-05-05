@@ -1067,6 +1067,12 @@ document.addEventListener('DOMContentLoaded', function() {
           <option value="">KouriChat</option>
           <option v-for="p in chatPrefixes" :key="p.prefix" :value="p.prefix">{{ p.label }}</option>
         </select>
+        <button class="btn-sm" :class="chat.syncToWx ? 'success' : ''"
+                :style="{border: chat.syncToWx ? 'none' : '1px solid var(--glass-border)', background: chat.syncToWx ? '' : 'rgba(255,255,255,0.04)'}"
+                @click="chat.syncToWx = !chat.syncToWx"
+                :title="chat.syncToWx ? '同步到微信：开' : '同步到微信：关'">
+          <i :class="chat.syncToWx ? 'mdi mdi-share-variant' : 'mdi mdi-share-off-variant'"></i>
+        </button>
         <input class="input-sm" v-model="chat.input" :placeholder="chat.prefix ? '输入 ' + chat.prefix + ' 后的内容...' : '输入消息...'"
                style="flex:1;margin-bottom:0;" @keyup.enter="sendChatMessage" :disabled="chat.sending">
         <button class="btn-sm success" @click="sendChatMessage" :disabled="chat.sending || !chat.input.trim()">
@@ -1130,6 +1136,7 @@ createApp({
       connected: false,
       personaName: null,
       prefix: '',  // 选中的触发前缀
+      syncToWx: true,  // 是否同步到微信
     });
     // 从实例列表中提取有 trigger_prefix 的 chat 实例
     const _prefixLabelMap = { '/claw': 'Claw Agent' };
@@ -1658,7 +1665,7 @@ createApp({
       try {
         await api('/api/chat/send', {
           method: 'POST',
-          body: JSON.stringify({ content, sender: user.username }),
+          body: JSON.stringify({ content, sender: user.username, sync_to_wx: chat.syncToWx }),
         });
         // AI 回复通过 WebSocket push 实时到达，不在这里添加
       } catch(e) {

@@ -389,7 +389,7 @@ def process_web_messages(instances):
         # 注册回复路由和消息上下文
         if replies_q:
             _web_replies_map[chat_name] = replies_q
-        _web_msg_context[chat_name] = {"sender": sender, "content": content}
+        _web_msg_context[chat_name] = {"sender": sender, "content": content, "sync_to_wx": web_msg.get("sync_to_wx", True)}
 
         # 创建消息对象（与 wxauto FriendMessage 接口兼容）
         class WebMessage:
@@ -535,6 +535,10 @@ def start_instances(instances):
         # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
+            # Web 聊天且关闭了同步到微信：跳过实际发送，回复仅通过 WebSocket 推送到网页
+            if not ctx.get("sync_to_wx", True):
+                debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
+                return
             prefix = f"————————————\n【Web】{ctx['sender']}: {ctx['content']}\n————————————\n"
             if isinstance(message, dict):
                 message = {**message, "content": prefix + message.get("content", "")}
@@ -559,6 +563,9 @@ def start_instances(instances):
                     error(f"微信发送拦截器错误: {e}")
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
+            if not ctx.get("sync_to_wx", True):
+                debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
+                return
             prefix = f"————————————\n【Web】{ctx['sender']}: {ctx['content']}\n————————————\n"
             messages = [prefix + m for m in messages]
             # Web 来源的消息不 @

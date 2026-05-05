@@ -122,6 +122,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             "sender": sender,
             "chat_name": chat_name,
             "replies": replies_q,
+            "sync_to_wx": params.get("sync_to_wx", True),
         })
 
         # 等待第一条回复到达（KoriChat 等实例是异步处理的，需要等 API 返回）
