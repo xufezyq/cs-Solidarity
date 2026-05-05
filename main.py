@@ -339,7 +339,7 @@ def _web_reply_interceptor(instance_name, message, group=None):
     capture_key = group or reply_target
     if capture_key:
         ctx = _web_msg_context.get(capture_key)
-        if not ctx and len(_web_msg_context) == 1:
+        if not ctx and len(_web_msg_context) == 1 and capture_key in _web_processing_instances:
             ctx = next(iter(_web_msg_context.values()))
         if ctx:
             _captured_reply_contexts[(src, capture_key)] = ctx
