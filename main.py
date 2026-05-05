@@ -301,8 +301,14 @@ def _get_persona_name(instance_name, chat_name):
     return instance_name
 
 
-def _web_reply_interceptor(instance_name, message):
-    """持久化拦截器：捕获回复给网页，并记录上下文供 _intercepted_wx_send 使用"""
+def _web_reply_interceptor(instance_name, message, group=None):
+    """持久化拦截器：捕获回复给网页，并记录上下文供 _intercepted_wx_send 使用
+
+    Args:
+        instance_name: 实例名
+        message: 消息内容（str 或 dict）
+        group: 实际目标微信群名（由 _intercepted_wx_send 传入，确保上下文 key 一致）
+    """
     global _current_processing_instance
     src = _current_processing_instance or instance_name
 
@@ -328,12 +334,15 @@ def _web_reply_interceptor(instance_name, message):
     if len(_intercepted_msg_dedup) > 200:
         _intercepted_msg_dedup.popitem(last=False)
 
-    # 在上下文有效时捕获（handle_message 执行期间 _web_msg_context 是正确的）
-    ctx = _web_msg_context.get(reply_target)
-    if not ctx and len(_web_msg_context) == 1:
-        ctx = next(iter(_web_msg_context.values()))
-    if ctx:
-        _captured_reply_contexts[(src, reply_target)] = ctx
+    # 捕获上下文：用 group（与 _intercepted_wx_send 的 pop key 一致），
+    # 回退到 reply_target
+    capture_key = group or reply_target
+    if capture_key:
+        ctx = _web_msg_context.get(capture_key)
+        if not ctx and len(_web_msg_context) == 1:
+            ctx = next(iter(_web_msg_context.values()))
+        if ctx:
+            _captured_reply_contexts[(src, capture_key)] = ctx
 
     # 按 target 匹配，或回退到唯一注册的 chat_name
     replies_q = _web_replies_map.get(reply_target)
@@ -520,17 +529,20 @@ def start_instances(instances):
         # 拦截器始终触发，去重逻辑在 _web_reply_interceptor 内部处理
         if _on_message_interceptor:
             try:
-                _on_message_interceptor(src, message)
+                _on_message_interceptor(src, message, group=group)
             except Exception as e:
                 error(f"微信发送拦截器错误: {e}")
         # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
-            prefix = f"【网页提问】{ctx['sender']}: {ctx['content']}\n"
+            prefix = f"————————————\n【Web】{ctx['sender']}: {ctx['content']}\n————————————\n"
             if isinstance(message, dict):
                 message = {**message, "content": prefix + message.get("content", "")}
             elif isinstance(message, str):
                 message = prefix + message
+            # Web 来源的消息不 @，因为 sender 是网页用户而非微信好友
+            at = None
+            at_all = False
         return _orig_wx_send(message, group, at=at, at_all=at_all)
     wechat_instance.send_message = _intercepted_wx_send
 
@@ -542,13 +554,16 @@ def start_instances(instances):
         if _on_message_interceptor:
             for msg in messages:
                 try:
-                    _on_message_interceptor(src, msg)
+                    _on_message_interceptor(src, msg, group=group)
                 except Exception as e:
                     error(f"微信发送拦截器错误: {e}")
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
-            prefix = f"【网页提问】{ctx['sender']}: {ctx['content']}\n"
+            prefix = f"————————————\n【Web】{ctx['sender']}: {ctx['content']}\n————————————\n"
             messages = [prefix + m for m in messages]
+            # Web 来源的消息不 @
+            at = None
+            at_all = False
         return _orig_wx_sends(messages, group, at=at, at_all=at_all)
     wechat_instance.send_messages = _intercepted_wx_sends
 
