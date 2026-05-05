@@ -50,6 +50,7 @@ body::before {
 a { color:var(--accent); text-decoration:none; }
 button { cursor:pointer; font-family:inherit; }
 input, textarea, select { font-family:inherit; }
+select option { background:#1a1035; color:#e8e8f0; }
 
 /* ═══════════════════════ Login ═══════════════════════ */
 #login-page { position:fixed; inset:0; z-index:9999; }
@@ -260,8 +261,17 @@ table th:last-child { border-radius:0 8px 0 0; }
   transition: border-color .2s, box-shadow .2s;
 }
 .input-sm:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
-select.input-sm { padding:8px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; color:var(--text); font-size:13px; }
-select.input-sm:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); outline:none; }
+select.input-sm, select {
+  padding:8px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border);
+  border-radius:8px; color:var(--text); font-size:13px; outline:none;
+  transition: border-color .2s, box-shadow .2s;
+  -webkit-appearance:none; -moz-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238888a8' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center; padding-right:30px;
+}
+select.input-sm:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+select option { background:#1a1035; color:var(--text); padding:8px; }
+select option:hover { background:var(--accent); }
 textarea.code {
   width:100%; min-height:400px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border);
   border-radius:var(--radius-sm); color:var(--green); font-family:'Cascadia Code','Fira Code',monospace;
@@ -1051,8 +1061,13 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
       <!-- 输入框 -->
-      <div style="border-top:1px solid var(--glass-border);padding:12px;display:flex;gap:8px;">
-        <input class="input-sm" v-model="chat.input" placeholder="输入消息..."
+      <div style="border-top:1px solid var(--glass-border);padding:12px;display:flex;gap:8px;align-items:center;">
+        <select v-model="chat.prefix" class="input-sm" style="width:auto;margin-bottom:0;min-width:90px;"
+                :disabled="chat.sending">
+          <option value="">KouriChat</option>
+          <option v-for="p in chatPrefixes" :key="p.prefix" :value="p.prefix">{{ p.label }}</option>
+        </select>
+        <input class="input-sm" v-model="chat.input" :placeholder="chat.prefix ? '输入 ' + chat.prefix + ' 后的内容...' : '输入消息...'"
                style="flex:1;margin-bottom:0;" @keyup.enter="sendChatMessage" :disabled="chat.sending">
         <button class="btn-sm success" @click="sendChatMessage" :disabled="chat.sending || !chat.input.trim()">
           <i class="mdi mdi-send" v-if="!chat.sending"></i>
@@ -1114,6 +1129,17 @@ createApp({
       ws: null,
       connected: false,
       personaName: null,
+      prefix: '',  // 选中的触发前缀
+    });
+    // 从实例列表中提取有 trigger_prefix 的 chat 实例
+    const _prefixLabelMap = { '/claw': 'Claw Agent' };
+    const chatPrefixes = computed(() => {
+      return instances.value
+        .filter(i => i.type === 'chat' && i.summary?.trigger_prefix)
+        .map(i => {
+          const p = i.summary.trigger_prefix;
+          return { prefix: p, label: _prefixLabelMap[p] || p };
+        });
     });
 
     const typeIcons = { steam: 'mdi-steam', daily: 'mdi-clock', chat: 'mdi-robot', korichat: 'mdi-chat', infopush: 'mdi-newspaper' };
@@ -1613,8 +1639,10 @@ createApp({
     }
 
     async function sendChatMessage() {
-      const content = chat.input.trim();
-      if (!content || chat.sending) return;
+      const raw = chat.input.trim();
+      if (!raw || chat.sending) return;
+      // 如果选了前缀，拼接到消息前面
+      const content = chat.prefix ? chat.prefix + ' ' + raw : raw;
       chat.sending = true;
       chat.input = '';
       // 乐观添加用户消息
@@ -1655,7 +1683,7 @@ createApp({
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
-      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat,
+      overview, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
