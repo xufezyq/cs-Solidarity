@@ -403,10 +403,11 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
   .stand2 { width:52px; height:28px; }
   .stand3 { width:52px; height:20px; }
   textarea.code { min-height:250px; font-size:12px; }
-  .chat-input-bar { flex-wrap:wrap; }
-  .chat-input-bar > * { flex:1 1 auto; min-width:0; }
-  .chat-input-bar input.input-sm { flex:1 1 100%; order:10; }
-  .chat-input-bar .btn-sm.success { order:11; }
+  .chat-input-bar { flex-wrap:wrap; gap:6px !important; }
+  .chat-input-bar select.input-sm { flex:0 0 auto; }
+  .chat-input-bar > button:not(.btn-sm) { flex:0 0 auto; }
+  .chat-input-bar input.input-sm { flex:0 0 100%; }
+  .chat-input-bar .btn-sm.success { flex:0 0 auto; margin-left:auto; }
 }
 </style>
 </head>
