@@ -403,6 +403,10 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
   .stand2 { width:52px; height:28px; }
   .stand3 { width:52px; height:20px; }
   textarea.code { min-height:250px; font-size:12px; }
+  .chat-input-bar { flex-wrap:wrap; }
+  .chat-input-bar > * { flex:1 1 auto; min-width:0; }
+  .chat-input-bar input.input-sm { flex:1 1 100%; order:10; }
+  .chat-input-bar .btn-sm.success { order:11; }
 }
 </style>
 </head>
@@ -1061,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 聊天 ═══════════ -->
-  <div v-if="currentPage==='chat'" style="display:flex;flex-direction:column;height:calc(100vh - 40px);">
+  <div v-if="currentPage==='chat'" style="display:flex;flex-direction:column;height:calc(100vh - 40px);height:calc(100dvh - 40px);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <h2 style="margin:0;"><i class="mdi mdi-chat-outline" style="margin-right:8px;"></i>聊天</h2>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1094,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
       <!-- 输入框 -->
-      <div style="border-top:1px solid var(--glass-border);padding:12px;display:flex;gap:8px;align-items:center;">
+      <div class="chat-input-bar" style="border-top:1px solid var(--glass-border);padding:12px;display:flex;gap:8px;align-items:center;">
         <select v-model="chat.prefix" class="input-sm" style="width:auto;margin-bottom:0;min-width:90px;"
                 :disabled="chat.sending">
           <option value="">KouriChat</option>
