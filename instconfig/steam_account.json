@@ -4,24 +4,21 @@
   "enable_news_check": true,
   "check_news_interval": 3600,
   "code_update_lines": [
-    "关于关闭历史战绩排行榜最低值功能的通告",
+    "【cs-Solidarity】已经成功启动，当前版本：v1.2.0",
     "",
-    "各位用户：",
-    "为进一步优化用户体验，营造和谐、友好的好友互动氛围，针对近期部分用户反馈的“历史战绩排行榜最低值”功能引发的争议与矛盾，经平台运营团队审慎评估、充分研讨后，决定关闭该功能，具体事宜通告如下：",
+    "更新内容：",
+    "- 新增网页远程聊天功能，可通过网页直接与微信群对话",
+    "- 聊天支持选择 AI 实例（KouriChat / Claw Agent 等）",
+    "- 聊天记录持久化，重启后保留历史消息",
+    "- 聊天界面 WebSocket 自动重连",
+    "- 修复好友在线状态不更新的问题",
+    "- 配置与数据分离，运行时数据不再污染配置文件",
+    "- 修复消息去重逻辑，避免回复丢失",
+    "- 修复微信发送时 @ 网页用户导致的异常",
     "",
-    "一、功能关闭范围及时间",
-    "本次关闭范围为机器人应用内所有好友游戏战绩相关的“最差记录”模块，包括最差战绩展示、播报等全部相关功能。功能将于本通告发布后24小时内完成关闭，关闭后系统将不再播报任何好友游戏最差战绩数据。",
-    "",
-    "二、功能关闭原因",
-    "平台初衷是通过记录好友游戏最佳与最差战绩，丰富好友间的互动场景、增添娱乐性，但近期发现，最差战绩记录功能易引发用户间的误解、争执，违背了“轻松娱乐、友好互动”的核心初衷，影响了部分用户的使用体验及好友间的和谐关系。为切实保障用户权益，化解潜在矛盾，经综合考量，决定终止该功能的运营。",
-    "",
-    "三、相关说明",
-    "1.  功能关闭后，机器人应用将继续保留好友游戏最佳战绩的记录、播报功能，为用户提供积极正向的互动体验；",
-    "2.  本次功能调整不影响应用其他所有功能的正常使用，好友战绩播报、数据统计等核心服务将保持稳定；",
-    "3.  感谢各位用户长期以来对本应用的支持与理解，对于功能调整给部分用户带来的不便，我们深表歉意。后续我们将持续倾听用户反馈，不断优化产品功能，提升用户体验，推出更多贴合用户需求、积极正向的互动功能。",
-    "",
-    "特此通告。",
-    "2026年4月28日"
+    "控制面板：http://159.75.169.14:11029/",
+    "该项目已开源至：https://github.com/xufezyq/cs-Solidarity",
+    "please give the project a Star."
   ],
   "wechat_groups": [
     "【CS】团结友爱"
@@ -31,9 +28,9 @@
       "steamid": "76561199009839689",
       "personaname": "难念的经",
       "pw_nickname": "皮张侠",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1776961912
+      "lastlogoff": 1777382631
     },
     {
       "steamid": "76561199103253412",
@@ -41,7 +38,7 @@
       "pw_nickname": "神厨丨小福贵",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777053757
+      "lastlogoff": 1777392028
     },
     {
       "steamid": "76561198347252622",
@@ -49,15 +46,15 @@
       "pw_nickname": "皮能侠",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777116416
+      "lastlogoff": 1777480838
     },
     {
       "steamid": "76561199142850248",
       "personaname": "不见见手青",
       "pw_nickname": "人民万岁小灰灰",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777036118
+      "lastlogoff": 1777475166
     },
     {
       "steamid": "76561199027909536",
@@ -71,17 +68,17 @@
       "steamid": "76561198987925371",
       "personaname": "三重刘德华",
       "pw_nickname": "Hunter的红酒瓶。",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777135403
+      "lastlogoff": 1777474209
     },
     {
       "steamid": "76561198126298848",
       "personaname": "旧颜",
       "pw_nickname": "皮剑侠",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777116398
+      "lastlogoff": 1777477743
     },
     {
       "steamid": "76561199110612255",
@@ -103,9 +100,9 @@
       "steamid": "76561198986231197",
       "personaname": "大宝贝",
       "pw_nickname": "牛皮侠",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777129546
+      "lastlogoff": 1777466086
     },
     {
       "steamid": "76561198324071323",
@@ -113,15 +110,15 @@
       "pw_nickname": "皮硬侠",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777194426
+      "lastlogoff": 1777380084
     },
     {
       "steamid": "76561199262650715",
       "personaname": "electronic",
       "pw_nickname": "皮帅侠",
-      "personastate": 1,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777129182
+      "lastlogoff": 1777217447
     },
     {
       "steamid": "76561198383859685",
@@ -129,7 +126,7 @@
       "pw_nickname": "皮干侠",
       "personastate": 1,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777187204
+      "lastlogoff": 1777471686
     },
     {
       "steamid": "76561198412776807",
@@ -137,7 +134,7 @@
       "pw_nickname": "皮雳侠",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777192313
+      "lastlogoff": 1777478781
     },
     {
       "steamid": "76561199209601450",
@@ -145,7 +142,7 @@
       "pw_nickname": "帅气棍哥",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1773127522
+      "lastlogoff": 1777428416
     },
     {
       "steamid": "76561199024723338",
@@ -175,9 +172,9 @@
       "steamid": "76561198828073207",
       "personaname": "邮寄一束白玫瑰",
       "pw_nickname": "邮寄一束白玫瑰",
-      "personastate": 3,
+      "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1776771695
+      "lastlogoff": 1777299953
     },
     {
       "steamid": "76561199447107976",
@@ -185,7 +182,7 @@
       "pw_nickname": "皮能侠卫爷",
       "personastate": 0,
       "gameextrainfo": "未游玩游戏",
-      "lastlogoff": 1777053750
+      "lastlogoff": 1777474005
     }
   ],
   "friend_pw_history_stats": {
@@ -489,5 +486,5 @@
     "1830163047267453": 1745644800,
     "1830797770231786": 1745644800
   },
-  "last_update": 1745644800
+  "last_update": 1777489271.6078904
 }
