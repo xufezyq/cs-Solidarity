@@ -4,10 +4,10 @@
   "enable_news_check": true,
   "check_news_interval": 3600,
   "code_update_lines": [
-    "【cs-Solidarity】已经成功启动，当前版本：v1.2.0",
+    "【cs-Solidarity】已经成功启动，当前版本：v{version}",
     "",
     "更新内容：",
-    "- 新增网页远程聊天功能，可通过网页直接与微信群对话",
+    "- 新增网页远程聊天功能，可通过网页直接与微信群对话（曲线救国）",
     "- 聊天支持选择 AI 实例（KouriChat / Claw Agent 等）",
     "- 聊天记录持久化，重启后保留历史消息",
     "- 聊天界面 WebSocket 自动重连",
