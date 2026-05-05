@@ -629,7 +629,7 @@ class SteamAuto(BaseInstance):
                     'lastlogoff': lastlogoff
                 }
             
-            # 保存状态（其他情况）
+            # 首次出现的好友，初始化完整状态
             if steam_id not in self.friend_game_status:
                 self.friend_game_status[steam_id] = {
                     'gameid': game_id,
@@ -639,6 +639,10 @@ class SteamAuto(BaseInstance):
                     'start_time': current_time if (game_id and game_id != '0') else None,
                     'lastlogoff': lastlogoff
                 }
+            else:
+                # 已存在的好友，每次检查都更新在线状态和最后离线时间
+                self.friend_game_status[steam_id]['personastate'] = personastate
+                self.friend_game_status[steam_id]['lastlogoff'] = lastlogoff
 
         # 生成合并的消息
         messages = []
