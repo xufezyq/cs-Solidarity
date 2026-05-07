@@ -100,6 +100,10 @@ class PwStatsReporter:
                 last_match = matches[0]
                 match_id = last_match.get('matchId')
 
+                # 记录上一场的星星，用于计算变化
+                prev_match = matches[1] if len(matches) > 1 else None
+                last_match['_prev_pvpStars'] = prev_match.get('pvpStars', 0) if prev_match else 0
+
                 self.log(f"[{datetime.now()}] {steam_id} 发现最近比赛: {match_id}")
 
                 if match_id not in match_groups:
@@ -496,6 +500,8 @@ class PwStatsReporter:
                 is_mvp = data.get('pvpMvp', False)
                 mvp_tag = ' ⭐MVP' if is_mvp else ''
                 pvpStars = data.get('pvpStars', 0)
+                prev_pvpStars = data.get('_prev_pvpStars', 0)
+                stars_change = pvpStars - prev_pvpStars if pvpStars or prev_pvpStars else 0
 
                 tags = mvp_tag
                 player_detail = match_player_details.get(match_id, {}).get(steam_id, {})
@@ -516,11 +522,24 @@ class PwStatsReporter:
 
                 msg += f"{r_emoji} {nickname}{tags}\n"
                 msg += f"  {kills}/{deaths}/{assists} | pwRT:{pwRating:.2f} | WE:{we:.1f}\n"
-                stars_str = f"⭐×{pvpStars}" if pvpStars > 0 else ''
+                stars_str = ''
+                if pvpStars > 0:
+                    stars_str = f"⭐×{pvpStars}"
+                    if stars_change > 0:
+                        stars_str += f" (+{stars_change})"
+                    elif stars_change < 0:
+                        stars_str += f" ({stars_change})"
+                # 构建分数行：有星星显示星星，有变化显示变化，有分数显示分数
+                score_parts = []
+                if pvpScore:
+                    if pvpScoreChange != 0:
+                        score_parts.append(f"分数:{pvpScore} ({score_sign}{pvpScoreChange})")
+                    else:
+                        score_parts.append(f"分数:{pvpScore}")
                 if stars_str:
-                    msg += f"  分数:{pvpScore} ({score_sign}{score_change}) | {stars_str}\n"
-                else:
-                    msg += f"  分数:{pvpScore} ({score_sign}{score_change})\n"
+                    score_parts.append(stars_str)
+                if score_parts:
+                    msg += "  " + " | ".join(score_parts) + "\n"
 
             messages.append(msg)
 
