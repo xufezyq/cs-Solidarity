@@ -122,6 +122,7 @@ async def websocket_agent(ws: WebSocket):
     # 认证通过，建立连接
     await ws.accept()
     await bridge.connect(ws)
+    bridge.setup_event_loop()
     conn_id = bridge.connection_id  # 记录当前连接 ID
     log.info(f"Agent WebSocket 连接已建立 (conn_id={conn_id[:8]}...)")
 

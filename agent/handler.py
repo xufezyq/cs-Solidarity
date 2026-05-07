@@ -961,6 +961,11 @@ class AgentHandler:
 
         # 记录回复到历史，逐条延迟推送到 Web 客户端（模拟真人节奏）
         replies = result.get("data", {}).get("replies", [])
+        pending = result.get("data", {}).get("pending", False)
+
+        if pending and not replies:
+            log.info("[聊天] 消息已提交，AI 回复将通过 WebSocket 直接推送")
+
         for i, reply in enumerate(replies):
             self._add_chat_history(reply)
             if hasattr(self, '_push_callback'):

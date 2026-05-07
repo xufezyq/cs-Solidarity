@@ -87,7 +87,6 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         import queue
         import time
         import json as _json
-        from datetime import datetime
         from pathlib import Path
 
         content = params.get("content", "").strip()
@@ -112,9 +111,8 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         # 记录用户消息
         msg_id = str(time.time()).replace('.', '')[:8]
-        timestamp = datetime.now().isoformat()
 
-        # 创建回复队列
+        # 创建回复队列（拦截器需要它来路由回复，但我们不阻塞等待）
         replies_q = queue.Queue()
 
         self._web_msg_queue.put({
@@ -125,27 +123,15 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             "sync_to_wx": params.get("sync_to_wx", True),
         })
 
-        # 等待第一条回复到达（KoriChat 等实例是异步处理的，需要等 API 返回）
-        replies = []
-        try:
-            first_reply = replies_q.get(timeout=60)
-            replies.append(first_reply)
-            # 短暂等待，收集可能紧随其后的更多回复
-            while True:
-                try:
-                    replies.append(replies_q.get(timeout=1))
-                except queue.Empty:
-                    break
-        except queue.Empty:
-            pass  # 超时无回复
-
-        log.info(f"[聊天服务器] 收集到 {len(replies)} 条回复, chat_name={chat_name}")
+        # 立即返回，回复将通过 direct_reply_callback 直接推送到 WebSocket
+        log.info(f"[聊天服务器] 消息已入队，等待异步回复: chat_name={chat_name}")
 
         return {
             "success": True,
             "data": {
                 "message_id": msg_id,
-                "replies": replies,
+                "replies": [],
+                "pending": True,
             }
         }
 

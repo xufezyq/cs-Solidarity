@@ -32,6 +32,7 @@ class AgentBridge:
         self._chat_subscribers: list = []  # 聊天 WebSocket 订阅者
         self._file_chunks: Dict[str, Dict[str, Any]] = {}  # download_id -> {chunks, total, filename, file_size}
         self._download_queues: Dict[str, asyncio.Queue] = {}  # download_id -> chunk queue for streaming
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
 
     @property
     def is_connected(self) -> bool:
@@ -52,6 +53,13 @@ class AgentBridge:
             self.connected_at = datetime.now()
             self.connection_id = str(uuid.uuid4())  # 生成新连接 ID
             log.info("✅ Agent 已连接")
+
+    def setup_event_loop(self):
+        """捕获当前运行的事件循环，供跨线程调度使用"""
+        try:
+            self._event_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            log.warning("无法获取运行中的事件循环")
 
     async def disconnect(self, conn_id: str = ""):
         """Agent 断开连接
