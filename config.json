@@ -6,7 +6,7 @@
   "enable_flash_detect": false,
   "maintenance": {
     "start_hour": 0,
-    "start_minute": 15,
+    "start_minute": 10,
     "end_hour": 8,
     "end_minute": 0
   },
