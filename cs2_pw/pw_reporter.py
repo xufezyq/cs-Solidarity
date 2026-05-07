@@ -542,8 +542,8 @@ class PwStatsReporter:
                 # 构建分数行：有星星显示星星，有变化显示变化，有分数显示分数
                 score_parts = []
                 if pvpScore:
-                    if pvpScoreChange != 0:
-                        score_parts.append(f"分数:{pvpScore} ({score_sign}{pvpScoreChange})")
+                    if score_change != 0:
+                        score_parts.append(f"分数:{pvpScore} ({score_sign}{score_change})")
                     else:
                         score_parts.append(f"分数:{pvpScore}")
                 if stars_str:
