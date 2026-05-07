@@ -552,7 +552,7 @@ def start_instances(instances):
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
                 return
-            prefix = f"【Web】{ctx['sender']}\n{ctx['content']}\n————————————\n"
+            prefix = f"来自【Web】{ctx['sender']}:\n{ctx['content']}\n──────────────\n"
             if isinstance(message, dict):
                 message = {**message, "content": prefix + message.get("content", "")}
             elif isinstance(message, str):
@@ -579,7 +579,7 @@ def start_instances(instances):
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
                 return
-            prefix = f"【Web】{ctx['sender']}\n{ctx['content']}\n————————————\n"
+            prefix = f"来自【Web】{ctx['sender']}:\n{ctx['content']}\n──────────────\n"
             messages = [prefix + m for m in messages]
             # Web 来源的消息不 @
             at = None
