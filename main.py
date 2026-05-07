@@ -343,6 +343,9 @@ def _web_reply_interceptor(instance_name, message, group=None):
             ctx = next(iter(_web_msg_context.values()))
         if ctx:
             _captured_reply_contexts[(src, capture_key)] = ctx
+            # 消费后立即清理，防止后续非 Web 消息重复携带前缀
+            _web_msg_context.pop(capture_key, None)
+            _web_processing_instances.pop(capture_key, None)
 
     # 按 target 匹配，或回退到唯一注册的 chat_name
     replies_q = _web_replies_map.get(reply_target)
