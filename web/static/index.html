@@ -773,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第2名（左） -->
             <div class="podium-item" v-if="getTop3(key)[1]">
               <div class="podium-avatar rank2">
-                <img v-if="getTop3(key)[1].avatar" :src="getTop3(key)[1].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[1].avatar && !failedAvatars.has(key+'_1')" :src="getTop3(key)[1].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_1')">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">2</div>
@@ -785,7 +785,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第1名（中） -->
             <div class="podium-item" v-if="getTop3(key)[0]">
               <div class="podium-avatar rank1">
-                <img v-if="getTop3(key)[0].avatar" :src="getTop3(key)[0].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[0].avatar && !failedAvatars.has(key+'_0')" :src="getTop3(key)[0].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_0')">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">1</div>
@@ -797,7 +797,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- 第3名（右） -->
             <div class="podium-item" v-if="getTop3(key)[2]">
               <div class="podium-avatar rank3">
-                <img v-if="getTop3(key)[2].avatar" :src="getTop3(key)[2].avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
+                <img v-if="getTop3(key)[2].avatar && !failedAvatars.has(key+'_2')" :src="getTop3(key)[2].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_2')">
                 <i v-else class="mdi mdi-account"></i>
               </div>
               <div class="podium-rank">3</div>
@@ -827,7 +827,8 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
           <tr v-for="(val,sid) in steamDetail.friend_pw_history_stats" :key="sid">
             <td style="white-space:nowrap;">
-              <img v-if="val.avatar" :src="val.avatar" class="table-avatar" referrerpolicy="no-referrer" @error="$event.target.style.display='none'">
+              <img v-if="val.avatar && !failedAvatars.has('tb_'+sid)" :src="val.avatar" class="table-avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, 'tb_'+sid)">
+              <i v-else class="mdi mdi-account" style="font-size:18px;vertical-align:middle;margin-right:6px;color:var(--text2);"></i>
               {{ val.pw_nickname || val.nickname }}
             </td>
             <td>{{ val.max_kills || '-' }}</td>
@@ -1173,6 +1174,8 @@ createApp({
     const userList = ref([]);
     const pendingRegs = ref([]);
     const steamDetail = ref(null);
+    const failedAvatars = reactive(new Set());
+    function onAvatarError(e, key) { failedAvatars.add(key); }
     const steamFriendsStatus = ref([]);
     const steamFriendsStatusSorted = computed(() => {
       const priority = { 2: 0, 1: 1, 3: 2, 0: 3 };
@@ -1764,7 +1767,7 @@ createApp({
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll,
       overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
-      visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading,
+      visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
