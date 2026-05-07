@@ -824,7 +824,7 @@ class AgentHandler:
                 json.dump(meta, f, ensure_ascii=False)
             del self._upload_progress[filename]
             log.info(f"文件已上传: {file_path.name} (uploader={meta['uploader']})")
-            return {"success": True, "data": {"filename": file_path.name, "size": actual_size}}
+            return {"success": True, "data": {"filename": file_path.name, "size": actual_size, "path": str(file_path.resolve())}}
         else:
             return {"success": True, "data": {"chunk_received": chunk_index + 1, "total_chunks": total_chunks}}
 
