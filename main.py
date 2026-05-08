@@ -55,10 +55,6 @@ ENABLE_FLASH_DETECT = True           # 是否检测新消息（闪烁检测）
 # 回调签名: interceptor(instance_name, message)
 _on_message_interceptor = None
 
-# 直接回复回调：绕过 HTTP 超时链，将回复直接推送到 WebSocket
-# 回调签名: callback(reply_data: dict)
-_direct_reply_callback = None
-
 # 当前正在处理消息的实例名（供 wechat_instance 拦截器使用）
 _current_processing_instance = None
 
@@ -367,11 +363,6 @@ def _web_reply_interceptor(instance_name, message, group=None):
             "source": "ai",
         }
         replies_q.put(reply_data)
-        if _direct_reply_callback:
-            try:
-                _direct_reply_callback(reply_data)
-            except Exception as cb_err:
-                error(f"[Web聊天] 直接回复回调失败: {cb_err}")
     else:
         debug(f"[Web聊天] 回复未匹配到队列: target={reply_target!r}, src={src!r}, 已注册={list(_web_replies_map.keys())}")
 
@@ -797,27 +788,6 @@ def main():
     chat_server = start_chat_server()
     if chat_server:
         chat_server.set_context(instances, process_web_messages, web_msg_queue)
-
-    # 注册直接回复回调：绕过 HTTP 超时链，将回复直接推送到 WebSocket
-    global _direct_reply_callback
-    try:
-        from web.bridge import bridge as _web_bridge
-        import asyncio as _asyncio
-
-        def _direct_reply_to_bridge(reply_data):
-            try:
-                loop = _web_bridge._event_loop
-                if loop and loop.is_running():
-                    _asyncio.run_coroutine_threadsafe(
-                        _web_bridge._broadcast_chat(reply_data),
-                        loop
-                    )
-            except Exception as e:
-                error(f"[Web聊天] 桥接推送失败: {e}")
-
-        _direct_reply_callback = _direct_reply_to_bridge
-    except ImportError:
-        pass  # web 模块未加载时忽略
 
     try:
         start_instances(instances)

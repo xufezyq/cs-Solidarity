@@ -949,7 +949,7 @@ class AgentHandler:
         # 通过 TCP 发送到 Bot 进程
         try:
             from bot.chat_server import send_chat_to_bot
-            result = send_chat_to_bot(params, timeout=65)
+            result = send_chat_to_bot(params, timeout=300)  # 5 分钟超时等待回复
         except ImportError:
             return {"success": False, "error": "bot.chat_server 模块未加载"}
         except Exception as e:
@@ -961,10 +961,8 @@ class AgentHandler:
 
         # 记录回复到历史，逐条延迟推送到 Web 客户端（模拟真人节奏）
         replies = result.get("data", {}).get("replies", [])
-        pending = result.get("data", {}).get("pending", False)
 
-        if pending and not replies:
-            log.info("[聊天] 消息已提交，AI 回复将通过 WebSocket 直接推送")
+        log.info(f"[聊天] 收到 {len(replies)} 条回复")
 
         for i, reply in enumerate(replies):
             self._add_chat_history(reply)
