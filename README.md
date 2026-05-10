@@ -67,6 +67,8 @@
 - 基于 WebSocket 的远程管理工具（Agent-Server 架构）
 - 实时查看机器人状态、实例信息、日志
 - 远程配置编辑、控制启停、用户管理
+- 聊天页面支持上传文件到 Agent 设备（供 OpenClaw 使用）
+- 文件管理支持 Web/Agent 双存储模式
 - Vue 3 前端 + FastAPI 后端，响应式布局
 
 ![Web登录界面](docs/images/Web登录界面.png)
@@ -81,8 +83,8 @@
 - 气象预警监控（中国气象局）
 - 海啸信息追踪
 - 数据源融合（Fan Studio、Wolfx、P2P、Global Quake）
-- Web 管理界面（端口 11030）
-- 模拟预警测试功能
+- **会话差异推送**：不同微信群可配置不同的过滤阈值、数据源、推送开关
+- Web 管理界面（端口 11030）支持会话管理和模拟预警测试
 
 ![灾害预警界面](docs/images/灾害预警界面.png)
 
@@ -119,22 +121,12 @@ pip install -r requirements.txt
   },
   "instances": [
     {
-      "type": "steam",
-      "config": "instconfig/steam_account.json"
-    },
-    {
-      "type": "daily",
-      "wechat_groups": ["文件传输助手"],
-      "time": "08:00",
-      "message": "早上好！"
+      "type": "korichat",
+      "config": "instconfig/korichat_config.json"
     },
     {
       "type": "chat",
-      "config": "instconfig/chat_deepseek.json"
-    },
-    {
-      "type": "korichat",
-      "config": "instconfig/korichat_config.json"
+      "config": "instconfig/chat_openclaw.json"
     },
     {
       "type": "disaster_warning",
@@ -344,16 +336,17 @@ cs-Solidarity/
 │   ├── instance_factory.py # 实例工厂
 │   └── wechat_instance.py # 微信实例
 ├── instances/             # 实例实现
-│   ├── steam_auto.py
-│   ├── daily_auto.py
-│   ├── chat_auto.py
-│   └── kori_chat.py
+│   ├── kori_chat.py       # KoriChat 智能助手
+│   ├── chat_auto.py       # AI 聊天（OpenClaw）
+│   └── disaster_warning.py # 灾害预警（重导出）
 ├── instconfig/            # 实例配置
 ├── utils/                 # 工具函数
 ├── wxauto/                # 微信自动化库
 ├── KouriChat/             # KoriChat 子项目
-├── web/                   # Web 控制面板
-└── Plugins/               # 插件 (disaster_warning 等)
+├── web/                   # Web 控制面板（端口 11029）
+├── agent/                 # Agent 客户端（连接 Web 面板）
+└── Plugins/               # 插件
+    └── disaster_warning/  # 灾害预警插件（Web 管理端口 11030）
 ```
 
 ### 调试技巧
@@ -406,10 +399,10 @@ cs-Solidarity/
 
 **问题**：浏览器无法访问 Web 面板
 
-**问题**：
-- 确保 `run_config_web.py` 已启动
+**解决**：
+- 确保 Web 服务已启动（`cd web && uvicorn server:app --host 0.0.0.0 --port 11029`）
 - 检查防火墙是否阻止端口
-- 访问 `http://localhost:8000`（默认端口）
+- 主面板默认端口 `11029`，灾害预警 Web 端默认端口 `11030`
 
 ---
 
@@ -419,7 +412,7 @@ cs-Solidarity/
 - [实例开发指南](./docs/instance-development.md) - 如何开发新实例
 - [KoriChat 使用指南](./KouriChat/README.md) - KoriChat 详细文档
 - [Web 控制面板](./web/README.md) - Web 面板使用教程
-- [灾害预警插件](./Plugins/disaster_warning/README.md) - 灾害预警使用文档
+- [灾害预警插件](./Plugins/disaster_warning/README.md) - 灾害预警使用文档（含会话差异配置说明）
 
 ---
 
