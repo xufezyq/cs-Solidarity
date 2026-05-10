@@ -516,6 +516,7 @@ function ConfigRenderer() {
     const [sessions, setSessions] = useState([]);
     const [selectedSession, setSelectedSession] = useState('');
     const [sessionLoading, setSessionLoading] = useState(false);
+    const [newSessionName, setNewSessionName] = useState('');
 
     const api = useApi();
     const scrollContainerRef = useRef(null);
@@ -637,6 +638,53 @@ function ConfigRenderer() {
         } catch (e) {
             console.error('加载会话列表失败', e);
             showToast('加载会话列表失败,请检查控制台', 'error');
+        }
+    };
+
+    const handleAddSession = async () => {
+        const name = newSessionName.trim();
+        if (!name) return;
+        if (sessions.some(s => s.session === name)) {
+            showToast('该会话已存在', 'warning');
+            return;
+        }
+        try {
+            // 获取当前全局配置，追加新会话到 wechat_groups 和 target_sessions
+            const fullConfig = await api.getFullConfig();
+            const currentGroups = fullConfig.wechat_groups || [];
+            const currentSessions = fullConfig.target_sessions || [];
+            const newGroups = currentGroups.includes(name) ? currentGroups : [...currentGroups, name];
+            const newSessions = currentSessions.includes(name) ? currentSessions : [...currentSessions, name];
+            await api.updateConfig({ wechat_groups: newGroups, target_sessions: newSessions });
+            setNewSessionName('');
+            await loadSessions();
+            setSelectedSession(name);
+            showToast(`已添加会话: ${name}`);
+        } catch (e) {
+            console.error('添加会话失败', e);
+            showToast('添加会话失败,请检查控制台', 'error');
+        }
+    };
+
+    const handleDeleteSession = async () => {
+        if (!selectedSession) return;
+        if (!confirm(`确定要删除会话 "${selectedSession}" 吗？\n将清除其差异配置并从推送列表中移除。`)) return;
+        try {
+            // 1. 清除该会话的 override
+            await api.resetSessionConfig(selectedSession);
+            // 2. 从 target_sessions 和 wechat_groups 中移除
+            const fullConfig = await api.getFullConfig();
+            const newSessions = (fullConfig.target_sessions || []).filter(s => s !== selectedSession);
+            const newGroups = (fullConfig.wechat_groups || []).filter(s => s !== selectedSession);
+            await api.updateConfig({ target_sessions: newSessions, wechat_groups: newGroups });
+            // 3. 刷新列表，选中第一个
+            await loadSessions();
+            const updated = sessions.filter(s => s.session !== selectedSession);
+            setSelectedSession(updated.length > 0 ? updated[0].session : '');
+            showToast(`已删除会话: ${selectedSession}`);
+        } catch (e) {
+            console.error('删除会话失败', e);
+            showToast('删除会话失败,请检查控制台', 'error');
         }
     };
 
@@ -858,7 +906,7 @@ function ConfigRenderer() {
                                 label="目标会话"
                                 value={selectedSession}
                                 onChange={(e) => setSelectedSession(e.target.value)}
-                                sx={{ minWidth: 420, maxWidth: '100%' }}
+                                sx={{ minWidth: 320, maxWidth: '100%' }}
                             >
                                 {sessions.map((item) => (
                                     <MenuItem key={item.session} value={item.session}>
@@ -869,9 +917,24 @@ function ConfigRenderer() {
                             {selectedSessionMeta?.has_override && (
                                 <Chip size="small" color="primary" label="已存在差异覆写" />
                             )}
+                            <Button size="small" variant="outlined" color="error" onClick={handleDeleteSession} disabled={!selectedSession}>
+                                删除会话
+                            </Button>
                             {sessionLoading && (
                                 <Typography variant="caption" color="text.secondary">会话配置加载中...</Typography>
                             )}
+                            <TextField
+                                size="small"
+                                label="添加新会话"
+                                placeholder="输入微信群名"
+                                value={newSessionName}
+                                onChange={(e) => setNewSessionName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddSession()}
+                                sx={{ minWidth: 180 }}
+                            />
+                            <Button size="small" variant="outlined" onClick={handleAddSession} disabled={!newSessionName.trim()}>
+                                添加
+                            </Button>
                         </>
                     )}
                 </Box>

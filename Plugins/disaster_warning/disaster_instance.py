@@ -33,13 +33,19 @@ DATA_DIR = Path(__file__).parent.parent / "data" / "disaster_warning"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
+class ConfigDict(dict):
+    """支持属性赋值的 dict，用于挂载 save_config 等方法"""
+    pass
+
+
 class DisasterWarningInstance(BaseInstance):
     """灾害预警实例 - 封装 disaster_warning 插件到 cs-Solidarity"""
 
     def __init__(
         self,
         config: dict[str, Any],
-        plugin_root: str = None
+        plugin_root: str = None,
+        config_path: str = None
     ):
         """
         初始化灾害预警实例
@@ -47,8 +53,10 @@ class DisasterWarningInstance(BaseInstance):
         Args:
             config: 实例配置字典
             plugin_root: 插件根目录路径
+            config_path: 配置文件路径（用于持久化保存）
         """
         self.config = config
+        self.config_path = config_path
         self.plugin_root = Path(plugin_root) if plugin_root else Path(__file__).parent
         self.running = False
         self._service = None
@@ -57,8 +65,25 @@ class DisasterWarningInstance(BaseInstance):
         self._service_task: asyncio.Task | None = None
         self._web_server = None
 
-        # 微信群列表（用于推送消息）- 兼容 cs-Solidarity
+        # 微信群列表（用于命令响应广播）- 兼容 cs-Solidarity
         self.wechat_groups = config.get("wechat_groups", ["文件传输助手"])
+
+        # target_sessions 缺省时回退到 wechat_groups（告警推送目标）
+        if "target_sessions" not in config:
+            config["target_sessions"] = list(self.wechat_groups)
+
+        # 让 config 对象支持 save_config（Web 端修改配置后可持久化）
+        if config_path:
+            _abs_path = str(Path(config_path).resolve())
+            def _save_config():
+                import json as _json
+                try:
+                    with open(_abs_path, 'w', encoding='utf-8') as _f:
+                        _json.dump(config, _f, ensure_ascii=False, indent=2)
+                    log.info(f"[灾害预警] 配置已保存到 {_abs_path}")
+                except Exception as e:
+                    log.error(f"[灾害预警] 保存配置失败: {e}")
+            config.save_config = _save_config
 
         # 管理员用户列表
         self.admin_users = set(config.get("admin_users", []))
@@ -312,12 +337,12 @@ class DisasterWarningInstance(BaseInstance):
             raise FileNotFoundError(f"配置文件 {config_path} 不存在")
 
         with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+            config = ConfigDict(json.load(f))
 
         # 插件根目录位于 Plugins/disaster_warning/
         plugin_root = Path(__file__).parent
 
-        return cls(config=config, plugin_root=str(plugin_root))
+        return cls(config=config, plugin_root=str(plugin_root), config_path=str(config_path))
 
     @classmethod
     def create_from_data(cls, data: dict):
@@ -326,22 +351,23 @@ class DisasterWarningInstance(BaseInstance):
             raise TypeError("DisasterWarningInstance.create_from_data 需要传入字典数据")
 
         # 如果 data 包含 'config' 键，说明使用了配置文件引用
+        config_path = None
         if 'config' in data and isinstance(data.get('config'), str):
             config_path = data['config']
             if Path(config_path).exists():
                 import json
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
+                    config = ConfigDict(json.load(f))
             else:
                 # 配置文件不存在，使用 data 本身
-                config = data
+                config = ConfigDict(data)
         else:
-            config = data
+            config = ConfigDict(data)
 
         # 插件根目录位于 Plugins/disaster_warning/
         plugin_root = Path(__file__).parent
 
-        return cls(config=config, plugin_root=str(plugin_root))
+        return cls(config=config, plugin_root=str(plugin_root), config_path=config_path)
 
 
 class ContextAdapter:
@@ -358,10 +384,9 @@ class ContextAdapter:
         发送消息到指定会话
 
         Args:
-            session: 目标会话名称（AstrBot 格式，但 WeChat 不支持，发送到所有配置的群）
+            session: 目标会话名称（微信群名）
             message_chain: AstrBot MessageChain 对象或字符串
         """
-        # 从 MessageChain 中提取纯文本内容
         if hasattr(message_chain, 'content'):
             content = message_chain.content
         elif hasattr(message_chain, 'as_string'):
@@ -369,12 +394,10 @@ class ContextAdapter:
         else:
             content = str(message_chain)
 
-        # WeChat 不支持指定会话，发送到所有配置的微信群
-        for group in self._instance.wechat_groups:
-            try:
-                wechat_instance.send_message(content, group)
-            except Exception as e:
-                log.error(f"[灾害预警] 发送消息到 {group} 失败: {e}")
+        try:
+            wechat_instance.send_message(content, session)
+        except Exception as e:
+            log.error(f"[灾害预警] 发送消息到 {session} 失败: {e}")
 
     def get_config(self):
         """返回配置对象（适配 AstrBot 的 get_config）"""
