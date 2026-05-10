@@ -1,8 +1,9 @@
 {
   "enabled": true,
   "admin_users": [],
-  "wechat_groups": ["文件传输助手"],
-  "target_sessions": ["文件传输助手"],
+  "wechat_groups": [
+    "测试"
+  ],
   "display_timezone": "UTC+8",
   "data_sources": {
     "fan_studio": {
@@ -88,13 +89,14 @@
   },
   "weather_config": {
     "enabled": true,
-    "min_level": "orange"
+    "min_level": "orange",
+    "weather_filter": {}
   },
   "websocket_config": {
     "reconnect_interval": 30,
     "connection_timeout": 30,
     "max_retry_count": 10,
-    "fallback_retry_interval": 60
+    "fallback_retry_interval": 300
   },
   "web_admin": {
     "enabled": true,
@@ -108,5 +110,8 @@
   "debug_config": {
     "log_raw_messages": false,
     "startup_silence_period": 0
-  }
+  },
+  "target_sessions": [
+    "测试"
+  ]
 }
