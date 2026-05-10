@@ -121,6 +121,10 @@ pip install -r requirements.txt
   },
   "instances": [
     {
+      "type": "steam",
+      "config": "instconfig/steam_account.json"
+    },
+    {
       "type": "korichat",
       "config": "instconfig/korichat_config.json"
     },
