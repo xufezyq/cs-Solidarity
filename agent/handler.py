@@ -551,6 +551,19 @@ class AgentHandler:
                 "groups": detail.get("wechat_groups", []),
                 "push_times": detail.get("push_times", []),
             }
+        elif inst_type == "disaster_warning":
+            # 统计已启用的数据源数量
+            ds = detail.get("data_sources", {})
+            enabled_sources = sum(
+                1 for v in ds.values()
+                if isinstance(v, dict) and v.get("enabled")
+            )
+            return {
+                "enabled": detail.get("enabled", True),
+                "groups": detail.get("target_sessions", detail.get("wechat_groups", [])),
+                "data_sources": enabled_sources,
+                "weather": detail.get("weather_config", {}).get("enabled", False),
+            }
         return {}
 
     # ── Bot 控制 ──
