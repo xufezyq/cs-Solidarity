@@ -14,7 +14,7 @@ import logging
 log = logging.getLogger(__name__)
 
 # 默认端口
-DEFAULT_PORT = 18765
+DEFAULT_PORT = 18766
 
 
 class ChatHandler(socketserver.BaseRequestHandler):
