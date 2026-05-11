@@ -31,6 +31,10 @@
       "type": "chat",
       "config": "instconfig/chat_configs.json",
       "name": "hermes"
+    },
+    {
+      "type": "disaster_warning",
+      "config": "instconfig/disaster_warning.json"
     }
   ]
 }
