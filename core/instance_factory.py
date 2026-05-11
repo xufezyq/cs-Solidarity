@@ -32,7 +32,7 @@ def init_defaults():
 
         register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
         register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
-        register_instance_type('chat', lambda data: ChatAuto.create_from_config(data.get('config') or data))
+        register_instance_type('chat', lambda data: ChatAuto.create_from_config(data.get('config') or data, data.get('name')))
         register_instance_type('korichat', lambda data: KoriChatInstance.create_from_config(data.get('config')))
         register_instance_type('infopush', lambda data: InfoPush.create_from_data(data))
         register_instance_type('disaster_warning', lambda data: DisasterWarningInstance.create_from_data(data))

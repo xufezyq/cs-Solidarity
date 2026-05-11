@@ -214,8 +214,13 @@ class ChatAuto(BaseInstance):
             return f"调用 LLM 出错: {e}"
 
     @classmethod
-    def create_from_config(cls, config_path):
-        """从配置文件创建实例"""
+    def create_from_config(cls, config_path, name=None):
+        """从配置文件创建实例
+
+        Args:
+            config_path: 配置文件路径或配置字典
+            name: 实例名称，用于从统一配置文件中查找对应配置
+        """
         if isinstance(config_path, str):
             if not Path(config_path).exists():
                 raise FileNotFoundError(f"配置文件 {config_path} 不存在")
@@ -223,6 +228,10 @@ class ChatAuto(BaseInstance):
                 config = json.load(f)
         else:
             config = config_path if config_path else {}
+
+        # 如果配置是一个字典且包含 name 对应的配置，使用该配置
+        if name and isinstance(config, dict) and name in config:
+            config = config[name]
 
         # 从环境变量读取 API 密钥
         api_key = config.get('api_key')

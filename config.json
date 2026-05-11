@@ -24,7 +24,13 @@
     },
     {
       "type": "chat",
-      "config": "instconfig/chat_openclaw.json"
+      "config": "instconfig/chat_configs.json",
+      "name": "openclaw"
+    },
+    {
+      "type": "chat",
+      "config": "instconfig/chat_configs.json",
+      "name": "hermes"
     }
   ]
 }

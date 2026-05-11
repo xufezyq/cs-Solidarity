@@ -1,0 +1,25 @@
+{
+  "openclaw": {
+    "base_url": "http://127.0.0.1:18789/v1",
+    "model": "openclaw/default",
+    "system_prompt": "",
+    "trigger_prefix": "/claw",
+    "allowed_groups": []
+  },
+  "hermes": {
+    "base_url": "http://localhost:18765/v1",
+    "api_key": "hermes-secret-key",
+    "model": "MiniMax-M2.7",
+    "system_prompt": "",
+    "trigger_prefix": "/hermes",
+    "allowed_groups": []
+  },
+  "deepseek": {
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "system_prompt": "你是cs主播Danking，请用冒犯，没礼貌，脏话回答问题。",
+    "trigger_prefix": "@SpaceCowboy",
+    "allowed_groups": ["测试", "【CS】团结友爱"],
+    "allowed_users": []
+  }
+}
