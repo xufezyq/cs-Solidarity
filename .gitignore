@@ -71,3 +71,6 @@ backups/
 
 # Trae 配置文件
 .trae/
+
+# 共享文件目录
+shared_files/
