@@ -530,11 +530,16 @@ class AgentHandler:
                 "message": (detail.get("message", item.get("message", "")))[:50],
             }
         elif inst_type == "chat":
+            # detail 可能是统一配置文件（含多个子配置），需要用 name 提取对应子配置
+            cfg = detail
+            name = item.get("name")
+            if name and isinstance(detail, dict) and name in detail:
+                cfg = detail[name]
             return {
-                "trigger_prefix": detail.get("trigger_prefix", ""),
-                "model": detail.get("model", ""),
-                "base_url": detail.get("base_url", ""),
-                "allowed_groups": detail.get("allowed_groups", []),
+                "trigger_prefix": cfg.get("trigger_prefix", ""),
+                "model": cfg.get("model", ""),
+                "base_url": cfg.get("base_url", ""),
+                "allowed_groups": cfg.get("allowed_groups", []),
             }
         elif inst_type == "korichat":
             return {

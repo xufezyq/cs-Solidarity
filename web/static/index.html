@@ -1217,7 +1217,7 @@ createApp({
       syncToWx: true,  // 是否同步到微信
     });
     // 从实例列表中提取有 trigger_prefix 的 chat 实例
-    const _prefixLabelMap = { '/claw': 'Claw Agent' };
+    const _prefixLabelMap = { '/claw': 'Claw Agent', '/hermes': 'Hermes Agent' };
     const chatPrefixes = computed(() => {
       return instances.value
         .filter(i => i.type === 'chat' && i.summary?.trigger_prefix)
