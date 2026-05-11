@@ -5,6 +5,12 @@
     "hint": "内置的插件总开关",
     "default": true
   },
+  "push_enabled": {
+    "description": "启用此会话的推送",
+    "type": "bool",
+    "hint": "关闭后该会话将不再接收任何灾害预警推送，其他会话不受影响。仅在会话差异配置中生效。",
+    "default": true
+  },
   "admin_users": {
     "description": "插件管理员列表",
     "type": "list",

@@ -26,10 +26,10 @@ def get_version():
             stderr=subprocess.DEVNULL
         ).decode().strip()
         
-        return f"2.4.{commit_count}-{short_hash}"
+        return f"2.5.{commit_count}-{short_hash}"
     except Exception:
         # 如果获取失败，返回默认版本
-        return "2.4.0-dev"
+        return "2.5.0-dev"
 
 
 def get_version_info():

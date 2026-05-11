@@ -42,9 +42,16 @@ class ChatHandler(socketserver.BaseRequestHandler):
             server = self.server
             result = server.process_message(msg)
 
+            # 提取 replies_q（不可序列化），然后从响应中移除
+            replies_q = result.pop("_replies_q", None)
+
             # 发送响应
             response = json.dumps(result, ensure_ascii=False).encode('utf-8')
             self.request.sendall(len(response).to_bytes(4, 'big') + response)
+
+            # 如果是 chat.send 的 pending 响应，保持连接等待异步推送
+            if replies_q:
+                self._wait_and_push_replies(replies_q)
 
         except Exception as e:
             log.error(f"处理聊天请求失败: {e}", exc_info=True)
@@ -53,6 +60,34 @@ class ChatHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(len(error_resp).to_bytes(4, 'big') + error_resp)
             except Exception:
                 pass
+
+    def _wait_and_push_replies(self, replies_q):
+        """等待回复并通过 TCP 推送给 Agent"""
+        import time
+        replies = []
+        try:
+            # 等待第一条回复（OpenClaw 可能需要几分钟）
+            first_reply = replies_q.get(timeout=300)
+            replies.append(first_reply)
+            # 短暂等待，收集可能紧随其后的更多回复
+            while True:
+                try:
+                    replies.append(replies_q.get(timeout=2))
+                except Exception:
+                    break
+        except Exception:
+            pass  # 超时无回复
+
+        if replies:
+            push_msg = json.dumps({
+                "type": "push",
+                "event": "chat.replies",
+                "data": {"replies": replies}
+            }, ensure_ascii=False).encode('utf-8')
+            try:
+                self.request.sendall(len(push_msg).to_bytes(4, 'big') + push_msg)
+            except Exception:
+                log.debug("[聊天服务器] 推送回复失败（Agent 可能已断开）")
 
 
 class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -83,7 +118,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         return {"success": False, "error": f"未知操作: {action}"}
 
     def _handle_chat_send(self, params):
-        """处理 chat.send：投入 web_msg_queue，等待回复"""
+        """处理 chat.send：投入 web_msg_queue，异步等待回复"""
         import queue
         import time
         import json as _json
@@ -112,7 +147,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # 记录用户消息
         msg_id = str(time.time()).replace('.', '')[:8]
 
-        # 创建回复队列（拦截器需要它来路由回复，但我们不阻塞等待）
+        # 创建回复队列（拦截器需要它来路由回复）
         replies_q = queue.Queue()
 
         self._web_msg_queue.put({
@@ -123,7 +158,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             "sync_to_wx": params.get("sync_to_wx", True),
         })
 
-        # 立即返回，回复将通过 direct_reply_callback 直接推送到 WebSocket
+        # 立即返回 pending 状态，回复将通过 TCP 异步推送
         log.info(f"[聊天服务器] 消息已入队，等待异步回复: chat_name={chat_name}")
 
         return {
@@ -132,7 +167,8 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 "message_id": msg_id,
                 "replies": [],
                 "pending": True,
-            }
+            },
+            "_replies_q": replies_q,  # 内部字段，供 ChatHandler 使用
         }
 
 
@@ -154,7 +190,7 @@ def start_chat_server(port=DEFAULT_PORT):
 
 
 def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
-    """Agent 端调用：通过 TCP 发送聊天消息到 Bot"""
+    """Agent 端调用：通过 TCP 发送聊天消息到 Bot，支持异步推送回复"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(timeout)
     try:
@@ -163,7 +199,7 @@ def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
         msg = json.dumps({"action": "chat.send", "params": params}, ensure_ascii=False).encode('utf-8')
         sock.sendall(len(msg).to_bytes(4, 'big') + msg)
 
-        # 读取响应
+        # 读取初始响应
         length_bytes = sock.recv(4)
         if len(length_bytes) < 4:
             return {"success": False, "error": "连接中断"}
@@ -176,7 +212,30 @@ def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
                 return {"success": False, "error": "连接中断"}
             data += chunk
 
-        return json.loads(data.decode('utf-8'))
+        result = json.loads(data.decode('utf-8'))
+
+        # 如果是 pending 状态，等待异步推送的回复
+        if result.get("data", {}).get("pending"):
+            sock.settimeout(300)  # 5 分钟超时等待回复
+            try:
+                push_length_bytes = sock.recv(4)
+                if push_length_bytes and len(push_length_bytes) >= 4:
+                    push_length = int.from_bytes(push_length_bytes, 'big')
+                    push_data = b''
+                    while len(push_data) < push_length:
+                        chunk = sock.recv(push_length - len(push_data))
+                        if not chunk:
+                            break
+                        push_data += chunk
+
+                    push_msg = json.loads(push_data.decode('utf-8'))
+                    replies = push_msg.get("data", {}).get("replies", [])
+                    result["data"]["replies"] = replies
+                    result["data"]["pending"] = False
+            except socket.timeout:
+                pass  # 超时无回复
+
+        return result
     except socket.timeout:
         return {"success": False, "error": f"请求超时（{timeout}s）"}
     except ConnectionRefusedError:

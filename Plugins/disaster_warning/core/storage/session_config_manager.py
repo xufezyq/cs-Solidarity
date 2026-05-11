@@ -26,7 +26,6 @@ class SessionConfigManager:
 
     # 可覆写字段白名单（顶层键）
     ALLOWED_ROOT_KEYS = {
-        "enabled",
         "display_timezone",
         "data_sources",
         "earthquake_filters",

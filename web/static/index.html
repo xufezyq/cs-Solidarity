@@ -1117,6 +1117,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </button>
         <input class="input-sm" v-model="chat.input" :placeholder="chat.prefix ? '输入 ' + chat.prefix + ' 后的内容...' : '输入消息...'"
                style="flex:1;margin-bottom:0;" @keyup.enter="sendChatMessage" :disabled="chat.sending">
+        <input type="file" ref="demoFileInput" style="display:none" @change="uploadDemoFile($event)" >
+        <button class="btn-sm" @click="demoFileInput.click()" :disabled="chat.uploading"
+                style="padding:4px 10px;" title="上传 Demo 文件">
+          <i class="mdi mdi-paperclip" v-if="!chat.uploading"></i>
+          <i class="mdi mdi-loading mdi-spin" v-else></i>
+        </button>
         <button class="btn-sm success" @click="sendChatMessage" :disabled="chat.sending || !chat.input.trim()">
           <i class="mdi mdi-send" v-if="!chat.sending"></i>
           <i class="mdi mdi-loading mdi-spin" v-else></i>
@@ -1196,11 +1202,14 @@ createApp({
     const config = reactive({ files: [], selectedFile: '', content: '', modified: '', error: '', backups: [] });
     const logs = reactive({ date: new Date().toISOString().slice(0,10), level: '', keyword: '', lines: [], total: 0, page: 1, streaming: false, ws: null });
 
+    const demoFileInput = ref(null);
+
     // ── 聊天状态 ──
     const chat = reactive({
       messages: [],
       input: '',
       sending: false,
+      uploading: false,
       ws: null,
       connected: false,
       personaName: null,
@@ -1751,6 +1760,62 @@ createApp({
       }
     }
 
+    async function uploadDemoFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      event.target.value = '';  // 清空 input 允许重复选择同文件
+      chat.uploading = true;
+      const CHUNK_SIZE = 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      try {
+        showToast(`正在上传 ${file.name}...`);
+        // 聊天上传始终走 agent（给 OpenClaw 使用），跳过 init-upload
+        let lastResult = null;
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+          const formData = new FormData();
+          formData.append('file', chunk, file.name);
+          formData.append('chunk_index', i);
+          formData.append('total_chunks', totalChunks);
+          formData.append('filename', file.name);
+          const res = await fetch('/api/files/chunk?target=agent', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token.value}` },
+            body: formData
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '上传失败');
+          lastResult = data;
+        }
+        // 上传完成，显示路径
+        const resp = lastResult?.data || {};
+        const savedPath = resp.path || resp.filename || file.name;
+        chat.messages.push({
+          id: 'upload-' + Date.now(),
+          sender: '系统',
+          content: `📁 文件已上传到 Agent 设备\n文件名: ${resp.filename || file.name}\n路径: ${savedPath}`,
+          timestamp: new Date().toISOString(),
+          source: 'system',
+        });
+        scrollChatToBottom();
+        showToast('文件上传完成');
+      } catch(e) {
+        showToast(e.message || '上传失败', 'error');
+        chat.messages.push({
+          id: 'upload-err-' + Date.now(),
+          sender: '系统',
+          content: `❌ 文件上传失败: ${e.message}`,
+          timestamp: new Date().toISOString(),
+          source: 'system',
+        });
+        scrollChatToBottom();
+      } finally {
+        chat.uploading = false;
+      }
+    }
+
     function scrollChatToBottom() {
       setTimeout(() => {
         const el = document.getElementById('chat-messages');
@@ -1765,7 +1830,7 @@ createApp({
     }
 
     // 暴露给外部脚本调用
-    const appExports = { token, user, currentPage, toast, loadAll,
+    const appExports = { token, user, currentPage, toast, loadAll, demoFileInput,
       overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
@@ -1773,7 +1838,7 @@ createApp({
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
-      loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, formatChatTime,
+      loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,
     };
     window.__vueApp = appExports;
     return appExports;

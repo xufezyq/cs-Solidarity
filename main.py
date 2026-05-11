@@ -13,6 +13,7 @@ from utils.human_sim import human_delay, human_action_delay, random_poll_interva
 from utils.logger import setup_logger, info, debug, error, warning
 from version import VERSION, get_version_info
 from bot.chat_server import start_chat_server
+from bot.api_server import start_api_server, api_send_queue
 import win32gui
 
 # 设置进程名
@@ -54,10 +55,6 @@ ENABLE_FLASH_DETECT = True           # 是否检测新消息（闪烁检测）
 # 消息拦截器：用于 Web 聊天页面捕获实例回复
 # 回调签名: interceptor(instance_name, message)
 _on_message_interceptor = None
-
-# 直接回复回调：绕过 HTTP 超时链，将回复直接推送到 WebSocket
-# 回调签名: callback(reply_data: dict)
-_direct_reply_callback = None
 
 # 当前正在处理消息的实例名（供 wechat_instance 拦截器使用）
 _current_processing_instance = None
@@ -367,11 +364,6 @@ def _web_reply_interceptor(instance_name, message, group=None):
             "source": "ai",
         }
         replies_q.put(reply_data)
-        if _direct_reply_callback:
-            try:
-                _direct_reply_callback(reply_data)
-            except Exception as cb_err:
-                error(f"[Web聊天] 直接回复回调失败: {cb_err}")
     else:
         debug(f"[Web聊天] 回复未匹配到队列: target={reply_target!r}, src={src!r}, 已注册={list(_web_replies_map.keys())}")
 
@@ -431,6 +423,72 @@ def process_web_messages(instances):
             # 不在这里清理 _web_replies_map 和 _web_msg_context
             # 因为 KoriChat 等实例是异步回复的，清理太早会导致拦截器找不到回复队列
             # 下次同 chat_name 的消息会覆盖旧值
+
+    return processed
+
+
+def process_api_send_requests():
+    """处理 API 发送队列（OpenClaw 等外部 agent 的发送请求）
+
+    在主循环中调用，与 msg_queue 同级处理，共享窗口管理和发送锁。
+    """
+    global _is_sending, _last_send_time, _sending_count
+
+    processed = 0
+    while not api_send_queue.empty():
+        try:
+            req = api_send_queue.get_nowait()
+        except queue.Empty:
+            break
+
+        req_type = req.get("type")
+        target = req.get("target", "")
+        content = req.get("content", "")
+        result_q = req.get("result_q")
+
+        if not target or not content:
+            if result_q:
+                result_q.put({"success": False, "error": "target 和 content 不能为空"})
+            continue
+
+        try:
+            with _send_lock:
+                _sending_count += 1
+                _is_sending = True
+                _last_send_time = time.time()
+
+            wx = wechat_instance.get_wechat()
+            if not wx:
+                if result_q:
+                    result_q.put({"success": False, "error": "微信实例未就绪"})
+                continue
+
+            human_action_delay()
+
+            with _send_op_lock:
+                wx.ChatWith(target)
+                human_delay(400, 900)
+
+                if req_type == "text":
+                    wx.SendMsg(content, clear=True)
+                    info(f"[API] 已发送消息到 {target}")
+                elif req_type == "file":
+                    wx.SendFiles(content)
+                    info(f"[API] 已发送文件 {req.get('filename', '')} 到 {target}")
+
+            if result_q:
+                result_q.put({"success": True, "message": "已发送"})
+            processed += 1
+
+        except Exception as e:
+            error(f"[API] 发送失败: {e}")
+            if result_q:
+                result_q.put({"success": False, "error": str(e)})
+        finally:
+            with _send_lock:
+                _sending_count -= 1
+                if _sending_count <= 0:
+                    _is_sending = False
 
     return processed
 
@@ -640,7 +698,7 @@ def start_instances(instances):
             # ── 第一步：处理发送队列（在收消息之前）──
             # send_message 内部会在 ChatWith 之前预捕获目标聊天的未读消息，
             # 所以先发再收不会丢消息。
-            if not msg_queue.empty():
+            if not msg_queue.empty() or not api_send_queue.empty():
                 if wx_is_minimized:
                     human_delay(300, 1200)
                     restore_wechat()
@@ -649,7 +707,10 @@ def start_instances(instances):
                 # 计数器由各个实例（如 KoriChat）自己管理
                 with _send_lock:
                     _last_send_time = time.time()
-                process_all_pending_messages(msg_queue, orig_senders, instances)
+                if not msg_queue.empty():
+                    process_all_pending_messages(msg_queue, orig_senders, instances)
+                if not api_send_queue.empty():
+                    process_api_send_requests()
                 last_flash_time = time.time()
                 idle_cycle_count = 0
                 # 队列处理完成后，等待一小段时间确保所有后台发送完成
@@ -798,26 +859,8 @@ def main():
     if chat_server:
         chat_server.set_context(instances, process_web_messages, web_msg_queue)
 
-    # 注册直接回复回调：绕过 HTTP 超时链，将回复直接推送到 WebSocket
-    global _direct_reply_callback
-    try:
-        from web.bridge import bridge as _web_bridge
-        import asyncio as _asyncio
-
-        def _direct_reply_to_bridge(reply_data):
-            try:
-                loop = _web_bridge._event_loop
-                if loop and loop.is_running():
-                    _asyncio.run_coroutine_threadsafe(
-                        _web_bridge._broadcast_chat(reply_data),
-                        loop
-                    )
-            except Exception as e:
-                error(f"[Web聊天] 桥接推送失败: {e}")
-
-        _direct_reply_callback = _direct_reply_to_bridge
-    except ImportError:
-        pass  # web 模块未加载时忽略
+    # 启动本地 HTTP API，供 OpenClaw 等同机 agent 直接调用
+    start_api_server()
 
     try:
         start_instances(instances)

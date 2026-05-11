@@ -195,9 +195,11 @@ async def upload_chunk(
     total_chunks: int = Form(1),
     filename: str = Form(""),
     upload_id: str = Form(""),
+    target: str = Query(""),
     current_user: User = Depends(get_current_user)
 ):
-    storage_mode = _get_storage_mode()
+    # target 参数可覆盖全局存储模式（如聊天上传强制走 agent）
+    storage_mode = target if target in ("web", "agent") else _get_storage_mode()
 
     if storage_mode == "web":
         return await _upload_chunk_web(file, chunk_index, total_chunks, filename, upload_id, current_user)
@@ -249,7 +251,7 @@ async def _upload_chunk_web(file: UploadFile, chunk_index: int, total_chunks: in
         })
         with _upload_progress_lock:
             _upload_progress.pop(upload_id, None)
-        return {"success": True, "data": {"filename": file_path.name, "size": actual_size}}
+        return {"success": True, "data": {"filename": file_path.name, "size": actual_size, "path": str(file_path.resolve())}}
 
     return {"success": True, "data": {"chunk_received": chunk_index + 1, "total_chunks": total_chunks, "upload_id": upload_id}}
 

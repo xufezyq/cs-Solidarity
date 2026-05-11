@@ -78,15 +78,13 @@ class PwStatsReporter:
             match_mvp_info, match_player_details
         )
 
-        # 检测 S 段位晋级（分数从 2401 以下涨到 2401 及以上）
+        # 检测 S 段位晋级
         promo_msgs = []
         for steam_id, data, _, _, _, nickname, _ in all_players:
             pvpScore = data.get('pvpScore', 0)
-            score_change = data.get('pvpScoreChange', 0)
-            prev_score = pvpScore - score_change
-            if pvpScore >= 2401 and prev_score < 2401:
+            if pvpScore >= 2401:
                 pw_name = data.get('nickName', '') or nickname
-                promo_msgs.append(f"🎉 恭喜 {pw_name} 达到 S 段位！（{prev_score} → {pvpScore}）")
+                promo_msgs.append(f"🎉 恭喜 {pw_name} 达到 S 段位！")
 
         return messages + promo_msgs
 
