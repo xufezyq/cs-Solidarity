@@ -383,6 +383,10 @@ class ContextAdapter:
         """
         发送消息到指定会话
 
+        注意：此方法直接调用 wechat_instance.send_message，不经过 msg_queue，
+        因此不受主循环维护时间窗口拦截。这是故意的——灾害告警（地震、海啸等）
+        具有时效性，必须即时推送，不能被维护时间延迟。
+
         Args:
             session: 目标会话名称（微信群名）
             message_chain: AstrBot MessageChain 对象或字符串
@@ -394,6 +398,7 @@ class ContextAdapter:
         else:
             content = str(message_chain)
 
+        log.info(f"[灾害预警] 发送告警到 {session}（不受维护时间拦截，即时推送）")
         try:
             wechat_instance.send_message(content, session)
         except Exception as e:
