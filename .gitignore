@@ -68,3 +68,6 @@ backups/
 
 # Claude code
 .claude/
+
+# Trae 配置文件
+.trae/
