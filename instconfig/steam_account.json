@@ -13,7 +13,7 @@
     "- 重构聊天实例配置管理，合并多份配置文件",
     "- 添加 steam 实例支持，版本号更新至 2.5",
     "- 修改聊天服务器默认端口为 18766",
-    "- 增加cs2-demo-analysis skill，支持上传demo文件后自然语言分析并自动剪辑高光视频并发送",
+    "- 增加cs2-demo-analysis skill，支持上传demo文件后自然语言分析并自动剪辑高光视频发送",
     "",
     "控制面板：http://159.75.169.14:11029/",
     "该项目已开源至：https://github.com/xufezyq/cs-Solidarity",
