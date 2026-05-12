@@ -71,9 +71,9 @@ async def send_message(req: SendMessageRequest):
         "result_q": result_q,
     })
 
-    # 等主循环处理完（最多 60 秒）
+    # 等主循环处理完（最多 300 秒）
     try:
-        return result_q.get(timeout=60)
+        return result_q.get(timeout=300)
     except queue.Empty:
         return {"success": False, "error": "发送超时"}
 
@@ -107,7 +107,7 @@ async def send_file(
     })
 
     try:
-        result = result_q.get(timeout=60)
+        result = result_q.get(timeout=300)
     except queue.Empty:
         result = {"success": False, "error": "发送超时"}
     finally:
