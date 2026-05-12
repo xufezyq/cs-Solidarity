@@ -14,26 +14,26 @@
       "taiwan_cwa_report": true,
       "china_cenc_earthquake": true,
       "japan_jma_eew": false,
-      "usgs_earthquake": true,
+      "usgs_earthquake": false,
       "china_weather_alarm": true,
       "china_tsunami": true
     },
     "p2p_earthquake": {
-      "enabled": true,
+      "enabled": false,
       "japan_jma_eew": true,
       "japan_jma_earthquake": true,
       "japan_jma_tsunami": true
     },
     "wolfx": {
       "enabled": true,
-      "japan_jma_eew": true,
+      "japan_jma_eew": false,
       "china_cenc_eew": false,
       "taiwan_cwa_eew": true,
       "japan_jma_earthquake": false,
       "china_cenc_earthquake": true
     },
     "global_quake": {
-      "enabled": true
+      "enabled": false
     }
   },
   "local_monitoring": {
@@ -42,7 +42,7 @@
     "longitude": 116.4074,
     "place_name": "本地",
     "strict_mode": false,
-    "intensity_threshold": 4.0
+    "intensity_threshold": 4
   },
   "strategies": {
     "cenc_fusion": {
@@ -62,13 +62,13 @@
     },
     "intensity_filter": {
       "enabled": true,
-      "min_magnitude": 2.0,
-      "min_intensity": 4.0
+      "min_magnitude": 2,
+      "min_intensity": 4
     },
     "scale_filter": {
       "enabled": true,
-      "min_magnitude": 2.0,
-      "min_scale": 1.0
+      "min_magnitude": 2,
+      "min_scale": 1
     },
     "magnitude_only_filter": {
       "enabled": true,
@@ -77,7 +77,7 @@
     "global_quake_filter": {
       "enabled": true,
       "min_magnitude": 4.5,
-      "min_intensity": 5.0
+      "min_intensity": 5
     }
   },
   "push_frequency_control": {
