@@ -16,6 +16,7 @@ class ChatSendRequest(BaseModel):
     content: str
     sender: Optional[str] = None
     chat_name: Optional[str] = "网页聊天室"
+    sync_to_wx: Optional[bool] = True
 
 
 @router.post("/send")
@@ -30,6 +31,7 @@ async def send_message(req: ChatSendRequest, current_user: User = Depends(get_cu
         "content": req.content,
         "sender": sender,
         "chat_name": req.chat_name or "网页聊天室",
+        "sync_to_wx": req.sync_to_wx,
     }, timeout=60)
 
     if not result.get("success"):

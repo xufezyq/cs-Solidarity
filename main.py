@@ -336,7 +336,7 @@ def _web_reply_interceptor(instance_name, message, group=None):
         _intercepted_msg_dedup.popitem(last=False)
 
     # 捕获上下文：用 group（与 _intercepted_wx_send 的 pop key 一致），
-    # 回退到 reply_target
+    # 回退到 reply_target。只读不消费，由 _intercepted_wx_send/_intercepted_wx_sends 统一清理。
     capture_key = group or reply_target
     if capture_key:
         ctx = _web_msg_context.get(capture_key)
@@ -344,13 +344,11 @@ def _web_reply_interceptor(instance_name, message, group=None):
             ctx = next(iter(_web_msg_context.values()))
         if ctx:
             _captured_reply_contexts[(src, capture_key)] = ctx
-            # 消费后立即清理，防止后续非 Web 消息重复携带前缀
-            _web_msg_context.pop(capture_key, None)
-            _web_processing_instances.pop(capture_key, None)
 
-    # 按 target 匹配，或回退到唯一注册的 chat_name
+    # 按 target 匹配回复队列；仅当存在活跃 Web 上下文时才回退到唯一注册的 chat_name
+    # 这防止灾害预警等非 Web 来源的消息被错误路由到网页聊天
     replies_q = _web_replies_map.get(reply_target)
-    if not replies_q and len(_web_replies_map) == 1:
+    if not replies_q and len(_web_replies_map) == 1 and _web_msg_context:
         replies_q = next(iter(_web_replies_map.values()))
 
     if replies_q:
@@ -606,6 +604,9 @@ def start_instances(instances):
         # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
+            # 消费 Web 上下文（拦截器只读不消费，这里统一清理）
+            _web_msg_context.pop(group, None)
+            _web_processing_instances.pop(group, None)
             # Web 聊天且关闭了同步到微信：跳过实际发送，回复仅通过 WebSocket 推送到网页
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
@@ -634,6 +635,9 @@ def start_instances(instances):
                     error(f"微信发送拦截器错误: {e}")
         ctx = _captured_reply_contexts.pop((src, group), None)
         if ctx:
+            # 消费 Web 上下文
+            _web_msg_context.pop(group, None)
+            _web_processing_instances.pop(group, None)
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
                 return
