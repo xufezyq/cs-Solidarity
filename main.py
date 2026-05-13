@@ -326,6 +326,17 @@ def _web_reply_interceptor(instance_name, message, group=None):
     if not reply_content:
         return
 
+    # 捕获上下文：用 group（与 _intercepted_wx_send 的 pop key 一致），
+    # 回退到 reply_target。只读不消费，由 _intercepted_wx_send/_intercepted_wx_sends 统一清理。
+    # 必须在去重检查之前，否则去重命中时上下文未捕获，sync_to_wx 检查会被跳过。
+    capture_key = group or reply_target
+    if capture_key:
+        ctx = _web_msg_context.get(capture_key)
+        if not ctx and len(_web_msg_context) == 1 and capture_key in _web_processing_instances:
+            ctx = next(iter(_web_msg_context.values()))
+        if ctx:
+            _captured_reply_contexts[(src, capture_key)] = ctx
+
     # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
     # 用 (content, target) 记录已处理的消息，避免重复入队
     dedup_key = (reply_content[:200], reply_target)
@@ -334,16 +345,6 @@ def _web_reply_interceptor(instance_name, message, group=None):
     _intercepted_msg_dedup[dedup_key] = None
     if len(_intercepted_msg_dedup) > 200:
         _intercepted_msg_dedup.popitem(last=False)
-
-    # 捕获上下文：用 group（与 _intercepted_wx_send 的 pop key 一致），
-    # 回退到 reply_target。只读不消费，由 _intercepted_wx_send/_intercepted_wx_sends 统一清理。
-    capture_key = group or reply_target
-    if capture_key:
-        ctx = _web_msg_context.get(capture_key)
-        if not ctx and len(_web_msg_context) == 1 and capture_key in _web_processing_instances:
-            ctx = next(iter(_web_msg_context.values()))
-        if ctx:
-            _captured_reply_contexts[(src, capture_key)] = ctx
 
     # 按 target 匹配回复队列；仅当存在活跃 Web 上下文时才回退到唯一注册的 chat_name
     # 这防止灾害预警等非 Web 来源的消息被错误路由到网页聊天
