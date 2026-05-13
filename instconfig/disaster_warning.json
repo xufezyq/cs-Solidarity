@@ -62,13 +62,13 @@
     },
     "intensity_filter": {
       "enabled": true,
-      "min_magnitude": 2,
+      "min_magnitude": 5,
       "min_intensity": 4
     },
     "scale_filter": {
       "enabled": true,
-      "min_magnitude": 2,
-      "min_scale": 1
+      "min_magnitude": 5,
+      "min_scale": 4
     },
     "magnitude_only_filter": {
       "enabled": true,
