@@ -170,13 +170,21 @@ def process_send_message(name, message, orig_senders, instances=None):
     if not ENABLE_SEND:
         debug(f"[发送] 跳过：发送功能已禁用 (name={name})")
         return
-    
+
     # 检查是否在维护时间内
     if is_maintenance_time():
         info(f"[发送] 跳过：当前是维护时间 (name={name})")
         return
-        
+
+    # Web 聊天"仅网页"模式：跳过微信发送，避免窗口闪烁
     target = message.get("target", name) if isinstance(message, dict) else name
+    ctx_list = _web_msg_context.get(target, [])
+    if ctx_list and not ctx_list[-1].get("sync_to_wx", True):
+        debug(f"[发送] 跳过：sync_to_wx=false (target={target})")
+        _web_msg_context.pop(target, None)
+        _web_processing_instances.pop(target, None)
+        return
+
     debug(f"发送：name={name}, target={target}")
     try:
         human_action_delay()
