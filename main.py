@@ -219,12 +219,24 @@ def process_send_message(name, message, orig_senders, instances=None):
         error(f"发送失败 ({name}): {e}")
         return False
 
+def _needs_wx_send(message):
+    """检查消息是否需要实际发送到微信（非 web-only）"""
+    target = message.get("target") if isinstance(message, dict) else None
+    if not target:
+        return True
+    ctx_list = _web_msg_context.get(target, [])
+    if ctx_list and not ctx_list[-1].get("sync_to_wx", True):
+        return False
+    return True
+
 def process_all_pending_messages(msg_queue, orig_senders, instances=None):
     """一次性处理队列中所有待发送消息，然后切回文件传输助手并最小化
 
     发送期间微信已在前台，每个消息都会自动捕获发送期间的新消息。
+    仅在真正需要发送到微信时才恢复窗口，web-only 消息不会弹窗。
     """
     sent_any = False
+    window_restored = False
     while True:
         try:
             name, message = msg_queue.get_nowait()
@@ -232,10 +244,16 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
                 info("维护时段，跳过发送")
                 msg_queue.task_done()
                 continue
+            # 首次需要真正发送时才恢复窗口（web-only 消息不弹窗）
+            if not window_restored and _needs_wx_send(message):
+                hwnd = win32gui.FindWindow('WeChatMainWndForPC', None)
+                if hwnd and win32gui.IsIconic(hwnd):
+                    human_delay(300, 1200)
+                    restore_wechat()
+                window_restored = True
             if process_send_message(name, message, orig_senders, instances):
                 sent_any = True
-                # 增加延迟，确保 KoriChat 等实例有足够时间完成消息发送
-                human_delay(1000, 2000)  # 消息间随机延迟（增加到 1-2 秒）
+                human_delay(1000, 2000)
             msg_queue.task_done()
         except queue.Empty:
             break
@@ -455,6 +473,12 @@ def process_api_send_requests():
     在主循环中调用，与 msg_queue 同级处理，共享窗口管理和发送锁。
     """
     global _is_sending, _last_send_time, _sending_count
+
+    # API 发送总是需要微信窗口，首次调用时恢复
+    hwnd = win32gui.FindWindow('WeChatMainWndForPC', None)
+    if hwnd and win32gui.IsIconic(hwnd):
+        human_delay(300, 1200)
+        restore_wechat()
 
     processed = 0
     while not api_send_queue.empty():
@@ -730,10 +754,7 @@ def start_instances(instances):
             # send_message 内部会在 ChatWith 之前预捕获目标聊天的未读消息，
             # 所以先发再收不会丢消息。
             if not msg_queue.empty() or not api_send_queue.empty():
-                if wx_is_minimized:
-                    human_delay(300, 1200)
-                    restore_wechat()
-                    wx_is_minimized = False
+                # 窗口恢复已移入各处理函数内部，仅在真正发送时才弹窗
                 # 更新时间戳，确保 15 秒内不会最小化窗口
                 # 计数器由各个实例（如 KoriChat）自己管理
                 with _send_lock:
