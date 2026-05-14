@@ -1733,6 +1733,7 @@ createApp({
     async function sendChatMessage() {
       const raw = chat.input.trim();
       if (!raw || chat.sending) return;
+      console.log('[WebChat] syncToWx =', chat.syncToWx, 'type:', typeof chat.syncToWx);
       // 如果选了前缀，拼接到消息前面
       const content = chat.prefix ? chat.prefix + ' ' + raw : raw;
       chat.sending = true;
