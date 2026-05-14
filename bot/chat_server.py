@@ -150,12 +150,14 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # 创建回复队列（拦截器需要它来路由回复）
         replies_q = queue.Queue()
 
+        _sync = params.get("sync_to_wx", True)
+        log.info(f"[聊天服务器] 收到参数: sync_to_wx={_sync}, type={type(_sync)}, raw_params_keys={list(params.keys())}")
         self._web_msg_queue.put({
             "content": content,
             "sender": sender,
             "chat_name": chat_name,
             "replies": replies_q,
-            "sync_to_wx": params.get("sync_to_wx", True),
+            "sync_to_wx": _sync,
         })
 
         # 立即返回 pending 状态，回复将通过 TCP 异步推送
