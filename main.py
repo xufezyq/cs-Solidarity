@@ -176,11 +176,16 @@ def process_send_message(name, message, orig_senders, instances=None):
         info(f"[发送] 跳过：当前是维护时间 (name={name})")
         return False
 
-    # Web 聊天"仅网页"模式：跳过微信发送，避免窗口闪烁
+    # Web 聊天"仅网页"模式：跳过微信发送，但仍推送到 web panel
     target = message.get("target", name) if isinstance(message, dict) else name
     ctx_list = _web_msg_context.get(target, [])
     if ctx_list and not ctx_list[-1].get("sync_to_wx", True):
         debug(f"[发送] 跳过：sync_to_wx=false (name={name}, target={target})")
+        if _on_message_interceptor:
+            try:
+                _on_message_interceptor(name, message, group=target)
+            except Exception as e:
+                error(f"[发送] 拦截器错误: {e}")
         _web_msg_context.pop(target, None)
         _web_processing_instances.pop(target, None)
         return False
