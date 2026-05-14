@@ -400,14 +400,9 @@ def process_web_messages(instances):
         if replies_q:
             _web_replies_map[chat_name] = replies_q
         _sync = web_msg.get("sync_to_wx", True)
-        _web_msg_context.setdefault(chat_name, []).append({"sender": sender, "content": content, "sync_to_wx": _sync, "ts": time.time()})
-        debug(f"[Web消息] chat_name={chat_name!r}, sender={sender!r}, sync_to_wx={_sync}, raw_keys={list(web_msg.keys())}")
-        # 清理超过 60 秒的旧上下文，防止内存泄漏
-        cutoff = time.time() - 60
-        for k in list(_web_msg_context.keys()):
-            _web_msg_context[k] = [c for c in _web_msg_context[k] if c.get("ts", 0) > cutoff]
-            if not _web_msg_context[k]:
-                del _web_msg_context[k]
+        # 替换而非追加：只保留当前消息的上下文，防止旧消息的 sync_to_wx 残留
+        _web_msg_context[chat_name] = [{"sender": sender, "content": content, "sync_to_wx": _sync, "ts": time.time()}]
+        debug(f"[Web消息] chat_name={chat_name!r}, sender={sender!r}, sync_to_wx={_sync}")
 
         # 创建消息对象（与 wxauto FriendMessage 接口兼容）
         class WebMessage:
@@ -623,9 +618,8 @@ def start_instances(instances):
             _captured_reply_contexts.pop(group, None)
         debug(f"[发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
-            # 不从 _web_msg_context 消费上下文，因为 _send_via_framework 的 fallback 路径
-            # （wx.SendMsg 直接发送）也需要读取 sync_to_wx。上下文由 process_web_messages
-            # 统一管理，超时后自动清理。
+            # 消费 Web 上下文
+            _web_msg_context.pop(group, None)
             _web_processing_instances.pop(group, None)
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
@@ -657,6 +651,7 @@ def start_instances(instances):
             _captured_reply_contexts.pop(group, None)
         debug(f"[批量发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
+            _web_msg_context.pop(group, None)
             _web_processing_instances.pop(group, None)
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
