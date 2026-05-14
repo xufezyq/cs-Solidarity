@@ -151,7 +151,6 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         replies_q = queue.Queue()
 
         _sync = params.get("sync_to_wx", True)
-        log.info(f"[聊天服务器] 收到参数: sync_to_wx={_sync}, type={type(_sync)}, raw_params_keys={list(params.keys())}")
         self._web_msg_queue.put({
             "content": content,
             "sender": sender,

@@ -341,7 +341,6 @@ def _web_reply_interceptor(instance_name, message, group=None):
                 ctx = only_list[-1] if only_list else None
             if ctx:
                 _captured_reply_contexts.setdefault(capture_key, []).append(ctx)
-                debug(f"[拦截器] capture_key={capture_key!r}, sync_to_wx={ctx.get('sync_to_wx')}, src={src!r}")
 
     # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
     # 用 (content, target) 记录已处理的消息，避免重复入队
@@ -402,7 +401,6 @@ def process_web_messages(instances):
         _sync = web_msg.get("sync_to_wx", True)
         # 替换而非追加：只保留当前消息的上下文，防止旧消息的 sync_to_wx 残留
         _web_msg_context[chat_name] = [{"sender": sender, "content": content, "sync_to_wx": _sync, "ts": time.time()}]
-        debug(f"[Web消息] chat_name={chat_name!r}, sender={sender!r}, sync_to_wx={_sync}")
 
         # 创建消息对象（与 wxauto FriendMessage 接口兼容）
         class WebMessage:
@@ -616,7 +614,6 @@ def start_instances(instances):
         ctx = cap_list.pop(0) if cap_list else None
         if not cap_list:
             _captured_reply_contexts.pop(group, None)
-        debug(f"[发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
             # 消费 Web 上下文
             _web_msg_context.pop(group, None)
@@ -649,7 +646,6 @@ def start_instances(instances):
         ctx = cap_list.pop(0) if cap_list else None
         if not cap_list:
             _captured_reply_contexts.pop(group, None)
-        debug(f"[批量发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
             _web_msg_context.pop(group, None)
             _web_processing_instances.pop(group, None)
