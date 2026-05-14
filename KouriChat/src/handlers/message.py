@@ -736,6 +736,15 @@ class MessageHandler:
         except Exception as e:
             logger.error(f"[框架发送] 失败: {e}，回退到直接发送")
             try:
+                # 检查是否是 Web 消息且 sync_to_wx=False，避免绕过拦截器
+                import sys as _sys
+                main_mod = _sys.modules.get('__main__')
+                if main_mod and hasattr(main_mod, '_web_msg_context'):
+                    ctx_list = main_mod._web_msg_context.get(chat_id, [])
+                    ctx = ctx_list[-1] if ctx_list else None
+                    if ctx and not ctx.get("sync_to_wx", True):
+                        logger.info(f"[框架发送] 跳过直接发送（sync_to_wx=false）: {chat_id}")
+                        return
                 self.wx.SendMsg(msg=message, who=chat_id, at=at, at_all=at_all)
             except Exception as e2:
                 logger.error(f"[直接发送] 也失败: {e2}")

@@ -68,7 +68,7 @@ web_msg_queue = queue.Queue()
 
 # Web 回复路由表：chat_name → replies_q
 _web_replies_map = {}
-# Web 消息上下文：chat_name → {"sender", "content"}（当前正在处理的消息）
+# Web 消息上下文：chat_name → [{"sender", "content", "sync_to_wx"}, ...]（队列，FIFO 消费）
 _web_msg_context = {}
 # 已捕获回复的上下文：(instance, target) → {"sender", "content"}
 # 拦截器在上下文有效时捕获，_intercepted_wx_send 读取后删除
@@ -331,11 +331,14 @@ def _web_reply_interceptor(instance_name, message, group=None):
     # 必须在去重检查之前，否则去重命中时上下文未捕获，sync_to_wx 检查会被跳过。
     capture_key = group or reply_target
     if capture_key:
-        ctx = _web_msg_context.get(capture_key)
+        ctx_list = _web_msg_context.get(capture_key, [])
+        ctx = ctx_list[-1] if ctx_list else None
         if not ctx and len(_web_msg_context) == 1 and capture_key in _web_processing_instances:
-            ctx = next(iter(_web_msg_context.values()))
+            only_list = next(iter(_web_msg_context.values()))
+            ctx = only_list[-1] if only_list else None
         if ctx:
             _captured_reply_contexts[(src, capture_key)] = ctx
+            debug(f"[拦截器] capture_key={capture_key!r}, sync_to_wx={ctx.get('sync_to_wx')}, src={src!r}")
 
     # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
     # 用 (content, target) 记录已处理的消息，避免重复入队
@@ -393,7 +396,7 @@ def process_web_messages(instances):
         # 注册回复路由和消息上下文
         if replies_q:
             _web_replies_map[chat_name] = replies_q
-        _web_msg_context[chat_name] = {"sender": sender, "content": content, "sync_to_wx": web_msg.get("sync_to_wx", True)}
+        _web_msg_context.setdefault(chat_name, []).append({"sender": sender, "content": content, "sync_to_wx": web_msg.get("sync_to_wx", True)})
 
         # 创建消息对象（与 wxauto FriendMessage 接口兼容）
         class WebMessage:
@@ -604,11 +607,15 @@ def start_instances(instances):
                 error(f"微信发送拦截器错误: {e}")
         # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
         ctx = _captured_reply_contexts.pop((src, group), None)
+        debug(f"[发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
-            # 消费 Web 上下文（拦截器只读不消费，这里统一清理）
-            _web_msg_context.pop(group, None)
+            # 消费 Web 上下文（FIFO：从队列头部移除）
+            ctx_list = _web_msg_context.get(group, [])
+            if ctx_list:
+                ctx_list.pop(0)
+                if not ctx_list:
+                    del _web_msg_context[group]
             _web_processing_instances.pop(group, None)
-            # Web 聊天且关闭了同步到微信：跳过实际发送，回复仅通过 WebSocket 推送到网页
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
                 return
@@ -617,7 +624,6 @@ def start_instances(instances):
                 message = {**message, "content": prefix + message.get("content", "")}
             elif isinstance(message, str):
                 message = prefix + message
-            # Web 来源的消息不 @，因为 sender 是网页用户而非微信好友
             at = None
             at_all = False
         return _orig_wx_send(message, group, at=at, at_all=at_all)
@@ -635,9 +641,14 @@ def start_instances(instances):
                 except Exception as e:
                     error(f"微信发送拦截器错误: {e}")
         ctx = _captured_reply_contexts.pop((src, group), None)
+        debug(f"[批量发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
-            # 消费 Web 上下文
-            _web_msg_context.pop(group, None)
+            # 消费 Web 上下文（FIFO：从队列头部移除）
+            ctx_list = _web_msg_context.get(group, [])
+            if ctx_list:
+                ctx_list.pop(0)
+                if not ctx_list:
+                    del _web_msg_context[group]
             _web_processing_instances.pop(group, None)
             if not ctx.get("sync_to_wx", True):
                 debug(f"[Web聊天] 跳过微信发送（sync_to_wx=false）: group={group!r}")
