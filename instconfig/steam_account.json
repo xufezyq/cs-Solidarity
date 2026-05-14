@@ -7,12 +7,9 @@
     "【cs-Solidarity】已经成功启动，当前版本：v{version}",
     "",
     "更新内容：",
-    "- 修复 web 消息同步到微信切换的兼容性问题",
-    "- 修复 Web 端无法收到 AI 回复的问题",
-    "- 修复聊天文件上传路径和类型限制问题",
+    "- 修复若若若若若干 bug（燃尽了）",
     "",
     "控制面板：http://159.75.169.14:11029/",
-    "灾害预警管理：http://159.75.169.14:11030/",
     "该项目已开源至：https://github.com/xufezyq/cs-Solidarity",
     "please give the project a Star."
   ],
