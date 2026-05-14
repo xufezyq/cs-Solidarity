@@ -78,11 +78,12 @@ class PwStatsReporter:
             match_mvp_info, match_player_details
         )
 
-        # 检测 S 段位晋级
+        # 检测 S 段位晋级（仅从 <2401 升到 >=2401 时播报）
         promo_msgs = []
         for steam_id, data, _, _, _, nickname, _ in all_players:
             pvpScore = data.get('pvpScore', 0)
-            if pvpScore >= 2401:
+            prev_score = data.get('_prev_pvpScore', 0)
+            if pvpScore >= 2401 and prev_score < 2401:
                 pw_name = data.get('nickName', '') or nickname
                 promo_msgs.append(f"🎉 恭喜 {pw_name} 达到 S 段位！")
 
@@ -108,9 +109,10 @@ class PwStatsReporter:
                 last_match = matches[0]
                 match_id = last_match.get('matchId')
 
-                # 记录上一场的星星，用于计算变化
+                # 记录上一场的星星和分数，用于计算变化/晋级检测
                 prev_match = matches[1] if len(matches) > 1 else None
                 last_match['_prev_pvpStars'] = prev_match.get('pvpStars', 0) if prev_match else 0
+                last_match['_prev_pvpScore'] = prev_match.get('pvpScore', 0) if prev_match else 0
 
                 self.log(f"[{datetime.now()}] {steam_id} 发现最近比赛: {match_id}")
 
