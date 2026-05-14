@@ -165,16 +165,16 @@ def restore_wechat():
 # 消息处理
 # ============================================================
 def process_send_message(name, message, orig_senders, instances=None):
-    """发送消息并处理发送期间捕获的新消息"""
+    """发送消息并处理发送期间捕获的新消息。返回 True 表示实际发送了消息。"""
     # 检查是否允许发送消息
     if not ENABLE_SEND:
         debug(f"[发送] 跳过：发送功能已禁用 (name={name})")
-        return
+        return False
 
     # 检查是否在维护时间内
     if is_maintenance_time():
         info(f"[发送] 跳过：当前是维护时间 (name={name})")
-        return
+        return False
 
     # Web 聊天"仅网页"模式：跳过微信发送，避免窗口闪烁
     target = message.get("target", name) if isinstance(message, dict) else name
@@ -183,7 +183,7 @@ def process_send_message(name, message, orig_senders, instances=None):
         debug(f"[发送] 跳过：sync_to_wx=false (name={name}, target={target})")
         _web_msg_context.pop(target, None)
         _web_processing_instances.pop(target, None)
-        return
+        return False
 
     debug(f"发送：name={name}, target={target}")
     try:
@@ -206,10 +206,13 @@ def process_send_message(name, message, orig_senders, instances=None):
                             inst.handle_message(target_chat, msg)
                         except Exception as e:
                             error(f"{inst_name} 处理失败: {e}")
+            return True
         else:
             warning(f"未知来源: {name}，已跳过")
+            return False
     except Exception as e:
         error(f"发送失败 ({name}): {e}")
+        return False
 
 def process_all_pending_messages(msg_queue, orig_senders, instances=None):
     """一次性处理队列中所有待发送消息，然后切回文件传输助手并最小化
@@ -224,11 +227,11 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
                 info("维护时段，跳过发送")
                 msg_queue.task_done()
                 continue
-            process_send_message(name, message, orig_senders, instances)
-            sent_any = True
+            if process_send_message(name, message, orig_senders, instances):
+                sent_any = True
+                # 增加延迟，确保 KoriChat 等实例有足够时间完成消息发送
+                human_delay(1000, 2000)  # 消息间随机延迟（增加到 1-2 秒）
             msg_queue.task_done()
-            # 增加延迟，确保 KoriChat 等实例有足够时间完成消息发送
-            human_delay(1000, 2000)  # 消息间随机延迟（增加到 1-2 秒）
         except queue.Empty:
             break
 
