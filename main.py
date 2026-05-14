@@ -70,8 +70,8 @@ web_msg_queue = queue.Queue()
 _web_replies_map = {}
 # Web 消息上下文：chat_name → [{"sender", "content", "sync_to_wx"}, ...]（队列，FIFO 消费）
 _web_msg_context = {}
-# 已捕获回复的上下文：(instance, target) → {"sender", "content"}
-# 拦截器在上下文有效时捕获，_intercepted_wx_send 读取后删除
+# 已捕获回复的上下文：group → [{"sender", "content", "sync_to_wx"}, ...]
+# 拦截器 append，_intercepted_wx_send FIFO pop，防止多实例共享群时上下文串扰
 _captured_reply_contexts = {}
 # Web 聊天处理实例映射：chat_name → instance_name（用于异步回复时确定发送者）
 _web_processing_instances = {}
@@ -337,7 +337,7 @@ def _web_reply_interceptor(instance_name, message, group=None):
             only_list = next(iter(_web_msg_context.values()))
             ctx = only_list[-1] if only_list else None
         if ctx:
-            _captured_reply_contexts[(src, capture_key)] = ctx
+            _captured_reply_contexts.setdefault(capture_key, []).append(ctx)
             debug(f"[拦截器] capture_key={capture_key!r}, sync_to_wx={ctx.get('sync_to_wx')}, src={src!r}")
 
     # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
@@ -605,8 +605,11 @@ def start_instances(instances):
                 _on_message_interceptor(src, message, group=group)
             except Exception as e:
                 error(f"微信发送拦截器错误: {e}")
-        # 统一补充上下文：从 _captured_reply_contexts 读取（拦截器在 handle_message 期间已捕获）
-        ctx = _captured_reply_contexts.pop((src, group), None)
+        # 统一补充上下文：从 _captured_reply_contexts 读取（FIFO 消费）
+        cap_list = _captured_reply_contexts.get(group, [])
+        ctx = cap_list.pop(0) if cap_list else None
+        if not cap_list:
+            _captured_reply_contexts.pop(group, None)
         debug(f"[发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
             # 消费 Web 上下文（FIFO：从队列头部移除）
@@ -640,7 +643,10 @@ def start_instances(instances):
                     _on_message_interceptor(src, msg, group=group)
                 except Exception as e:
                     error(f"微信发送拦截器错误: {e}")
-        ctx = _captured_reply_contexts.pop((src, group), None)
+        cap_list = _captured_reply_contexts.get(group, [])
+        ctx = cap_list.pop(0) if cap_list else None
+        if not cap_list:
+            _captured_reply_contexts.pop(group, None)
         debug(f"[批量发送拦截] src={src!r}, group={group!r}, ctx_found={ctx is not None}, sync_to_wx={ctx.get('sync_to_wx') if ctx else 'N/A'}")
         if ctx:
             # 消费 Web 上下文（FIFO：从队列头部移除）
