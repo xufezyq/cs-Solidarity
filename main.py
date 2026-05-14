@@ -180,7 +180,7 @@ def process_send_message(name, message, orig_senders, instances=None):
     target = message.get("target", name) if isinstance(message, dict) else name
     ctx_list = _web_msg_context.get(target, [])
     if ctx_list and not ctx_list[-1].get("sync_to_wx", True):
-        debug(f"[发送] 跳过：sync_to_wx=false (target={target})")
+        debug(f"[发送] 跳过：sync_to_wx=false (name={name}, target={target})")
         _web_msg_context.pop(target, None)
         _web_processing_instances.pop(target, None)
         return
