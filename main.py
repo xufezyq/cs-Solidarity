@@ -331,14 +331,17 @@ def _web_reply_interceptor(instance_name, message, group=None):
     # 必须在去重检查之前，否则去重命中时上下文未捕获，sync_to_wx 检查会被跳过。
     capture_key = group or reply_target
     if capture_key:
-        ctx_list = _web_msg_context.get(capture_key, [])
-        ctx = ctx_list[-1] if ctx_list else None
-        if not ctx and len(_web_msg_context) == 1 and capture_key in _web_processing_instances:
-            only_list = next(iter(_web_msg_context.values()))
-            ctx = only_list[-1] if only_list else None
-        if ctx:
-            _captured_reply_contexts.setdefault(capture_key, []).append(ctx)
-            debug(f"[拦截器] capture_key={capture_key!r}, sync_to_wx={ctx.get('sync_to_wx')}, src={src!r}")
+        # 只有 Web 消息的处理实例才捕获上下文，防止其他实例（如 disaster_warning）串扰
+        expected_src = _web_processing_instances.get(capture_key)
+        if expected_src and src == expected_src:
+            ctx_list = _web_msg_context.get(capture_key, [])
+            ctx = ctx_list[-1] if ctx_list else None
+            if not ctx and len(_web_msg_context) == 1:
+                only_list = next(iter(_web_msg_context.values()))
+                ctx = only_list[-1] if only_list else None
+            if ctx:
+                _captured_reply_contexts.setdefault(capture_key, []).append(ctx)
+                debug(f"[拦截器] capture_key={capture_key!r}, sync_to_wx={ctx.get('sync_to_wx')}, src={src!r}")
 
     # 去重：同一消息可能被拦截两次（实例直接调用 + 主循环发送），
     # 用 (content, target) 记录已处理的消息，避免重复入队
@@ -396,7 +399,9 @@ def process_web_messages(instances):
         # 注册回复路由和消息上下文
         if replies_q:
             _web_replies_map[chat_name] = replies_q
-        _web_msg_context.setdefault(chat_name, []).append({"sender": sender, "content": content, "sync_to_wx": web_msg.get("sync_to_wx", True), "ts": time.time()})
+        _sync = web_msg.get("sync_to_wx", True)
+        _web_msg_context.setdefault(chat_name, []).append({"sender": sender, "content": content, "sync_to_wx": _sync, "ts": time.time()})
+        debug(f"[Web消息] chat_name={chat_name!r}, sender={sender!r}, sync_to_wx={_sync}, raw_keys={list(web_msg.keys())}")
         # 清理超过 60 秒的旧上下文，防止内存泄漏
         cutoff = time.time() - 60
         for k in list(_web_msg_context.keys()):
