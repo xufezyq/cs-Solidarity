@@ -27,12 +27,15 @@ async def send_message(req: ChatSendRequest, current_user: User = Depends(get_cu
 
     sender = req.sender or current_user.username
 
-    result = await bridge.send_request("chat.send", {
+    params = {
         "content": req.content,
         "sender": sender,
         "chat_name": req.chat_name or "网页聊天室",
         "sync_to_wx": req.sync_to_wx,
-    }, timeout=60)
+    }
+    import logging
+    logging.getLogger(__name__).info(f"[API] chat.send params: sync_to_wx={req.sync_to_wx} (type={type(req.sync_to_wx).__name__}), raw_body_sync={req.sync_to_wx}")
+    result = await bridge.send_request("chat.send", params, timeout=60)
 
     if not result.get("success"):
         raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
