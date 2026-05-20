@@ -44,6 +44,7 @@ class SendMessageRequest(BaseModel):
     content: str
     at: Optional[List[str]] = None
     at_all: bool = False
+    force: bool = False  # 强制发送，绕过维护时间检查
 
 
 # ── 路由 ──
@@ -56,8 +57,8 @@ async def health():
 @app.post("/send/message")
 async def send_message(req: SendMessageRequest):
     """发送文本消息（投队列，主循环处理）"""
-    if _is_maintenance_time():
-        return {"success": False, "error": "当前是维护时段，暂不支持发送"}
+    if _is_maintenance_time() and not req.force:
+        return {"success": False, "error": "当前是维护时段，暂不支持发送（可使用 force=true 强制发送）"}
     if not req.target or not req.content:
         return {"success": False, "error": "target 和 content 不能为空"}
 
@@ -82,10 +83,11 @@ async def send_message(req: SendMessageRequest):
 async def send_file(
     target: str = Form(...),
     file: UploadFile = File(...),
+    force: bool = Form(False),
 ):
     """发送文件/图片（multipart 上传，投队列，主循环处理）"""
-    if _is_maintenance_time():
-        return {"success": False, "error": "当前是维护时段，暂不支持发送"}
+    if _is_maintenance_time() and not force:
+        return {"success": False, "error": "当前是维护时段，暂不支持发送（可使用 force=true 强制发送）"}
     if not target:
         return {"success": False, "error": "target 不能为空"}
 
