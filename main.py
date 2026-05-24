@@ -500,27 +500,29 @@ def process_api_send_requests():
             continue
 
         try:
-            with _send_lock:
-                _sending_count += 1
-                _is_sending = True
-                _last_send_time = time.time()
+            if req_type == "text":
+                # 文本消息：走 wechat_instance.send_message（统一 @ 方案）
+                msg = {"content": content, "at": at, "at_all": at_all} if (at or at_all) else content
+                wechat_instance.send_message(msg, target, at=at, at_all=at_all)
+                info(f"[API] 已发送消息到 {target}")
+            elif req_type == "file":
+                # 文件：send_message 不支持文件，保留原有逻辑
+                with _send_lock:
+                    _sending_count += 1
+                    _is_sending = True
+                    _last_send_time = time.time()
 
-            wx = wechat_instance.get_wechat()
-            if not wx:
-                if result_q:
-                    result_q.put({"success": False, "error": "微信实例未就绪"})
-                continue
+                wx = wechat_instance.get_wechat()
+                if not wx:
+                    if result_q:
+                        result_q.put({"success": False, "error": "微信实例未就绪"})
+                    continue
 
-            human_action_delay()
+                human_action_delay()
 
-            with _send_op_lock:
-                wx.ChatWith(target)
-                human_delay(400, 900)
-
-                if req_type == "text":
-                    wx.SendMsg(content, clear=True, at=at, at_all=at_all)
-                    info(f"[API] 已发送消息到 {target}")
-                elif req_type == "file":
+                with _send_op_lock:
+                    wx.ChatWith(target)
+                    human_delay(400, 900)
                     wx.SendFiles(content)
                     info(f"[API] 已发送文件 {req.get('filename', '')} 到 {target}")
 
@@ -533,10 +535,11 @@ def process_api_send_requests():
             if result_q:
                 result_q.put({"success": False, "error": str(e)})
         finally:
-            with _send_lock:
-                _sending_count -= 1
-                if _sending_count <= 0:
-                    _is_sending = False
+            if req_type == "file":
+                with _send_lock:
+                    _sending_count -= 1
+                    if _sending_count <= 0:
+                        _is_sending = False
 
     return processed
 
