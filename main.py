@@ -490,6 +490,8 @@ def process_api_send_requests():
         req_type = req.get("type")
         target = req.get("target", "")
         content = req.get("content", "")
+        at = req.get("at")
+        at_all = req.get("at_all", False)
         result_q = req.get("result_q")
 
         if not target or not content:
@@ -516,7 +518,7 @@ def process_api_send_requests():
                 human_delay(400, 900)
 
                 if req_type == "text":
-                    wx.SendMsg(content, clear=True)
+                    wx.SendMsg(content, clear=True, at=at, at_all=at_all)
                     info(f"[API] 已发送消息到 {target}")
                 elif req_type == "file":
                     wx.SendFiles(content)
