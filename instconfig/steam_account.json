@@ -1,13 +1,13 @@
 {
   "enable_all_friends": false,
-  "check_interval": 60,
+  "check_interval": 30,
   "enable_news_check": true,
-  "check_news_interval": 3600,
+  "check_news_interval": 600,
   "code_update_lines": [
     "【cs-Solidarity】已经成功启动，当前版本：v{version}",
     "",
     "更新内容：",
-    "- 优化部分内容",
+    "- 优化部分功能",
     "",
     "控制面板：http://159.75.169.14:11029/",
     "该项目已开源至：https://github.com/xufezyq/cs-Solidarity",
