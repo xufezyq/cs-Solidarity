@@ -527,11 +527,25 @@
   .frame-img.h-32{height:32vh}
   .frame-img.swiss-lined{border-top:2px solid var(--accent)}
   .frame-img.swiss-keyline{border:0}
+  .shot-grid{display:grid;grid-template-columns:1.05fr 1fr 1.05fr;gap:1.3vw;align-items:stretch;min-height:0}
+  .shot-stack{display:grid;grid-template-rows:1fr 1fr;gap:1.3vh;min-height:0}
+  .screen-card{background:var(--paper);border-top:3px solid var(--accent);padding:1.1vh 1vw;display:flex;flex-direction:column;gap:.9vh;min-height:0;box-shadow:0 18px 50px rgba(0,0,0,.08)}
+  .screen-card.dark{background:var(--ink);color:var(--paper)}
+  .screen-title{font-family:var(--sans),var(--sans-zh);font-size:max(14px,.82vw);font-weight:500;letter-spacing:.02em;text-transform:uppercase;color:var(--accent)}
+  .screen-card.dark .screen-title{color:var(--accent-bright)}
+  .screen-note{font-family:var(--sans),var(--sans-zh);font-size:max(12px,.72vw);line-height:1.42;color:var(--text-secondary)}
+  .screen-card.dark .screen-note{color:rgba(255,255,255,.72)}
+  .screen-card .frame-img{background:rgba(0,0,0,.035);flex:1;min-height:0}
+  .diagram-card{background:var(--paper);border-top:3px solid var(--accent);padding:1.5vh 1.4vw;box-shadow:0 18px 50px rgba(0,0,0,.08)}
+  .diagram-card .frame-img{background:transparent}
+  .cue-band{display:grid;grid-template-columns:auto 1fr;gap:1.4vw;align-items:center;border-top:2px solid var(--accent);padding-top:1.6vh}
+  .cue-mark{font-family:var(--mono);font-size:max(14px,.82vw);letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+  .cue-text{font-family:var(--sans),var(--sans-zh);font-size:max(16px,.96vw);line-height:1.48;color:var(--text-secondary)}
 
   /* P22 Image Hero: 下半屏内容区必须和图片拉开距离,不要贴在图下沿 */
   .image-hero-body{
     display:grid;grid-template-columns:6fr 6fr;gap:3vw;
-    padding:6.6vh 5vw 4.4vh;flex:1;align-content:start
+    padding:6.2vh 5vw 6.4vh;flex:1;align-content:start
   }
   .image-hero-stats{
     display:grid;grid-template-columns:repeat(3,1fr);gap:2vw;align-items:start
@@ -609,6 +623,36 @@
   .card-ink .t-meta,.card-ink .t-cat{color:rgba(255,255,255,.6)}
   .card-accent{background:var(--accent);border:0;color:var(--accent-on)}
   .card-accent .t-meta,.card-accent .t-cat{color:var(--accent-on)}
+  .four-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.4vw;align-items:stretch;min-height:0}
+  .four-cards .fc-col{min-width:0;min-height:0}
+  .dense-four{height:48vh}
+  .dense-four .fc-col{padding:2.8vh 1.7vw!important;gap:1.2vh!important}
+  .dense-four h3{font-size:max(20px,1.9vw)!important;line-height:1.08!important}
+  .dense-four p{font-size:max(15px,.94vw)!important;line-height:1.42!important}
+  .dense-four .fc-col::after{
+    display:block;margin-top:auto;padding-top:1.8vh;border-top:1px solid var(--border-subtle);
+    font-family:var(--sans);font-size:min(4.4vw,8.4vh);font-weight:250;line-height:.9;
+    letter-spacing:-.04em;color:rgba(0,76,255,.16)
+  }
+  .dense-four .fc-col:nth-child(1)::after{content:"STEAM"}
+  .dense-four .fc-col:nth-child(2)::after{content:"AI"}
+  .dense-four .fc-col:nth-child(3)::after{content:"PUSH"}
+  .dense-four .fc-col:nth-child(4)::after{content:"OPS"}
+  .dense-six{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,22vh);gap:1.3vh 1.1vw;align-content:start}
+  .dense-six .sub-card{padding:2.2vh 1.6vw 1.9vh}
+  .dense-six .sub-card > div:nth-of-type(1){font-size:max(18px,1.5vw)!important}
+  .dense-six .sub-card > div:nth-of-type(2){font-size:max(15px,.92vw)!important;line-height:1.42!important}
+  .dense-six .sub-card::after{
+    display:block;margin-top:auto;padding-top:1.2vh;border-top:1px solid var(--border-subtle);
+    font-family:var(--mono);font-size:max(13px,.78vw);letter-spacing:.16em;
+    color:var(--accent);text-transform:uppercase
+  }
+  .dense-six .sub-card:nth-child(1)::after{content:"monitor"}
+  .dense-six .sub-card:nth-child(2)::after{content:"chat"}
+  .dense-six .sub-card:nth-child(3)::after{content:"memory"}
+  .dense-six .sub-card:nth-child(4)::after{content:"market"}
+  .dense-six .sub-card:nth-child(5)::after{content:"schedule"}
+  .dense-six .sub-card:nth-child(6)::after{content:"warning"}
 
   /* ============ 动效 (与原模板一致) ============ */
   [data-anim]{opacity:1}
@@ -648,7 +692,7 @@
     width:100vw;
     height:100vh;
     background:var(--paper);color:var(--ink);
-    padding:5.6vh 5vw 4.4vh;
+    padding:4.8vh 5vw 6.8vh;
     display:flex;flex-direction:column;
     position:relative;overflow:hidden;
     box-shadow:none;
@@ -1168,6 +1212,35 @@
   }
   .slide.dark .canvas-card .chrome-min,.split-half .half.b-ink .canvas-card .chrome-min{color:rgba(255,255,255,.62)}
 
+  /* ============ 代码展示块 (Swiss Dark Panel) ============ */
+  .code-panel{
+    background:var(--ink);color:rgba(255,255,255,.88);
+    padding:1.8vh 1.6vw;
+    font-family:var(--mono);
+    font-size:max(11px,.68vw);
+    line-height:1.75;
+    overflow:hidden;
+    position:relative;
+    white-space:pre;
+    tab-size:2;
+    -moz-tab-size:2;
+  }
+  .code-panel .kw{color:var(--accent-bright)}
+  .code-panel .cm{color:rgba(255,255,255,.38)}
+  .code-panel .str{color:rgba(255,255,255,.72)}
+  .code-panel .fn{color:rgba(255,255,255,.94)}
+  .code-panel .num{color:var(--accent-bright)}
+  .code-panel .op{color:rgba(255,255,255,.55)}
+  .code-panel .tag{display:inline;font-family:inherit;font-size:inherit;letter-spacing:inherit;text-transform:none;padding:0;border:0;opacity:1}
+  .code-panel .dot-line{
+    position:absolute;top:1.4vh;right:1.2vw;
+    width:1.4vw;height:1.4vw;
+    background-image:radial-gradient(rgba(255,255,255,.3) 1px,transparent 1px);
+    background-size:5px 5px;opacity:.5
+  }
+  .code-panel.compact{padding:1.2vh 1.4vw;font-size:max(10px,.62vw);line-height:1.65}
+  .code-panel.wide{grid-column:span 2}
+
   /* 响应式降级 */
   @media (max-width:900px){
     .h-hero{font-size:16vw}
@@ -1192,7 +1265,8 @@
     const KEY = 'guizang-ppt-low-power';
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const stored = localStorage.getItem(KEY);
-    window.__lowPowerMode = stored === '1' || (stored === null && reduced);
+    const staticPreview = new URLSearchParams(location.search).get('static') === '1';
+    window.__lowPowerMode = staticPreview || stored === '1' || (stored === null && reduced);
     function updateHint(){
       const hint = document.getElementById('hint');
       if(hint) hint.textContent = `← → 翻页 · B ${window.__lowPowerMode ? '动态' : '静态'} · ESC 索引`;
@@ -1232,7 +1306,7 @@
     <canvas class="ascii-bg" aria-hidden="true"></canvas>
     <div class="chrome-min">
       <div class="l">cs-Solidarity · Project Deck</div>
-      <div class="r">SS · 26.05.26 · 01 / 11</div>
+      <div class="r">SS · 26.05.26 · 01 / 14</div>
     </div>
     <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:2.6vh">
       <div data-anim="kicker" class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em">WECHAT BOT · OPEN SOURCE</div>
@@ -1250,11 +1324,11 @@
 <section class="slide split" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
-      <div class="half b-accent" style="padding:5.6vh 3.6vw 4.4vh;justify-content:space-between;position:relative;overflow:hidden">
+      <div class="half b-accent" style="padding:5.2vh 3.6vw 6.4vh;justify-content:space-between;position:relative;overflow:hidden">
         <canvas class="ascii-bg" aria-hidden="true"></canvas>
         <div class="chrome-min" style="margin-bottom:0;position:relative;z-index:1">
-          <div class="l">02 / 11</div>
-          <div class="r">CLOSING</div>
+          <div class="l">02 / 14</div>
+          <div class="r">FOUNDATION</div>
         </div>
         <div data-anim="manifesto" style="display:flex;flex-direction:column;gap:2vh;position:relative;z-index:1">
           <div class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em;margin-bottom:1.6vh">MANIFESTO</div>
@@ -1266,7 +1340,7 @@
           <div class="t-meta" style="color:rgba(255,255,255,.62)">26.05.26</div>
         </div>
       </div>
-      <div class="half" style="padding:5.6vh 3.6vw 4.4vh;justify-content:space-between">
+      <div class="half" style="padding:5.2vh 3.6vw 6.4vh;justify-content:space-between">
         <div class="chrome-min">
           <div class="l">TAKEAWAYS</div>
           <div class="r">03 KEY POINTS</div>
@@ -1294,7 +1368,7 @@
             </div>
           </div>
         </div>
-        <div data-anim="foot" class="t-meta" style="color:var(--text-helper);text-align:right">→ 完 · END OF DECK</div>
+        <div data-anim="foot" class="t-meta" style="color:var(--text-helper);text-align:right">→ 先建立心智模型，再看功能效果</div>
       </div>
     </div>
   </div>
@@ -1303,34 +1377,100 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Overview · Core Capabilities</div>
-      <div class="r">03 / 11</div>
+      <div class="r">03 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
-      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.6vh;align-content:start">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1vh">
         <div class="t-cat accent">WHAT IT DOES</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">四大核心能力</h2>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.4vw,10.4vh);line-height:.96;letter-spacing:-.035em">四大核心能力</h2>
       </div>
-      <div class="four-cards" data-anim="up" style="margin-top:2vh">
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+      <div class="four-cards dense-four" data-anim="up" style="margin-top:.4vh">
+        <article class="fc-col card-fill" style="padding:2.2vh 1.6vw;display:flex;flex-direction:column;gap:.8vh">
           <span class="t-meta" style="color:var(--accent)">— 01 / STEAM</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">游戏状态监控</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">好友在线追踪 · CS2 新闻推送 · 完美世界战绩 · 排行榜系统</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.7vw);line-height:1.12;letter-spacing:-.015em">游戏状态监控</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.86vw);line-height:1.36;color:var(--text-secondary);font-weight:400">好友在线追踪 · CS2 新闻推送 · 完美世界战绩 · 排行榜系统</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:2.2vh 1.6vw;display:flex;flex-direction:column;gap:.8vh">
           <span class="t-meta" style="color:var(--accent)">— 02 / AI</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">智能对话引擎</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">OpenAI 兼容 API · 多用户隔离 · KoriChat 角色扮演 · 长短期记忆</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.7vw);line-height:1.12;letter-spacing:-.015em">智能对话引擎</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.86vw);line-height:1.36;color:var(--text-secondary);font-weight:400">OpenAI 兼容 API · 多用户隔离 · KoriChat 角色扮演 · 长短期记忆</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:2.2vh 1.6vw;display:flex;flex-direction:column;gap:.8vh">
           <span class="t-meta" style="color:var(--accent)">— 03 / PUSH</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">信息与预警推送</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">黄金价格 · A 股行情 · 地震/气象/海啸预警 · 多源数据融合</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.7vw);line-height:1.12;letter-spacing:-.015em">信息与预警推送</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.86vw);line-height:1.36;color:var(--text-secondary);font-weight:400">黄金价格 · A 股行情 · 地震/气象/海啸预警 · 多源数据融合</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:2.2vh 1.6vw;display:flex;flex-direction:column;gap:.8vh">
           <span class="t-meta" style="color:var(--accent)">— 04 / WEB</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">远程管理面板</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">Vue 3 SPA · Agent-Server 架构 · 实时日志 · 配置热更新</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.7vw);line-height:1.12;letter-spacing:-.015em">远程管理面板</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.86vw);line-height:1.36;color:var(--text-secondary);font-weight:400">Vue 3 SPA · Agent-Server 架构 · 实时日志 · 配置热更新</p>
         </article>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-animate="grid-reveal">
+  <div class="canvas-card">
+    <div class="chrome-min">
+      <div class="l">Demo · Function Screenshots</div>
+      <div class="r">04 / 14</div>
+    </div>
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:1vh;min-height:0">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:.6vh">
+        <div class="t-cat accent">SHOW THE RESULT FIRST</div>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(5.6vw,8.2vh);line-height:.96;letter-spacing:-.035em">功能截图速览</h2>
+      </div>
+      <div class="shot-grid" data-anim="up" style="margin-top:-.6vh">
+        <div class="shot-stack">
+          <article class="screen-card">
+            <div class="screen-title">Steam / WeChat Push</div>
+            <figure class="frame-img fit-contain r-16x9"><img src="../docs/images/steam好友游戏状态播报.png" alt="Steam 好友状态播报截图"></figure>
+            <div class="screen-note">状态变化自动入队，主线程发送到群聊。</div>
+          </article>
+          <article class="screen-card">
+            <div class="screen-title">Perfect World Stats</div>
+            <figure class="frame-img fit-contain r-16x9"><img src="../docs/images/完美战绩播报.png" alt="完美世界战绩播报截图"></figure>
+            <div class="screen-note">CS2 战绩、评分、排行榜作为每日播报素材。</div>
+          </article>
+        </div>
+        <article class="screen-card dark">
+          <div class="screen-title">KoriChat</div>
+          <figure class="frame-img fit-contain r-3x4"><img src="../docs/images/KouriChat群聊示例1.png" alt="KoriChat 群聊示例截图"></figure>
+          <div class="screen-note">全量监听上下文，结合人设和记忆决定是否回复。</div>
+        </article>
+        <div class="shot-stack">
+          <article class="screen-card">
+            <div class="screen-title">Disaster Warning</div>
+            <figure class="frame-img fit-contain r-16x9"><img src="../docs/images/灾害预警界面.png" alt="灾害预警界面截图"></figure>
+            <div class="screen-note">多源预警数据融合，按会话差异化推送。</div>
+          </article>
+          <article class="screen-card">
+            <div class="screen-title">Web Dashboard</div>
+            <figure class="frame-img fit-contain r-16x9"><img src="../docs/images/Web仪表盘界面.png" alt="Web 仪表盘截图"></figure>
+            <div class="screen-note">远程查看状态、日志、实例和配置。</div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-animate="image-hero">
+  <div class="canvas-card">
+    <div class="chrome-min">
+      <div class="l">Architecture · Video Overview</div>
+      <div class="r">05 / 14</div>
+    </div>
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:2.4vh">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.2vh">
+        <div class="t-cat accent">WHO TALKS TO WHOM</div>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.6vw,10vh);line-height:.96;letter-spacing:-.035em">系统全景</h2>
+      </div>
+      <div class="diagram-card" data-anim="img">
+        <figure class="frame-img fit-contain r-16x9"><img src="images/system-overview.png" alt="cs-Solidarity 系统全景流程图"></figure>
+      </div>
+      <div class="cue-band">
+        <div class="cue-mark">NARRATION</div>
+        <div class="cue-text">外部数据源进入实例层，实例只做业务判断；所有微信 GUI 操作最终回到 Bot 主线程。</div>
       </div>
     </div>
   </div>
@@ -1339,14 +1479,14 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Architecture · System Layers</div>
-      <div class="r">04 / 11</div>
+      <div class="r">06 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.4vh;align-content:start">
       <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
         <div class="t-cat accent">CORE ARCHITECTURE</div>
         <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">三层系统架构</h2>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4vw;align-items:start" data-anim="up">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.08fr;gap:2vw;align-items:stretch;height:56vh" data-anim="up">
         <!-- 左: 三层栈 -->
         <div style="display:flex;flex-direction:column;gap:0">
           <div class="stack-block b-accent" style="padding:2.4vh 1.8vw">
@@ -1369,7 +1509,7 @@
           </div>
         </div>
         <!-- 右: 关键设计原则 -->
-        <div style="display:flex;flex-direction:column;gap:2.4vh;padding-top:1vh">
+        <div style="display:flex;flex-direction:column;gap:1.8vh;padding-top:0">
           <div style="border-left:3px solid var(--accent);padding-left:1.6vw">
             <div class="t-cat accent" style="margin-bottom:1vh">THREAD SAFETY</div>
             <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400">所有 WeChat GUI 操作只在主线程执行。后台线程通过 monkey-patch 将 send_message() 重定向到消息队列，主线程串行消费。</p>
@@ -1383,41 +1523,23 @@
             <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400">发送前预读未读消息 + 发送后 diff 捕获新消息，两批按 ID 去重合并，解决 ChatWith() 清除未读的竞态条件。</p>
           </div>
         </div>
-        <!-- 三层架构数据流图 -->
-        <svg viewBox="0 0 360 172" style="width:100%;height:auto;margin-top:1vh" xmlns="http://www.w3.org/2000/svg">
-          <rect x="0" y="4" width="120" height="30" rx="1" fill="var(--ink)" opacity="0.9"/>
-          <text x="60" y="23" text-anchor="middle" fill="var(--paper)" font-family="var(--mono)" font-size="7" letter-spacing="1">EXTERNAL API</text>
-          <text x="60" y="44" text-anchor="middle" fill="var(--text-helper)" font-family="var(--sans)" font-size="6">Steam · DeepSeek · Sina · CENC</text>
+        <!-- 核心代码展示: Monkey-Patch + Factory -->
+        <div class="code-panel compact" style="height:100%;font-size:max(10px,.6vw);line-height:1.58;padding:1.1vh 1vw">
+          <span class="cm"># ── Factory Pattern: 注册 → 配置映射 → 自动创建 ──</span>
+          <span class="kw">def</span> <span class="fn">make_enqueue</span>(name):
+              <span class="kw">def</span> <span class="fn">enqueue</span>(msg):
+                  msg_queue.put((name, msg))
+              <span class="kw">return</span> enqueue
 
-          <line x1="60" y1="50" x2="60" y2="62" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
-          <polygon points="56,60 60,66 64,60" fill="var(--accent)" opacity="0.6"/>
+          <span class="cm"># Monkey-patch: 替换 send_message → 入队</span>
+          <span class="kw">for</span> name, inst <span class="kw">in</span> instances:
+              orig_senders[name] = inst.send_message
+              inst.send_message = make_enqueue(name)
+              Thread(target=inst.start, daemon=<span class="num">True</span>).start()
 
-          <rect x="0" y="66" width="120" height="30" rx="1" fill="var(--grey-1)" stroke="var(--grey-2)" stroke-width="0.5"/>
-          <text x="60" y="85" text-anchor="middle" fill="var(--ink)" font-family="var(--mono)" font-size="7" letter-spacing="1">INSTANCES</text>
-          <text x="60" y="104" text-anchor="middle" fill="var(--text-helper)" font-family="var(--sans)" font-size="6">6 种类型 · daemon 线程</text>
-
-          <line x1="60" y1="110" x2="60" y2="122" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
-          <polygon points="56,120 60,126 64,120" fill="var(--accent)" opacity="0.6"/>
-
-          <rect x="0" y="126" width="120" height="30" rx="1" fill="var(--accent)"/>
-          <text x="60" y="145" text-anchor="middle" fill="var(--accent-on)" font-family="var(--mono)" font-size="7" letter-spacing="1">CORE FRAMEWORK</text>
-          <text x="60" y="164" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-family="var(--sans)" font-size="6">主循环 · 队列 · Patch</text>
-
-          <rect x="140" y="66" width="100" height="90" rx="1" fill="none" stroke="var(--grey-2)" stroke-width="0.5" stroke-dasharray="3,2"/>
-          <text x="190" y="114" text-anchor="middle" fill="var(--text-helper)" font-family="var(--mono)" font-size="6">msg_queue</text>
-          <text x="190" y="126" text-anchor="middle" fill="var(--text-helper)" font-family="var(--sans)" font-size="5.5">解耦缓冲</text>
-
-          <line x1="120" y1="80" x2="140" y2="80" stroke="var(--accent)" stroke-width="0.8" opacity="0.5" marker-end="url(#a)"/>
-          <line x1="120" y1="100" x2="140" y2="100" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
-          <line x1="125" y1="140" x2="240" y2="140" stroke="var(--accent)" stroke-width="0.8" opacity="0.7"/>
-
-          <defs><marker id="a" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,1 L5,3 L0,5" fill="var(--accent)" opacity="0.5"/></marker></defs>
-
-          <text x="250" y="76" fill="var(--ink)" font-family="var(--mono)" font-size="7" letter-spacing="1">SEND</text>
-          <text x="250" y="90" fill="var(--text-helper)" font-family="var(--sans)" font-size="5.5">入队 → 主线程消费</text>
-          <text x="250" y="114" fill="var(--ink)" font-family="var(--mono)" font-size="7" letter-spacing="1">RECV</text>
-          <text x="250" y="128" fill="var(--text-helper)" font-family="var(--sans)" font-size="5.5">闪烁检测 → 路由分发</text>
-        </svg>
+          <span class="cm"># 主线程串行消费 · 所有 GUI 操作在此执行</span>
+          process_all_pending_messages(msg_queue, orig_senders)
+        </div>
       </div>
     </div>
   </div>
@@ -1426,14 +1548,14 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Architecture · Agent-Server Details</div>
-      <div class="r">05 / 11</div>
+      <div class="r">07 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.8vh;align-content:start">
       <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
         <div class="t-cat accent">WHY SPLIT-SERVER?</div>
         <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">分体式远程管理</h2>
       </div>
-      <div style="display:grid;grid-template-columns:5fr 7fr;gap:4vw;align-items:start" data-anim="up">
+      <div style="display:grid;grid-template-columns:5fr 7fr;gap:3vw;align-items:start;height:56vh" data-anim="up">
         <div style="display:flex;flex-direction:column;gap:3vh">
           <div style="border-left:3px solid var(--accent);padding-left:1.6vw">
             <div class="t-cat accent" style="margin-bottom:1vh">PROBLEM</div>
@@ -1511,15 +1633,15 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Thread Model · Main Loop</div>
-      <div class="r">06 / 11</div>
+      <div class="r">08 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto auto;gap:2.8vh;align-content:start">
       <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
         <div class="t-cat accent">MAIN LOOP ORDER</div>
         <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">主循环五步流程</h2>
         <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;max-width:60ch">每轮迭代严格按序执行 — 先发后收防止竞态，维护窗口自动暂停</p>
       </div>
-      <div style="display:flex;flex-direction:column;justify-content:center;gap:4vh">
+      <div style="display:flex;flex-direction:column;justify-content:center;gap:3vh;height:36vh">
         <div class="timeline-h">
           <span class="tl-h-axis"></span>
           <div class="tl-row">
@@ -1554,9 +1676,9 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Message Routing · Dual Dispatch</div>
-      <div class="r">07 / 11</div>
+      <div class="r">09 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.8vh;align-content:start">
       <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
         <div class="t-cat accent">TWO-TIER DISPATCH</div>
         <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">消息路由机制</h2>
@@ -1591,43 +1713,43 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Instances · Plugin System</div>
-      <div class="r">08 / 11</div>
+      <div class="r">10 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
-      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.6vh;align-content:start">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1vh">
         <div class="t-cat accent">SIX INSTANCE TYPES</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">六大实例模块</h2>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.4vw,10.4vh);line-height:.96;letter-spacing:-.035em">六大实例模块</h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:1.4vh 1.4vw;flex:1;align-content:stretch" data-anim="up">
+      <div class="dense-six" data-anim="up">
         <div class="sub-card card-fill">
           <span class="nb-corner">01</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">SteamAuto</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">好友游戏状态追踪 · CS2 新闻 · 完美世界战绩 · 每日报告</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">SteamAuto</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">好友游戏状态追踪 · CS2 新闻 · 完美世界战绩 · 每日报告</div>
         </div>
         <div class="sub-card card-fill">
           <span class="nb-corner">02</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">ChatAuto</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">OpenAI 兼容 API · 触发前缀路由 · 多用户上下文隔离</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">ChatAuto</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">OpenAI 兼容 API · 触发前缀路由 · 多用户上下文隔离</div>
         </div>
         <div class="sub-card card-fill">
           <span class="nb-corner">03</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">KoriChat</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">角色扮演 AI · 长短期记忆 · 图片识别 · 主动消息</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">KoriChat</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">角色扮演 AI · 长短期记忆 · 图片识别 · 主动消息</div>
         </div>
         <div class="sub-card card-fill">
           <span class="nb-corner">04</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">InfoPush</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">黄金价格 · A 股行情 · 每日新闻 · 按群差异化配置</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">InfoPush</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">黄金价格 · A 股行情 · 每日新闻 · 按群差异化配置</div>
         </div>
         <div class="sub-card card-fill">
           <span class="nb-corner">05</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">DailyAuto</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">定时固定消息 · schedule 调度 · 维护窗口暂停 · 调试模式</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">DailyAuto</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">定时固定消息 · schedule 调度 · 维护窗口暂停 · 调试模式</div>
         </div>
         <div class="sub-card card-fill">
           <span class="nb-corner">06</span>
-          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(17px,1.5vw);line-height:1.2;letter-spacing:-.015em;margin-bottom:1vh">DisasterWarning</div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;opacity:.78;margin-top:auto">地震预警 · 气象灾害 · 海啸追踪 · 多源融合 · 独立 Web 管理</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.35vw);line-height:1.12;letter-spacing:-.015em;margin-bottom:.6vh">DisasterWarning</div>
+          <div style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.34;opacity:.78">地震预警 · 气象灾害 · 海啸追踪 · 多源融合 · 独立 Web 管理</div>
         </div>
       </div>
     </div>
@@ -1637,42 +1759,59 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Feature · Steam Monitoring</div>
-      <div class="r">09 / 11</div>
+      <div class="r">11 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
-      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.6vh;align-content:start">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1vh">
         <div class="t-cat accent">FEATURE · 01</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">Steam 游戏监控</h2>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.4vw,10.4vh);line-height:.96;letter-spacing:-.035em">Steam 游戏监控</h2>
         <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:300">Steam Web API 轮询好友状态，自动检测开始/结束游戏事件，推送群聊通知。集成完美世界平台查询 CS2 战绩。</p>
       </div>
-      <div class="bar-towers" data-anim="up">
-        <div class="bar-tower">
-          <div class="body-block h-2" style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:2vh">
-            <div class="nb">30<span style="font-size:.36em;font-weight:300;opacity:.7;margin-left:.08em">s</span></div>
-          </div>
-          <div class="lbl">状态轮询</div>
-          <div class="sub">好友在线状态检测间隔</div>
+      <div style="display:grid;grid-template-columns:7fr 5fr;gap:2vw;height:50vh;align-items:stretch">
+        <!-- 左: 核心代码 -->
+        <div class="code-panel" style="height:100%">
+          <span class="cm"># ── 状态变更检测: Steam API 轮询 + diff ──</span>
+          <span class="kw">def</span> <span class="fn">check_status_changes</span>(<span class="kw">self</span>):
+            friends = <span class="kw">self</span>.steam.get_friend_status()
+            <span class="kw">for</span> f <span class="kw">in</span> friends:
+                steam_id = f.get(<span class="str">'steamid'</span>)
+                game_id  = f.get(<span class="str">'gameid'</span>, <span class="kw">None</span>)
+                <span class="cm"># 对比上一次状态</span>
+                prev = <span class="kw">self</span>.friend_game_status.get(steam_id, {})\
+                              .get(<span class="str">'gameid'</span>)
+
+                <span class="cm"># 开始游戏: 从无 → 有</span>
+                <span class="kw">if</span> game_id <span class="kw">and</span> game_id != <span class="str">'0'</span> \
+                   <span class="kw">and</span> prev != game_id:
+                    msg = <span class="str">f"🎮 {nickname} → {game_name}"</span>
+
+                <span class="cm"># 结束游戏: 从有 → 无 · 计算时长</span>
+                <span class="kw">elif</span> (<span class="kw">not</span> game_id <span class="kw">or</span> game_id == <span class="str">'0'</span>) \
+                     <span class="kw">and</span> prev <span class="kw">and</span> prev != <span class="str">'0'</span>:
+                    dur = time.time() - prev_start_time
+                    msg = <span class="str">f"👋 {nick}({dur_str}) 离开"</span>
+
+                <span class="cm"># CS2(AppID 730) 特殊处理 → 完美战绩查询</span>
+                <span class="kw">if</span> prev == <span class="str">'730'</span> <span class="kw">and</span> <span class="kw">self</span>.pw_api:
+                    stopped_cs2.append(steam_id)
         </div>
-        <div class="bar-tower">
-          <div class="body-block h-4 b-accent" style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:2vh">
-            <div class="nb">100<span style="font-size:.36em;font-weight:300;opacity:.7;margin-left:.08em">条</span></div>
+        <!-- 右: 关键数据指标 -->
+        <div style="display:flex;flex-direction:column;gap:2.4vh">
+          <div class="stat-card accent-top">
+            <div class="stat-label">状态轮询间隔</div>
+            <div class="stat-nb">60<span class="stat-unit">s</span></div>
+            <div class="stat-note">Steam Web API · GetPlayerSummaries · 好友在线状态 diff</div>
           </div>
-          <div class="lbl">GID 缓存</div>
-          <div class="sub">Steam 新闻缓存上限 · 30 天过期</div>
-        </div>
-        <div class="bar-tower">
-          <div class="body-block h-2" style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:2vh">
-            <div class="nb">5<span style="font-size:.36em;font-weight:300;opacity:.7;margin-left:.08em">榜</span></div>
+          <div class="stat-card thin">
+            <div class="stat-label">新闻缓存</div>
+            <div class="stat-nb">100<span class="stat-unit">条</span></div>
+            <div class="stat-note">GID 去重 · 30 天过期自动清理 · 600s 轮询</div>
           </div>
-          <div class="lbl">排行榜</div>
-          <div class="sub">击杀·死亡·RT·WE·得分</div>
-        </div>
-        <div class="bar-tower">
-          <div class="body-block h-3" style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:2vh">
-            <div class="nb">600<span style="font-size:.36em;font-weight:300;opacity:.7;margin-left:.08em">s</span></div>
+          <div class="stat-card thin">
+            <div class="stat-label">排行榜维度</div>
+            <div class="stat-nb">5<span class="stat-unit">榜</span></div>
+            <div class="stat-note">击杀 · 死亡 · RT 评分 · WE 评分 · 得分 (近 20 场)</div>
           </div>
-          <div class="lbl">新闻轮询</div>
-          <div class="sub">CS2 新闻推送检测间隔</div>
         </div>
       </div>
     </div>
@@ -1682,34 +1821,57 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Anti-Detection · 7 Patched Functions</div>
-      <div class="r">10 / 11</div>
+      <div class="r">12 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
-      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:2vh;min-height:0">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1vh">
         <div class="t-cat accent">CORE · ANTI-DETECTION</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">反检测系统</h2>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.2vw,9.2vh);line-height:.96;letter-spacing:-.035em">反检测系统</h2>
       </div>
-      <div class="four-cards" data-anim="up" style="margin-top:2vh">
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+      <div class="four-cards" data-anim="up" style="margin-top:0;height:19vh">
+        <article class="fc-col card-fill" style="padding:1.7vh 1.4vw;display:flex;flex-direction:column;gap:.6vh">
           <span class="t-meta" style="color:var(--accent)">— 01 / MOUSE</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">鼠标模拟</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">高斯抖动 ±1px · 贝塞尔曲线移动 · 犹豫停顿 · Win11 兼容</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.6vw);line-height:1.15;letter-spacing:-.015em">鼠标模拟</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.5;color:var(--text-secondary);font-weight:400;margin-top:auto">高斯抖动 ±1px · 贝塞尔曲线移动 · 犹豫停顿 · Win11 兼容</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:1.7vh 1.4vw;display:flex;flex-direction:column;gap:.6vh">
           <span class="t-meta" style="color:var(--accent)">— 02 / KEYBOARD</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">键盘时序</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">SendKeys 随机化 · 组合键思考延迟 · 打字 30-150ms/键</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.6vw);line-height:1.15;letter-spacing:-.015em">键盘时序</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.5;color:var(--text-secondary);font-weight:400;margin-top:auto">SendKeys 随机化 · 组合键思考延迟 · 打字 30-150ms/键</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:1.7vh 1.4vw;display:flex;flex-direction:column;gap:.6vh">
           <span class="t-meta" style="color:var(--accent)">— 03 / WINDOW</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">窗口管理</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">发送后最小化 · 切换安全聊天 · 移除 TOPMOST</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.6vw);line-height:1.15;letter-spacing:-.015em">窗口管理</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.5;color:var(--text-secondary);font-weight:400;margin-top:auto">发送后最小化 · 切换安全聊天 · 移除 TOPMOST</p>
         </article>
-        <article class="fc-col card-fill" style="padding:3vh 2vw;display:flex;flex-direction:column;gap:1.2vh">
+        <article class="fc-col card-fill" style="padding:1.7vh 1.4vw;display:flex;flex-direction:column;gap:.6vh">
           <span class="t-meta" style="color:var(--accent)">— 04 / POLLING</span>
-          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(20px,2vw);line-height:1.15;letter-spacing:-.015em">轮询时序</h3>
-          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:400;margin-top:auto">对数正态分布 · 高斯抖动 · human_delay 70%高斯+30%重尾</p>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(18px,1.6vw);line-height:1.15;letter-spacing:-.015em">轮询时序</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(14px,.84vw);line-height:1.5;color:var(--text-secondary);font-weight:400;margin-top:auto">对数正态分布 · 高斯抖动 · human_delay 70%高斯+30%重尾</p>
         </article>
+      </div>
+      <!-- 代码展示: Bezier 曲线 + 7 函数 Patch -->
+      <div class="code-panel compact" style="margin-top:0;min-height:0;font-size:max(13px,.82vw);line-height:1.45;padding:1vh 1.2vw">
+        <span class="cm"># ── 反检测核心: 后台线程只入队，真实 GUI 操作集中到主线程 ──</span>
+        <span class="kw">for</span> name, inst <span class="kw">in</span> instances.items():
+            orig_senders[name] = inst.send_message
+            inst.send_message = <span class="kw">lambda</span> msg, n=name: msg_queue.put((n, msg))
+            Thread(target=inst.start, daemon=<span class="num">True</span>).start()
+        <span class="cm"># ── 鼠标: Bezier 轨迹 + 高斯扰动 + 点击前后犹豫 ──</span>
+        <span class="kw">def</span> <span class="fn">_human_click</span>(x, y):
+            tx, ty = x + <span class="fn">gauss</span>(<span class="num">0</span>, <span class="num">1.2</span>), y + <span class="fn">gauss</span>(<span class="num">0</span>, <span class="num">1.2</span>)
+            <span class="fn">_bezier_move</span>(*<span class="fn">GetCursorPos</span>(), tx, ty, steps=<span class="fn">randint</span>(<span class="num">12</span>, <span class="num">28</span>))
+            time.sleep(<span class="fn">uniform</span>(<span class="num">0.08</span>, <span class="num">0.32</span>)); <span class="fn">real_click</span>(tx, ty)
+        <span class="cm"># ── 键盘/窗口: 随机键间隔、移除 TOPMOST、发完切回文件传输助手并最小化 ──</span>
+        uia.SetCursorPos = _jittered_set_cursor_pos; uia.Click = _human_click
+        uia.SendKeys = _human_send_keys; wxauto.WeChat._show = _show_without_topmost
+        <span class="kw">if</span> msg_queue.empty(): ChatWith(<span class="str">'文件传输助手'</span>); minimize_wechat()
+        <span class="cm"># ── 延迟模型: 常规操作用高斯分布，少量长尾模拟思考和切换窗口 ──</span>
+        <span class="kw">def</span> <span class="fn">human_delay</span>(base=<span class="num">0.18</span>, jitter=<span class="num">0.06</span>, tail=<span class="num">0.3</span>):
+            d = max(<span class="num">0.03</span>, <span class="fn">gauss</span>(base, jitter))
+            <span class="kw">if</span> random() &lt; tail: d += <span class="fn">lognormvariate</span>(-<span class="num">2.0</span>, <span class="num">0.55</span>)
+            time.sleep(d)
+        <span class="cm"># patch targets: ChatWith / SendMsg / SendFiles / SetCursorPos / Click / SendKeys / _show</span>
       </div>
     </div>
   </div>
@@ -1718,70 +1880,113 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">Web Panel · 10 Pages</div>
-      <div class="r">11 / 11</div>
+      <div class="r">13 / 14</div>
     </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr;gap:4vh">
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto auto;gap:2.6vh;align-content:start">
       <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
         <div class="t-cat accent">FEATURE · 04</div>
         <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7vw,12vh);line-height:.96;letter-spacing:-.035em">Web 管理面板</h2>
         <p style="font-family:var(--sans),var(--sans-zh);font-size:max(16px,.94vw);line-height:1.55;color:var(--text-secondary);font-weight:300">基于 FastAPI + Vue 3 SPA 的远程管理平台，Agent-Server WebSocket 架构，10 个功能页面覆盖全流程。</p>
       </div>
-      <div data-anim="ledger" style="display:flex;flex-direction:column;gap:0">
-        <div class="ledger-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:2vw;padding:2vh 0 2vh 1.6vw;border-left:3px solid var(--accent);border-bottom:1px solid var(--border-subtle);align-items:center">
-          <div style="display:flex;align-items:center;gap:1.4vw">
-            <div style="font-family:var(--sans);font-weight:250;font-size:min(3vw,5vh);line-height:1;color:var(--accent)">01</div>
+      <div data-anim="ledger" style="display:grid;grid-template-columns:1fr 1fr;gap:2vw;height:54vh;align-items:stretch">
+        <!-- 左: 功能列表 -->
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div class="ledger-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:1.4vw;padding:1.6vh 0 1.6vh 1.2vw;border-left:3px solid var(--accent);border-bottom:1px solid var(--border-subtle);align-items:center">
+            <div style="font-family:var(--sans);font-weight:250;font-size:2.4vw;line-height:1;color:var(--accent)">01</div>
             <div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(18px,1.4vw);letter-spacing:-.01em">Dashboard</div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);opacity:.65">Agent/Bot 状态 · CPU/RAM · 实例运行信息</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.2vw);letter-spacing:-.01em">Dashboard</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(13px,.78vw);opacity:.6">Agent/Bot 状态 · CPU/RAM · 运行信息</div>
             </div>
+            <div style="font-family:var(--mono);font-size:max(12px,.7vw);color:var(--accent);text-align:right">实时</div>
           </div>
-          <div style="font-family:var(--sans);font-weight:300;font-size:max(15px,.88vw);color:var(--text-helper)">Vue 3 SPA</div>
-          <div style="font-family:var(--mono);font-size:max(14px,.82vw);color:var(--accent);text-align:right">实时</div>
-        </div>
-        <div class="ledger-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:2vw;padding:2vh 0 2vh 1.6vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
-          <div style="display:flex;align-items:center;gap:1.4vw">
-            <div style="font-family:var(--sans);font-weight:250;font-size:min(3vw,5vh);line-height:1">02</div>
+          <div class="ledger-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:1.4vw;padding:1.6vh 0 1.6vh 1.2vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
+            <div style="font-family:var(--sans);font-weight:250;font-size:2.4vw;line-height:1">02</div>
             <div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(18px,1.4vw);letter-spacing:-.01em">Config</div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);opacity:.65">JSON 编辑器 + 备份恢复 · admin 专属</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.2vw);letter-spacing:-.01em">Config</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(13px,.78vw);opacity:.6">JSON 编辑器 + 备份恢复 · admin 专属</div>
             </div>
+            <div style="font-family:var(--mono);font-size:max(12px,.7vw);color:var(--accent);text-align:right">热更新</div>
           </div>
-          <div style="font-family:var(--sans);font-weight:300;font-size:max(15px,.88vw);color:var(--text-helper)">FastAPI</div>
-          <div style="font-family:var(--mono);font-size:max(14px,.82vw);color:var(--accent);text-align:right">热更新</div>
-        </div>
-        <div class="ledger-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:2vw;padding:2vh 0 2vh 1.6vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
-          <div style="display:flex;align-items:center;gap:1.4vw">
-            <div style="font-family:var(--sans);font-weight:250;font-size:min(3vw,5vh);line-height:1">03</div>
+          <div class="ledger-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:1.4vw;padding:1.6vh 0 1.6vh 1.2vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
+            <div style="font-family:var(--sans);font-weight:250;font-size:2.4vw;line-height:1">03</div>
             <div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(18px,1.4vw);letter-spacing:-.01em">Control</div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);opacity:.65">启停/重启 · debug 模式切换 · git pull · 依赖更新</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.2vw);letter-spacing:-.01em">Control</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(13px,.78vw);opacity:.6">启停/重启 · debug 切换 · git pull · 依赖更新</div>
             </div>
+            <div style="font-family:var(--mono);font-size:max(12px,.7vw);color:var(--accent);text-align:right">20 动作</div>
           </div>
-          <div style="font-family:var(--sans);font-weight:300;font-size:max(15px,.88vw);color:var(--text-helper)">Agent</div>
-          <div style="font-family:var(--mono);font-size:max(14px,.82vw);color:var(--accent);text-align:right">20 动作</div>
-        </div>
-        <div class="ledger-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:2vw;padding:2vh 0 2vh 1.6vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
-          <div style="display:flex;align-items:center;gap:1.4vw">
-            <div style="font-family:var(--sans);font-weight:250;font-size:min(3vw,5vh);line-height:1">04</div>
+          <div class="ledger-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:1.4vw;padding:1.6vh 0 1.6vh 1.2vw;border-left:3px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);align-items:center">
+            <div style="font-family:var(--sans);font-weight:250;font-size:2.4vw;line-height:1">04</div>
             <div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(18px,1.4vw);letter-spacing:-.01em">Logs</div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);opacity:.65">级别过滤 · 实时 WebSocket 推送 · 历史查看</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.2vw);letter-spacing:-.01em">Logs</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(13px,.78vw);opacity:.6">级别过滤 · WebSocket 实时推送 · 历史查看</div>
             </div>
+            <div style="font-family:var(--mono);font-size:max(12px,.7vw);color:var(--accent);text-align:right">30s 心跳</div>
           </div>
-          <div style="font-family:var(--sans);font-weight:300;font-size:max(15px,.88vw);color:var(--text-helper)">push</div>
-          <div style="font-family:var(--mono);font-size:max(14px,.82vw);color:var(--accent);text-align:right">30s 心跳</div>
-        </div>
-        <div class="ledger-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:2vw;padding:2vh 0 2vh 1.6vw;border-left:3px solid var(--border-subtle);align-items:center">
-          <div style="display:flex;align-items:center;gap:1.4vw">
-            <div style="font-family:var(--sans);font-weight:250;font-size:min(3vw,5vh);line-height:1">05</div>
+          <div class="ledger-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:1.4vw;padding:1.6vh 0 1.6vh 1.2vw;border-left:3px solid var(--border-subtle);align-items:center">
+            <div style="font-family:var(--sans);font-weight:250;font-size:2.4vw;line-height:1">05</div>
             <div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(18px,1.4vw);letter-spacing:-.01em">Files</div>
-              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);opacity:.65">双模存储 · 分块传输 · OpenClaw 文件上传</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.2vw);letter-spacing:-.01em">Files</div>
+              <div style="font-family:var(--sans),var(--sans-zh);font-size:max(13px,.78vw);opacity:.6">双模存储 · 分块传输 · 文件管理</div>
             </div>
+            <div style="font-family:var(--mono);font-size:max(12px,.7vw);color:var(--accent);text-align:right">分块</div>
           </div>
-          <div style="font-family:var(--sans);font-weight:300;font-size:max(15px,.88vw);color:var(--text-helper)">WebSocket</div>
-          <div style="font-family:var(--mono);font-size:max(14px,.82vw);color:var(--accent);text-align:right">分块</div>
         </div>
+        <!-- 右: 协议代码 -->
+        <div class="code-panel compact" style="height:100%;font-size:max(10px,.62vw);line-height:1.58">
+          <span class="cm"># ── Agent-Server JSON 消息协议 ──</span>
+          <span class="cm"># Request · Response · Push · Ping/Pong</span>
+
+          <span class="fn">make_request</span>(<span class="str">"restart"</span>, {<span class="str">"scope"</span>:<span class="str">"bot"</span>})
+          → {<span class="str">"id"</span>:<span class="str">"&lt;uuid&gt;"</span>,<span class="str">"type"</span>:<span class="str">"request"</span>,...}
+
+          <span class="fn">make_response</span>(req_id, <span class="kw">True</span>, data)
+          → {<span class="str">"id"</span>:<span class="str">"&lt;uuid&gt;"</span>,<span class="str">"type"</span>:<span class="str">"response"</span>,...}
+
+          <span class="fn">make_push</span>(<span class="str">"log"</span>, {<span class="str">"level"</span>:<span class="str">"ERROR"</span>,...})
+          → {<span class="str">"type"</span>:<span class="str">"push"</span>,<span class="str">"event"</span>:<span class="str">"log"</span>,...}
+
+          <span class="cm"># Agent 重连: 指数退避 1s→2s→4s→...→60s</span>
+          <span class="kw">while</span> <span class="kw">self</span>._running:
+              <span class="kw">try</span>: <span class="kw">await</span> <span class="fn">websockets.connect</span>(url, token)
+              <span class="kw">except</span>: <span class="kw">await</span> <span class="fn">asyncio.sleep</span>(delay); delay=<span class="fn">min</span>(delay*<span class="num">2</span>, <span class="num">60</span>)
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide accent" data-animate="manifesto">
+  <div class="canvas-card">
+    <canvas class="ascii-bg" aria-hidden="true"></canvas>
+    <div class="chrome-min">
+      <div class="l">Summary · Technical Takeaways</div>
+      <div class="r">14 / 14</div>
+    </div>
+    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:3vh;position:relative;z-index:1">
+      <div data-anim="line" style="display:flex;flex-direction:column;gap:1.4vh">
+        <div class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em">FINAL TAKEAWAY</div>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(7.2vw,12vh);line-height:.96;letter-spacing:-.035em;color:#fff">它不是一个脚本，<br/>而是一套微信自动化框架。</h2>
+      </div>
+      <div data-anim="up" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.6vw;align-self:center">
+        <article style="border-top:2px solid rgba(255,255,255,.55);padding-top:1.8vh">
+          <div style="font-family:var(--mono);font-size:max(14px,.82vw);letter-spacing:.18em;color:rgba(255,255,255,.72);margin-bottom:1.6vh">01 / THREAD</div>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-size:max(22px,2vw);font-weight:400;line-height:1.1;color:#fff;margin-bottom:1.4vh">线程安全</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.9vw);line-height:1.55;color:rgba(255,255,255,.78)">后台实例只入队，主线程统一操作微信 GUI。</p>
+        </article>
+        <article style="border-top:2px solid rgba(255,255,255,.55);padding-top:1.8vh">
+          <div style="font-family:var(--mono);font-size:max(14px,.82vw);letter-spacing:.18em;color:rgba(255,255,255,.72);margin-bottom:1.6vh">02 / EXTEND</div>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-size:max(22px,2vw);font-weight:400;line-height:1.1;color:#fff;margin-bottom:1.4vh">模块化扩展</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.9vw);line-height:1.55;color:rgba(255,255,255,.78)">BaseInstance + 工厂注册，让新能力接入主循环。</p>
+        </article>
+        <article style="border-top:2px solid rgba(255,255,255,.55);padding-top:1.8vh">
+          <div style="font-family:var(--mono);font-size:max(14px,.82vw);letter-spacing:.18em;color:rgba(255,255,255,.72);margin-bottom:1.6vh">03 / OPS</div>
+          <h3 style="font-family:var(--sans),var(--sans-zh);font-size:max(22px,2vw);font-weight:400;line-height:1.1;color:#fff;margin-bottom:1.4vh">远程可运维</h3>
+          <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.9vw);line-height:1.55;color:rgba(255,255,255,.78)">Agent 主动连出，Web 面板统一观测、配置和控制。</p>
+        </article>
+      </div>
+      <div data-anim="up" style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.22);padding-top:2vh">
+        <div class="t-meta" style="color:rgba(255,255,255,.62)">Video Script: ppt/视频脚本.md</div>
+        <div class="t-meta" style="color:rgba(255,255,255,.62)">END</div>
       </div>
     </div>
   </div>
