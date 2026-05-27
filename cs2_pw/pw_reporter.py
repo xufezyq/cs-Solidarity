@@ -44,6 +44,15 @@ class PwStatsReporter:
         self.friend_pw_daily_stats = friend_pw_daily_stats
         self.log = log
 
+    @staticmethod
+    def _is_draw_result(win_team, score1, score2) -> bool:
+        """完美平局可能返回 winTeam=-1；旧逻辑只兼容 winTeam=0。"""
+        if win_team in (0, -1):
+            return True
+        if score1 is None or score2 is None:
+            return False
+        return str(score1) == str(score2)
+
     async def fetch_and_report(self, steam_ids: list) -> list[str]:
         """主入口：获取战绩并生成消息"""
         if not self.pw_api:
@@ -262,7 +271,7 @@ class PwStatsReporter:
                     # 胜负
                     win_team = data.get('winTeam')
                     my_team = data.get('team')
-                    if win_team == 0:
+                    if self._is_draw_result(win_team, score1, score2):
                         result = "平局"
                     elif win_team == my_team:
                         result = "胜利"
