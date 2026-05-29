@@ -740,6 +740,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ Steam ═══════════ -->
   <div v-if="currentPage==='steam'">
+    <div v-if="steamDetail && user.role === 'admin'" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <button class="btn-sm danger" @click="resetPwSeasonRecords">
+        <i class="mdi mdi-broom"></i> 清空赛季统计
+      </button>
+    </div>
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-steam" style="margin-right:8px;"></i>Steam 监控</h2>
     <div v-if="!steamDetail" class="card empty">Agent 未连接或未找到 Steam 实例</div>
     <template v-if="steamDetail">
@@ -1507,6 +1512,18 @@ createApp({
       } catch(e) { console.error(e); }
     }
 
+    async function resetPwSeasonRecords() {
+      if (!confirm('确认清空完美平台历史极值和排行榜？此操作用于赛季刷新，清空后将从新赛季重新统计。')) return;
+      try {
+        const data = await api('/api/status/steam/pw-season/reset', { method: 'POST' });
+        const d = data.data || {};
+        showToast(d.message || '完美赛季统计已清空');
+        await loadInstances();
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
     async function loadFiles() {
       try {
         const data = await api('/api/files');
@@ -1835,7 +1852,7 @@ createApp({
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
-      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus,
+      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,

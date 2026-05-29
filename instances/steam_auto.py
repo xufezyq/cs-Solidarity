@@ -949,6 +949,38 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存排行榜数据失败: {e}")
 
+    def reset_pw_season_records(self):
+        """清空完美平台赛季历史极值和排行榜缓存，并同步持久化。"""
+        cleared_history_players = len(self.friend_pw_history_stats or {})
+        cleared_leaderboard_categories = len(self.friend_pw_leaderboard or {})
+
+        try:
+            with _config_lock:
+                config = {}
+                if Path(self.data_path).exists():
+                    with open(self.data_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                config['friend_pw_history_stats'] = {}
+                config['friend_pw_leaderboard'] = {}
+                self._update_last_save_time(config)
+                with open(self.data_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+
+            self.friend_pw_history_stats = {}
+            self.friend_pw_leaderboard = {}
+            log.info(
+                f"[{datetime.now()}] 完美赛季统计已清空: "
+                f"history={cleared_history_players}, leaderboard={cleared_leaderboard_categories}"
+            )
+            return {
+                "cleared_history_players": cleared_history_players,
+                "cleared_leaderboard_categories": cleared_leaderboard_categories,
+                "message": "完美赛季统计已清空"
+            }
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 清空完美赛季统计失败: {e}")
+            raise
+
     def check_and_report_records(self):
         """检查排行榜变化，返回刷新记录的通知消息列表"""
         if not self.friend_pw_history_stats:

@@ -4,7 +4,7 @@ Web API — 状态监控
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from web.auth import User, get_current_user
+from web.auth import User, get_current_user, require_admin
 from web.bridge import bridge
 
 router = APIRouter(prefix="/api/status", tags=["状态监控"])
@@ -52,6 +52,15 @@ async def get_steam_friends_status(current_user: User = Depends(get_current_user
     result = await bridge.send_request("steam.friends_status")
     if not result.get("success"):
         return {"success": True, "data": {"friends": [], "error": result.get("error", "获取失败")}}
+    return {"success": True, "data": result.get("data", {})}
+
+
+@router.post("/steam/pw-season/reset")
+async def reset_steam_pw_season_records(current_user: User = Depends(require_admin)):
+    """管理员手动清空完美平台赛季历史统计和排行榜。"""
+    result = await bridge.send_request("steam.reset_pw_season_records", timeout=30)
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
     return {"success": True, "data": result.get("data", {})}
 
 

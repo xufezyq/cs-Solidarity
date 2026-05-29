@@ -101,6 +101,7 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self._instances_ref = None  # (name, instance) 列表的引用
         self._process_fn = None  # process_web_messages 函数
         self._web_msg_queue = None
+        self._steam_reset_lock = threading.Lock()
         super().__init__(("127.0.0.1", port), ChatHandler)
 
     def set_context(self, instances, process_fn, web_msg_queue):
@@ -114,8 +115,25 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         action = msg.get("action", "")
         if action == "chat.send":
             return self._handle_chat_send(msg.get("params", {}))
+        if action == "steam.reset_pw_season_records":
+            return self._handle_steam_reset_pw_season_records()
         # chat.history 由 Agent handler 直接处理（内存），不走 TCP
         return {"success": False, "error": f"未知操作: {action}"}
+
+    def _handle_steam_reset_pw_season_records(self):
+        """清空运行中 Steam 实例的完美赛季历史统计和排行榜缓存。"""
+        if not self._instances_ref:
+            return {"success": False, "error": "Bot 尚未初始化实例"}
+
+        with self._steam_reset_lock:
+            for name, inst in self._instances_ref:
+                reset_fn = getattr(inst, "reset_pw_season_records", None)
+                if callable(reset_fn):
+                    data = reset_fn()
+                    data["instance"] = name
+                    return {"success": True, "data": data}
+
+        return {"success": False, "error": "未找到 Steam 实例"}
 
     def _handle_chat_send(self, params):
         """处理 chat.send：投入 web_msg_queue，异步等待回复"""
@@ -190,14 +208,14 @@ def start_chat_server(port=DEFAULT_PORT):
         return None
 
 
-def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
-    """Agent 端调用：通过 TCP 发送聊天消息到 Bot，支持异步推送回复"""
+def send_action_to_bot(action, params=None, port=DEFAULT_PORT, timeout=65):
+    """Agent 端调用：通过 TCP 向 Bot 发送本地 action。"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(timeout)
     try:
         sock.connect(("127.0.0.1", port))
 
-        msg = json.dumps({"action": "chat.send", "params": params}, ensure_ascii=False).encode('utf-8')
+        msg = json.dumps({"action": action, "params": params or {}}, ensure_ascii=False).encode('utf-8')
         sock.sendall(len(msg).to_bytes(4, 'big') + msg)
 
         # 读取初始响应
@@ -245,3 +263,8 @@ def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
         return {"success": False, "error": str(e)}
     finally:
         sock.close()
+
+
+def send_chat_to_bot(params, port=DEFAULT_PORT, timeout=65):
+    """Agent 端调用：通过 TCP 发送聊天消息到 Bot，支持异步推送回复。"""
+    return send_action_to_bot("chat.send", params, port=port, timeout=timeout)
