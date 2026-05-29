@@ -740,11 +740,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <!-- ═══════════ Steam ═══════════ -->
   <div v-if="currentPage==='steam'">
-    <div v-if="steamDetail && user.role === 'admin'" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
-      <button class="btn-sm danger" @click="resetPwSeasonRecords">
-        <i class="mdi mdi-broom"></i> 清空赛季统计
-      </button>
-    </div>
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-steam" style="margin-right:8px;"></i>Steam 监控</h2>
     <div v-if="!steamDetail" class="card empty">Agent 未连接或未找到 Steam 实例</div>
     <template v-if="steamDetail">
@@ -862,6 +857,11 @@ document.addEventListener('DOMContentLoaded', function() {
             <td style="color:var(--text2);font-size:12px;">{{ f.steamid }}</td>
           </tr>
         </table>
+      </div>
+      <div v-if="user.role === 'admin'" style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button class="btn-sm danger" @click="resetPwSeasonRecords">
+          <i class="mdi mdi-broom"></i> 清空赛季统计
+        </button>
       </div>
     </template>
   </div>
