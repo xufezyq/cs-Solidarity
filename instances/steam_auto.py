@@ -42,7 +42,7 @@ class SteamAuto(BaseInstance):
         self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
-        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
+        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_stars_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
@@ -972,6 +972,7 @@ class SteamAuto(BaseInstance):
             losses = stats.get('losses', 0)
             draws = stats.get('draws', 0)
             total_score_change = stats.get('total_score_change', 0)
+            total_stars_change = stats.get('total_stars_change', 0)
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
             total_assists = stats.get('total_assists', 0)
@@ -983,6 +984,8 @@ class SteamAuto(BaseInstance):
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
 
             score_sign = '+' if total_score_change >= 0 else ''
+            stars_sign = '+' if total_stars_change >= 0 else ''
+            score_summary = f"分数{score_sign}{total_score_change}  ⭐{stars_sign}{total_stars_change}"
             win_rate = wins / match_count * 100 if match_count > 0 else 0
 
             # 胜率颜色指示
@@ -990,9 +993,9 @@ class SteamAuto(BaseInstance):
 
             lines.append(f"👤 {nickname}  {match_count}场")
             if draws > 0:
-                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  {score_summary}")
             else:
-                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  {score_summary}")
             lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  WE: {avg_we:.1f}")
             lines.append("")
 

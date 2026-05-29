@@ -297,6 +297,9 @@ class PwStatsReporter:
             pwRating = data.get('pwRating', 0.0)
             we = data.get('we', 0)
             score_change = data.get('pvpScoreChange', 0)
+            pvpStars = data.get('pvpStars', 0)
+            prev_pvpStars = data.get('_prev_pvpStars', 0)
+            stars_change = pvpStars - prev_pvpStars if pvpStars or prev_pvpStars else 0
             match_id = data.get('matchId', '')
 
             if steam_id not in self.friend_pw_daily_stats:
@@ -307,6 +310,7 @@ class PwStatsReporter:
                     'losses': 0,
                     'draws': 0,
                     'total_score_change': 0,
+                    'total_stars_change': 0,
                     'total_kills': 0,
                     'total_deaths': 0,
                     'total_assists': 0,
@@ -326,6 +330,7 @@ class PwStatsReporter:
                 stats['draws'] += 1
 
             stats['total_score_change'] += score_change
+            stats['total_stars_change'] = stats.get('total_stars_change', 0) + stars_change
             stats['total_kills'] += kills
             stats['total_deaths'] += deaths
             stats['total_assists'] += assists
