@@ -363,15 +363,38 @@ class SteamAuto(BaseInstance):
         发送消息到所有配置的微信群/个人
         :param message: 要发送的消息内容
         """
-        if not message or not message.strip():
+        if not message or not str(message).strip():
             return
         
         for group in self.wechat_groups:
             try:
-                wechat_instance.send_message(message, group)
+                wechat_instance.send_message(str(message), group)
                 log.info(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 log.info(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
+
+    def send_file(self, file_path: str):
+        """
+        发送文件到所有配置的微信群/个人
+        :param file_path: 要发送的文件路径
+        """
+        if not file_path:
+            return
+
+        for group in self.wechat_groups:
+            try:
+                wechat_instance.send_file(file_path, group)
+                log.info(f"[{datetime.now()}] 文件已发送到: {group}")
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 发送文件到 {group} 失败: {e}")
+
+        try:
+            path_obj = Path(file_path)
+            daily_stats_dir = Path(self.data_path).parent / "generated" / "daily_stats"
+            if path_obj.resolve().parent == daily_stats_dir.resolve():
+                path_obj.unlink(missing_ok=True)
+        except Exception as e:
+            log.debug(f"[{datetime.now()}] 清理临时日报图片失败: {e}")
     
     def format_duration(self, seconds):
         """将秒数格式化为可读的时间格式"""

@@ -8,6 +8,10 @@ class BaseInstance(ABC):
         """向目标发送消息；由 start_instances 在主线程调用"""
         pass
 
+    def send_file(self, file_path: str):
+        """向目标发送文件；由 start_instances 在主线程调用"""
+        raise NotImplementedError(f"{type(self).__name__} 未实现 send_file")
+
     @abstractmethod
     def start(self):
         """
