@@ -1516,21 +1516,25 @@ class SteamAuto(BaseInstance):
         包含：发送每日统计、清理/刷新需要每天更新的缓存或计数器等。
         如需添加其他每日任务，可在此处扩展。
         """
-        # 维护时间检查：避免在 00:15-08:00 发送消息
+        # 维护时间检查：避免在 00:15-08:00 发送消息，但仍执行非发送类维护任务。
+        skip_send = False
         try:
             from core import check_maintenance
             if check_maintenance():
                 log.info(f"[{datetime.now()}] 当前在维护时段，跳过每日统计发送")
-                return
+                skip_send = True
         except (ImportError, AttributeError):
             pass
         
         log.info(f"[{datetime.now()}] 执行每日更新任务...")
-        try:
-            # 发送并重置每日统计（内部已包含重置逻辑）
-            self.send_daily_stats()
-        except Exception as e:
-            log.info(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
+        if skip_send:
+            self.reset_daily_stats()
+        else:
+            try:
+                # 发送并重置每日统计（内部已包含重置逻辑）
+                self.send_daily_stats()
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
 
         try:
             # 每天刷新好友列表缓存，确保次日拉取到最新好友变更
