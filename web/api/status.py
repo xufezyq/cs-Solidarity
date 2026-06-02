@@ -2,12 +2,31 @@
 Web API — 状态监控
 """
 
+import asyncio
+from collections import deque
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import User, get_current_user, require_admin
 from web.bridge import bridge
 
 router = APIRouter(prefix="/api/status", tags=["状态监控"])
+
+_CPU_SAMPLE_WINDOW = 5
+_CPU_SAMPLE_INTERVAL = 0.8
+_cpu_samples = deque(maxlen=_CPU_SAMPLE_WINDOW)
+_cpu_sample_lock = asyncio.Lock()
+
+
+async def _sample_cpu_percent():
+    """Return a smoothed CPU percentage plus the latest raw sample."""
+    import psutil
+
+    async with _cpu_sample_lock:
+        raw = float(await asyncio.to_thread(psutil.cpu_percent, interval=_CPU_SAMPLE_INTERVAL))
+        _cpu_samples.append(raw)
+        smoothed = sum(_cpu_samples) / len(_cpu_samples)
+        return round(smoothed, 1), round(raw, 1), len(_cpu_samples)
 
 
 @router.get("/overview")
@@ -70,11 +89,13 @@ async def get_hardware(source: str = "web", current_user: User = Depends(get_cur
     try:
         import psutil
         import platform
-        cpu_percent = psutil.cpu_percent(interval=0.3)
+        cpu_percent, cpu_percent_raw, cpu_sample_count = await _sample_cpu_percent()
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
         hardware = {
             "cpu_percent": cpu_percent,
+            "cpu_percent_raw": cpu_percent_raw,
+            "cpu_sample_count": cpu_sample_count,
             "cpu_count": psutil.cpu_count(),
             "memory_total": memory.total,
             "memory_used": memory.used,
