@@ -41,7 +41,7 @@
 
 ### 主线程职责
 
-- **闪烁检测**：以随机轮询间隔（0.3s ± 0.15s）检测微信是否有新消息
+- **闪烁检测**：以 `random_poll_interval(2.0, 1.5)` 生成的长尾随机间隔检测微信是否有新消息
 - **消息收发**：处理消息队列、调用 wxauto 收发消息
 - **窗口控制**：根据状态最小化/恢复微信窗口
 
@@ -65,6 +65,10 @@ class BaseInstance(ABC):
         """发送消息（被主线程 hook 为入队）"""
         pass
 
+    def send_file(self, file_path: str):
+        """发送文件（可选实现，被主线程 hook 为入队）"""
+        raise NotImplementedError
+
     @abstractmethod
     def start(self):
         """后台循环（子线程运行）"""
@@ -81,20 +85,18 @@ class BaseInstance(ABC):
 
 ```python
 # core/instance_factory.py
-INSTANCE_TYPES = {
-    'steam': SteamAuto,
-    'daily': DailyAuto,
-    'chat': ChatAuto,
-    'korichat': KoriChat,
-    'infopush': InfoPush,
-}
+_INSTANCE_TYPES = {}
 
-def get_instance_from_item(item):
-    instance_type = item.get('type')
-    if instance_type not in INSTANCE_TYPES:
-        raise ValueError(f"未知实例类型：{instance_type}")
-    return INSTANCE_TYPES[instance_type](item)
+def init_defaults():
+    register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
+    register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
+    register_instance_type('chat', lambda data: ChatAuto.create_from_config(data.get('config') or data, data.get('name')))
+    register_instance_type('korichat', lambda data: KoriChatInstance.create_from_config(data.get('config')))
+    register_instance_type('infopush', lambda data: InfoPush.create_from_data(data))
+    register_instance_type('disaster_warning', lambda data: DisasterWarningInstance.create_from_data(data))
 ```
+
+当前默认实例类型为 `steam`、`daily`、`chat`、`korichat`、`infopush`、`disaster_warning`。其中 `chat` 支持在同一个配置文件中通过实例项的 `name` 选择具体配置，例如 `openclaw`、`hermes` 或 `deepseek`。
 
 ---
 
@@ -107,7 +109,7 @@ def get_instance_from_item(item):
 ```python
 # main.py: start_instances() 主循环
 while True:
-    # 随机轮询间隔
+    # poll_base=2.0, poll_jitter=1.5
     current_interval = random_poll_interval(poll_base, poll_jitter)
     if now - last_poll_time < current_interval:
         time.sleep(0.1)
@@ -216,6 +218,8 @@ def route_message_to_instances(msg_content, instances):
             if not hasattr(inst, 'trigger_prefix')]
 ```
 
+Web 聊天消息不依赖微信闪烁检测。`agent.handler` 收到 `chat.send` 后通过本地 TCP 聊天服务把消息写入 `web_msg_queue`，主循环每轮先调用 `process_web_messages()`，再按同一套路由逻辑分发给实例。`sync_to_wx=false` 时，实例回复会被 Web 拦截器捕获并返回网页，但不会实际发送到微信。
+
 ---
 
 ## 消息发送流程
@@ -225,26 +229,31 @@ def route_message_to_instances(msg_content, instances):
 后台实例不直接发送消息，而是加入队列：
 
 ```python
-# instances/kori_chat.py
-def send_message(self, message):
-    # 实际发送被 hook 为入队操作
-    # 由主线程统一发送
-    self.msg_queue.put((self.name, {
-        "target": self.chat_id,
-        "content": message
-    }))
+# main.py: start_instances()
+def make_enqueue(n):
+    def enqueue(message):
+        msg_queue.put((n, "message", message))
+    return enqueue
+
+def make_file_enqueue(n):
+    def enqueue_file(file_path):
+        msg_queue.put((n, "file", file_path))
+    return enqueue_file
+
+inst.send_message = make_enqueue(name)
+inst.send_file = make_file_enqueue(name)
 ```
 
 ### 2. 主线程消费队列
 
 ```python
 # main.py: process_all_pending_messages()
-def process_all_pending_messages(msg_queue, orig_senders, instances):
+def process_all_pending_messages(msg_queue, orig_senders, orig_file_senders, instances):
     """一次性处理队列中所有待发送消息"""
     sent_any = False
     while True:
         try:
-            name, message = msg_queue.get_nowait()
+            name, kind, payload = msg_queue.get_nowait()
             
             # 检查维护时间
             if is_maintenance_time():
@@ -252,8 +261,11 @@ def process_all_pending_messages(msg_queue, orig_senders, instances):
                 msg_queue.task_done()
                 continue
             
-            # 发送消息
-            process_send_message(name, message, orig_senders, instances)
+            # 发送消息或文件
+            if kind == "message":
+                process_send_message(name, payload, orig_senders, instances)
+            elif kind == "file":
+                process_send_file(name, payload, orig_file_senders)
             sent_any = True
             msg_queue.task_done()
             
@@ -262,6 +274,8 @@ def process_all_pending_messages(msg_queue, orig_senders, instances):
         except queue.Empty:
             break
 ```
+
+本地 HTTP API（`bot/api_server.py`，默认 `127.0.0.1:18800`）也会把 `/send/message` 和 `/send/file` 请求写入 `api_send_queue`，由主循环统一处理，避免外部 Agent 直接抢占微信窗口。
 
 ### 3. 实际发送
 
@@ -310,13 +324,12 @@ def send_message(message, group, at=None, at_all=False):
         time.sleep(typing_delay)
         
         # 5. 处理@操作
-        if at:
-            # 输入@，选择成员，按回车确认
-            # 等待 2-2.5 秒确保@完成
+        if at or at_all:
+            # 确保窗口可见，输入 @成员 或 @所有人，回车选择，
+            # 再粘贴正文并回车发送。
             pass
-        
-        # 6. 发送消息
-        wx.SendMsg(message, clear=True, at=at, at_all=at_all)
+        else:
+            wx.SendMsg(message, clear=True)
         
         # 7. 等待消息出现在聊天记录
         for _ in range(20):
@@ -340,49 +353,38 @@ def send_message(message, group, at=None, at_all=False):
 
 ```python
 # KouriChat/src/handlers/message.py
-def _send_message_with_dollar(self, reply, chat_id):
-    # 提取@的用户（如果有）
-    at_user = None
-    if reply.startswith('@'):
-        import re
-        match = re.match(r'@(\S+)[\s\n]', reply)
-        if match:
-            at_user = match.group(1)
-            # 从消息内容中移除开头的@标签
-            reply = reply[len(at_user) + 2:].lstrip()
-    
-    # 发送时传入 at 参数
-    wechat_instance.send_messages(text_parts, chat_id, at=[at_user] if at_user else None)
+def _add_at_tag_if_needed(self, reply: str, sender_name: str, is_group: bool):
+    if not is_group:
+        return reply, []
+
+    if reply.startswith(f"@{sender_name} "):
+        clean = reply[len(f"@{sender_name} "):]
+        return clean, [sender_name]
+
+    return reply, [sender_name]
+
+def _send_message_with_dollar(self, reply, chat_id, at=None):
+    # $ 分段时使用 send_messages 批量发送，at 只作用于第一条消息
+    wechat_instance.send_messages(text_parts, chat_id, at=at)
 ```
 
 ### 2. @操作执行
 
 ```python
-# wxauto/wxauto.py: SendMsg()
-def SendMsg(self, msg, who=None, at=None, at_all=False):
-    # 处理@特定成员
-    if at and isinstance(at, list):
-        for member in at:
-            # 输入@符号，触发微信的@选择列表
-            editbox.SendKeys('@', waitTime=0.3)
-            time.sleep(0.3)
-            
-            # 在列表中找到并点击匹配的成员
-            at_list = self.ChatBox.ListControl(searchDepth=10)
-            if at_list.Exists():
-                for item in at_list.GetChildren():
-                    if item.Name == member:
-                        item.Click(simulateMove=False)
-                        time.sleep(0.2)
-                        break
-                
-                # 按回车确认@
-                editbox.SendKeys('{Enter}', waitTime=0.1)
-    
-    # 发送消息内容
-    SetClipboardText(msg)
-    editbox.SendKeys('{Ctrl}v')
-    editbox.SendKeys('{Enter}')
+# core/wechat_instance.py: send_message()/send_messages()
+if actual_at_all:
+    uia.SendKeys('@所有人', waitTime=0.1)
+    time.sleep(0.5)
+    uia.SendKeys('{Enter}', waitTime=0.1)
+
+for member in actual_at or []:
+    uia.SendKeys(f'@{member}', waitTime=0.1)
+    time.sleep(0.5)
+    uia.SendKeys('{Enter}', waitTime=0.1)
+
+SetClipboardText(actual_msg)
+uia.SendKeys('{Ctrl}v', waitTime=0.1)
+uia.SendKeys('{Enter}', waitTime=0.1)
 ```
 
 ### 3. 防止窗口最小化
@@ -390,21 +392,18 @@ def SendMsg(self, msg, who=None, at=None, at_all=False):
 ```python
 # core/wechat_instance.py: send_message()
 def send_message(message, group, at=None, at_all=False):
-    # 如果有@操作，需要额外的等待时间确保@完成
-    has_at = (at and isinstance(at, list) and len(at) > 0) or at_all
-    if has_at:
-        # @操作需要：输入@ (0.3s) + 等待列表 (0.3s) + 点击成员 (0.2s) + 回车确认 (0.1s) + 缓冲
-        at_delay = 2.0 + random.uniform(0, 0.5)
-        time.sleep(at_delay)
-    
-    # 发送完成后，主框架会在 5 秒内不最小化窗口
+    # 发送开始时增加 _sending_count，并更新 _last_send_time
+    # 主循环在发送期间或发送后短时间内不会最小化窗口
+    with main._send_lock:
+        main._sending_count += 1
+        main._last_send_time = time.time()
 ```
 
 ```python
 # main.py
 def process_receive_messages(instances):
     # 收消息后检查是否有发送任务
-    if _sending_count > 0 or (time.time() - _last_send_time) < 5:
+    if _sending_count > 0 or (time.time() - _last_send_time) < 15:
         debug("[主循环] 有发送任务正在进行，跳过最小化")
     else:
         # 切换到文件传输助手并最小化
@@ -421,7 +420,7 @@ def process_receive_messages(instances):
 # main.py: load_master_config()
 def load_master_config(config_file):
     global DEBUG_MODE, MAINTENANCE_START, MAINTENANCE_END
-    global ENABLE_SEND, ENABLE_RECEIVE
+    global ENABLE_SEND, ENABLE_RECEIVE, ENABLE_FLASH_DETECT, MOCK_SEND
     
     with open(config_file, 'r', encoding='utf-8') as f:
         cfg = json.load(f)
@@ -441,6 +440,8 @@ def load_master_config(config_file):
     # 加载开关配置
     ENABLE_SEND = cfg.get('enable_send', True)
     ENABLE_RECEIVE = cfg.get('enable_receive', True)
+    ENABLE_FLASH_DETECT = cfg.get('enable_flash_detect', True)
+    MOCK_SEND = cfg.get('mock_send', False)
 ```
 
 ### 2. 维护时间检查
@@ -490,7 +491,7 @@ def process_receive_messages(instances):
     # ... 实际接收逻辑
 ```
 
-### 3. 闪烁检测控制
+### 4. 闪烁检测控制
 
 ```python
 # 主循环中
@@ -515,13 +516,15 @@ if is_flashing:
 **说明**：
 - `ENABLE_FLASH_DETECT = False`：完全停止闪烁检测，不截图、不对比像素，节省 CPU 和内存
 - `ENABLE_RECEIVE = False`：仍然检测闪烁，但检测到后跳过消息处理且不恢复窗口
-- 两者配合使用可实现灵活的消息控制
+- `MOCK_SEND = True`：跳过微信 GUI 初始化，发送动作只写日志；适合调试实例后台任务和 Web 聊天链路
+- 三者配合使用可实现灵活的消息控制
 
-### 4. 配置示例
+### 5. 配置示例
 
 ```json
 {
   "debug_mode": false,
+  "mock_send": false,
   "enable_send": true,
   "enable_receive": true,
   "enable_flash_detect": true,

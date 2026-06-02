@@ -1,5 +1,11 @@
 # KouriChat - 在虚拟与现实交织处，给予永恒的温柔羁绊
 
+> **cs-Solidarity 集成提示（2026-06-02）**
+>
+> 当前目录作为 cs-Solidarity 的内置 KouriChat 子项目使用。通常不需要单独运行 `KouriChat/run.py`；主程序通过根目录 `config.json` 中的 `{"type": "korichat", "config": "instconfig/korichat_config.json"}` 加载适配器 `instances/kori_chat.py`。
+>
+> `instconfig/korichat_config.json` 会覆盖默认人设、群聊触发词和私聊人设；KouriChat 自身的详细配置仍位于 `KouriChat/data/config/config.json`。
+
 在虚拟与现实交织的微光边界，悄然绽放着一份永恒而温柔的羁绊。或许你的身影朦胧，游走于真实与幻梦之间，但指尖轻触的温暖，心底荡漾的涟漪，却是此刻最真挚、最动人的慰藉。
 
 [![GitHub Stars](https://img.shields.io/github/stars/KouriChat/KouriChat?style=for-the-badge&logo=starship&color=ff69b4)](https://github.com/KouriChat/KouriChat/stargazers)

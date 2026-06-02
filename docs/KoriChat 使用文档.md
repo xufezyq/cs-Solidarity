@@ -202,13 +202,34 @@ cp KouriChat/data/config/config.json.template KouriChat/data/config/config.json
 {
   "instances": [
     {
-      "name": "KoriChat",
-      "type": "kori_chat",
-      "config": {
-        "listen_list": ["你的微信昵称"],
-        "avatar_dir": "KouriChat/data/avatars/ATRI",
-        "group_chat_config": []
-      }
+      "type": "korichat",
+      "config": "instconfig/korichat_config.json"
+    }
+  ]
+}
+```
+
+`korichat` 是当前主框架注册的实例类型名称。`instconfig/korichat_config.json` 是 cs-Solidarity 对 KoriChat 的适配配置，它会覆盖 KouriChat 内部 `KouriChat/data/config/config.json` 中的默认人设和群聊配置。
+
+示例：
+
+```json
+{
+  "config_file": "KouriChat/data/config/config.json",
+  "avatar_dir": "data/avatars/MONO",
+  "group_chat_config": [
+    {
+      "groupName": "【CS】团结友爱",
+      "avatar": "data/avatars/MONO",
+      "triggers": ["MONO", "mono", "Mono", "莫诺"],
+      "enableAtTrigger": true,
+      "replyMode": "at_only"
+    }
+  ],
+  "private_chat_config": [
+    {
+      "friendName": "好友昵称",
+      "avatar": "data/avatars/CALEB"
     }
   ]
 }
@@ -513,18 +534,22 @@ KoriChat：主人，您在做什么呢？我已经好久没和您聊天了~ (｡
 "user_settings": {
   "group_chat_config": [
     {
-      "group_name": "CS 团结友爱",
-      "avatar_dir": "data/avatars/ATRI",
-      "trigger_words": ["ATRI", "亚托莉"]
+      "groupName": "CS 团结友爱",
+      "avatar": "data/avatars/ATRI",
+      "triggers": ["ATRI", "亚托莉"],
+      "enableAtTrigger": true,
+      "replyMode": "at_only"
     }
   ]
 }
 ```
 
 **说明**：
-- `group_name`：群聊名称
-- `avatar_dir`：该群专用的人设目录
-- `trigger_words`：触发词列表，只有包含触发词的消息才会回复
+- `groupName`：群聊名称
+- `avatar`：该群专用的人设目录，相对于 `KouriChat/`
+- `triggers`：触发词列表
+- `enableAtTrigger`：是否允许通过 @ 机器人触发
+- `replyMode`：`at_only` 表示仅 @ 或触发词命中时回复，`all` 表示该群所有消息都进入 KoriChat
 
 **使用示例**：
 ```
@@ -671,12 +696,14 @@ data/avatars/{角色名}/
 ```json
 "group_chat_config": [
   {
-    "group_name": "群聊 1",
-    "avatar_dir": "data/avatars/ATRI"
+    "groupName": "群聊 1",
+    "avatar": "data/avatars/ATRI",
+    "replyMode": "at_only"
   },
   {
-    "group_name": "群聊 2",
-    "avatar_dir": "data/avatars/MONO"
+    "groupName": "群聊 2",
+    "avatar": "data/avatars/MONO",
+    "replyMode": "all"
   }
 ]
 ```
@@ -712,27 +739,35 @@ data/avatars/{角色名}/
 
 ### 7.3 KoriChat 内部消息拦截
 
-KoriChat 内部使用 `add_to_queue()` 方法发送消息，主框架会拦截这个方法：
+当前主框架不会再通过 `set_enqueue_func()` 拦截 KoriChat 内部方法。启动时，`main.py` 会保存实例原始 `send_message()`，再把实例方法替换为入队函数：
 
 ```python
-# main.py 中的拦截逻辑
-if hasattr(inst, 'set_enqueue_func'):
-    inst.set_enqueue_func(make_enqueue(name))
+# main.py: start_instances()
+orig_senders[name] = inst.send_message
+
+def make_enqueue(n):
+    def enqueue(message):
+        msg_queue.put((n, "message", message))
+    return enqueue
+
+inst.send_message = make_enqueue(name)
 ```
 
-**拦截后的流程**：
+KoriChat 的 `MessageHandler` 在回复时调用 `core.wechat_instance.send_message()` 或 `send_messages()`。主框架还会拦截这两个统一出口，用于 Web 聊天回复捕获、`sync_to_wx=false` 跳过微信发送，以及 Web 来源消息前缀注入。
+
+**当前发送流程**：
 ```
-KoriChat 调用 add_to_queue()
+KoriChat 处理消息
     ↓
-被 hooked_add_to_queue() 拦截
+MessageHandler 生成回复
     ↓
-调用主框架的入队函数
+调用 wechat_instance.send_message/send_messages
     ↓
-进入主消息队列
+Web 拦截器可捕获回复
     ↓
-主线程检查维护时间
+进入微信统一发送逻辑
     ↓
-发送消息
+发送时捕获期间新消息并防止窗口过早最小化
 ```
 
 ### 7.4 消息队列配置
@@ -1014,7 +1049,13 @@ print(f"队列内容：{list(msg_queue.queue)}")
 
 ## 十一、更新日志
 
-### v1.0.11（当前版本）
+### v2.5（当前集成版本）
+- ✅ 主框架实例类型统一为 `korichat`
+- ✅ 适配配置统一使用 `instconfig/korichat_config.json`
+- ✅ 群聊配置采用 `groupName`、`avatar`、`triggers`、`replyMode`
+- ✅ Web 聊天回复捕获和 `sync_to_wx` 模式走 `wechat_instance` 统一发送出口
+
+### v1.0.11
 - ✅ 修复请求超时导致无法获取好友信息的问题
 - ✅ 添加 SteamAPI 超时和代理支持
 - ✅ 优化消息队列机制，确保所有消息都经过维护时间检查
@@ -1031,6 +1072,6 @@ print(f"队列内容：{list(msg_queue.queue)}")
 
 ---
 
-**文档版本**：v1.0.11  
-**最后更新**：2026-03-28  
+**文档版本**：v2.5
+**最后更新**：2026-06-02
 **维护者**：cs-Solidarity 团队

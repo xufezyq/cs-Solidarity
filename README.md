@@ -1,10 +1,10 @@
 # cs-Solidarity — 多功能微信机器人
 
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-基于 `wxauto` 的多功能微信机器人，适用于 Windows 环境。支持 Steam 状态监控、每日定时消息、AI 聊天、KoriChat 智能助手等多种功能。
+基于 `wxauto` 的多功能微信机器人，适用于 Windows 环境。支持 Steam 状态监控、每日定时消息、AI 聊天、KoriChat 智能助手、信息推送、灾害预警和 Web 远程管理等功能。
 
 > 🌟 **特性**：多实例并发 | 消息队列机制 | 反检测模拟 | 维护时间控制 | Web 远程管理
 
@@ -68,6 +68,7 @@
 - 实时查看机器人状态、实例信息、日志
 - 远程配置编辑、控制启停、用户管理
 - 聊天页面支持上传文件到 Agent 设备（供 OpenClaw 使用）
+- 聊天页面可按 `chat` 实例的触发前缀选择 Claw/Hermes 等 Agent，并支持“同步到微信/仅网页”两种回复模式
 - 文件管理支持 Web/Agent 双存储模式
 - Vue 3 前端 + FastAPI 后端，响应式布局
 
@@ -96,7 +97,7 @@
 
 - **操作系统**：Windows 10/11
 - **微信版本**：PC 客户端 v3.9.8.15（推荐）
-- **Python 版本**：3.7+
+- **Python 版本**：3.10+（推荐 3.11）
 
 ### 1. 安装
 
@@ -111,13 +112,18 @@ pip install -r requirements.txt
 ```json
 {
   "debug_mode": false,
+  "mock_send": false,
   "enable_send": true,
-  "enable_receive": true,
+  "enable_receive": false,
+  "enable_flash_detect": false,
   "maintenance": {
     "start_hour": 0,
     "start_minute": 15,
     "end_hour": 8,
     "end_minute": 0
+  },
+  "web_chat": {
+    "target_group": "【CS】团结友爱"
   },
   "instances": [
     {
@@ -130,7 +136,13 @@ pip install -r requirements.txt
     },
     {
       "type": "chat",
-      "config": "instconfig/chat_openclaw.json"
+      "config": "instconfig/chat_configs.json",
+      "name": "openclaw"
+    },
+    {
+      "type": "chat",
+      "config": "instconfig/chat_configs.json",
+      "name": "hermes"
     },
     {
       "type": "disaster_warning",
@@ -161,14 +173,16 @@ python main.py
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `debug_mode` | bool | `false` | 调试模式，开启后维护时间失效 |
+| `mock_send` | bool | `false` | 调试发送模式，跳过微信 GUI 初始化和实际发送 |
 | `enable_send` | bool | `true` | 是否允许发送消息 |
-| `enable_receive` | bool | `true` | 是否允许接收消息（处理消息） |
-| `enable_flash_detect` | bool | `true` | 是否检测新消息（闪烁检测） |
+| `enable_receive` | bool | `true` | 是否允许接收消息（处理消息）；当前示例配置为 `false` |
+| `enable_flash_detect` | bool | `true` | 是否检测新消息（闪烁检测）；当前示例配置为 `false` |
 | `maintenance` | object | - | 维护时间配置 |
 | `maintenance.start_hour` | int | `0` | 维护开始小时 |
 | `maintenance.start_minute` | int | `15` | 维护开始分钟 |
 | `maintenance.end_hour` | int | `8` | 维护结束小时 |
 | `maintenance.end_minute` | int | `0` | 维护结束分钟 |
+| `web_chat.target_group` | string | `网页聊天室` | Web 聊天未指定 `chat_name` 时转发到的微信群/好友 |
 
 ### 实例类型
 
@@ -176,7 +190,7 @@ python main.py
 |------|------|--------------|
 | `steam` | Steam 状态监控 | `instconfig/steam_account.json` |
 | `daily` | 每日定时消息 | `instconfig/daily_morning.json` |
-| `chat` | AI 聊天机器人 | `instconfig/chat_deepseek.json` |
+| `chat` | AI 聊天机器人 | `instconfig/chat_configs.json`（通过 `name` 选择 `openclaw`、`hermes`、`deepseek` 等配置） |
 | `korichat` | KoriChat 智能助手 | `instconfig/korichat_config.json` |
 | `infopush` | 信息推送 | `instconfig/info_push_config.json` |
 | `disaster_warning` | 灾害预警 | `instconfig/disaster_warning.json` |
@@ -295,15 +309,12 @@ self.send_message({
 
 ### 消息队列机制
 
-后台实例不直接发送消息，而是加入队列由主线程统一发送：
+后台实例调用 `send_message()` 时会被主程序替换为入队函数；实例类中保留的原始 `send_message()` 负责在主线程消费队列时执行真实发送：
 
 ```python
 # ✅ 正确方式
 def send_message(self, message: str):
-    self.msg_queue.put((self.name, {
-        "target": self.target_group,
-        "content": message
-    }))
+    wechat_instance.send_message(message, self.target_group)
 
 # ❌ 错误方式（直接在后台线程操作微信 GUI）
 def send_message(self, message: str):
@@ -315,6 +326,16 @@ def send_message(self, message: str):
 - **随机延迟**：所有操作前后添加随机延迟
 - **人类行为模拟**：打字延迟、操作间隔模拟真实用户
 - **窗口管理**：自动最小化微信，降低被发现风险
+
+### Bot 本地 API
+
+`main.py` 会同时启动本地 HTTP API（默认 `127.0.0.1:18800`），供同机 OpenClaw/Agent 直接投递微信发送任务：
+
+- `GET /health`：健康检查
+- `POST /send/message`：发送文本，支持 `target`、`content`、`at`、`at_all`、`force`
+- `POST /send/file`：上传并发送文件，支持维护时间内用 `force=true` 强制发送
+
+所有 API 请求都会进入主循环发送队列，避免外部进程直接操作微信窗口。
 
 ---
 
@@ -347,7 +368,7 @@ cs-Solidarity/
 ├── utils/                 # 工具函数
 ├── wxauto/                # 微信自动化库
 ├── KouriChat/             # KoriChat 子项目
-├── web/                   # Web 控制面板（端口 11029）
+├── web/                   # Web 控制面板（部署示例端口 11029，server.py CLI 默认 8080）
 ├── agent/                 # Agent 客户端（连接 Web 面板）
 └── Plugins/               # 插件
     └── disaster_warning/  # 灾害预警插件（Web 管理端口 11030）
@@ -406,7 +427,7 @@ cs-Solidarity/
 **解决**：
 - 确保 Web 服务已启动（`cd web && uvicorn server:app --host 0.0.0.0 --port 11029`）
 - 检查防火墙是否阻止端口
-- 主面板默认端口 `11029`，灾害预警 Web 端默认端口 `11030`
+- 主面板部署示例端口 `11029`（`python -m web.server` 未指定时默认 `8080`），灾害预警 Web 端默认端口 `11030`
 
 ---
 

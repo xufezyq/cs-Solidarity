@@ -13,7 +13,7 @@
 ## 安装
 
 1. 确保已安装 Python 3.8+。
-2. 安装依赖：
+2. 在项目根目录安装依赖：
 
 ```bash
 pip install -r requirements.txt
@@ -44,7 +44,7 @@ python main.py
 ### 3. 在你的项目中使用
 
 ```python
-from request import PerfectWorldApi
+from cs2_pw.request import PerfectWorldApi
 import asyncio
 
 async def main():
