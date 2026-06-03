@@ -20,6 +20,9 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
+AT_SESSION_MARKERS = ('[有人@我]', '[有人@你]', '有人@我', '有人@你')
+AT_SESSION_FALLBACK_AMOUNT = 5
+
 class WeChat(WeChatBase):
     def __init__(self, language='cn') -> None:
         """微信UI自动化实例
@@ -66,6 +69,81 @@ class WeChat(WeChatBase):
         
         self.nickname = self.A_MyIcon.Name
         print(f'初始化成功，获取到已登录窗口：{self.nickname}')
+
+    def _collect_session_names(self, SessionItem, max_depth=4):
+        names = []
+
+        def walk(ctrl, depth):
+            if depth > max_depth:
+                return
+            try:
+                name = (ctrl.Name or '').strip()
+                if name:
+                    names.append(name)
+            except Exception:
+                pass
+            try:
+                children = ctrl.GetChildren()
+            except Exception:
+                return
+            for child in children:
+                walk(child, depth + 1)
+
+        walk(SessionItem, 0)
+        return names
+
+    def _strip_session_badges(self, name):
+        clean = name or ''
+        for marker in AT_SESSION_MARKERS:
+            clean = clean.replace(marker, '')
+        clean = re.sub(r'\d+条新消息', '', clean)
+        return clean.strip()
+
+    def _looks_like_session_title(self, text):
+        if not text:
+            return False
+        if any(marker in text for marker in AT_SESSION_MARKERS):
+            return False
+        if re.fullmatch(r'\d+', text):
+            return False
+        if re.fullmatch(r'\d{1,2}:\d{2}', text):
+            return False
+        if re.fullmatch(r'\d{2,4}/\d{1,2}/\d{1,2}', text):
+            return False
+        if text in ('昨天', '前天'):
+            return False
+        if ':' in text or '：' in text:
+            return False
+        return True
+
+    def _has_at_session_marker(self, SessionItem):
+        return any(marker in ' '.join(self._collect_session_names(SessionItem)) for marker in AT_SESSION_MARKERS)
+
+    def _get_at_session_title(self, SessionItem, fallback):
+        raw_name = (SessionItem.Name or '').strip()
+        for text in self._collect_session_names(SessionItem):
+            if text == raw_name:
+                continue
+            text = self._strip_session_badges(text)
+            if self._looks_like_session_title(text):
+                return text
+        fallback = self._strip_session_badges(fallback)
+        return fallback
+
+    def _find_session_item(self, who):
+        item = self.SessionBox.ListItemControl()
+        for _ in range(100):
+            if not item:
+                break
+            try:
+                if item.BoundingRectangle.width() != 0:
+                    name, _ = self.GetSessionAmont(item)
+                    if name == who:
+                        return item
+            except Exception:
+                pass
+            item = item.GetNextSiblingControl()
+        return None
     
     def _checkversion(self):
         self.HWND = FindWindow(classname='WeChatMainWndForPC')
@@ -92,7 +170,9 @@ class WeChat(WeChatBase):
             sessionname (str): 聊天对象名
             amount (int): 新消息条数
         """
-        matchobj = re.search('\d+条新消息', SessionItem.Name)
+        raw_session_name = SessionItem.Name or ''
+        matchobj = re.search(r'\d+条新消息', raw_session_name)
+        has_at_marker = self._has_at_session_marker(SessionItem)
         amount = 0
         if matchobj:
             try:
@@ -100,9 +180,13 @@ class WeChat(WeChatBase):
             except (ValueError, IndexError, AttributeError):
                 pass
         if amount:
-            sessionname = SessionItem.Name.replace(f'{amount}条新消息','')
+            sessionname = raw_session_name.replace(f'{amount}条新消息','')
         else:
-            sessionname = SessionItem.Name
+            sessionname = raw_session_name
+        if has_at_marker:
+            sessionname = self._get_at_session_title(SessionItem, sessionname)
+            if amount <= 0:
+                amount = AT_SESSION_FALLBACK_AMOUNT
         return sessionname, amount
     
     def CheckNewMessage(self):
@@ -120,12 +204,13 @@ class WeChat(WeChatBase):
             msgs = self._getmsgs(MsgItems, savepic)
             return {self.CurrentChat(): msgs}
 
-        elif self.CheckNewMessage():
+        else:
             print('获取其他窗口新消息')
-            while True:
+            sessiondict = {}
+            for _ in range(3):
                 self.A_ChatIcon.DoubleClick(simulateMove=False)
                 sessiondict = self.GetSessionList(newmessage=True)
-                if sessiondict:
+                if sessiondict or not self.CheckNewMessage():
                     break
             for session in sessiondict:
                 self.ChatWith(session)
@@ -133,22 +218,28 @@ class WeChat(WeChatBase):
                 msgs = self._getmsgs(MsgItems, savepic)
                 self.lastmsgid = msgs[-1][-1]
                 return {session:msgs}
-        else:
             # print('没有新消息')
             return None
     
     def GetAllNewMessage(self):
         """获取所有新消息"""
         newmessages = {}
+        processed_sessions = set()
+        empty_checks = 0
         while True:
-            if self.CheckNewMessage():
-                self.A_ChatIcon.DoubleClick(simulateMove=False)
-                sessiondict = self.GetSessionList(newmessage=True)
-                for session in sessiondict:
-                    self.ChatWith(session)
-                    newmessages[session] = self.GetAllMessage()[-sessiondict[session]:]
-            else:
+            self.A_ChatIcon.DoubleClick(simulateMove=False)
+            sessiondict = self.GetSessionList(newmessage=True)
+            pending = {session: sessiondict[session] for session in sessiondict if session not in processed_sessions}
+            if not pending:
+                empty_checks += 1
+                if empty_checks < 3 and self.CheckNewMessage():
+                    continue
                 break
+            empty_checks = 0
+            for session in pending:
+                self.ChatWith(session)
+                newmessages[session] = self.GetAllMessage()[-pending[session]:]
+                processed_sessions.add(session)
         self.ChatWith(self._lang('文件传输助手'))
         return newmessages
     
@@ -196,12 +287,20 @@ class WeChat(WeChatBase):
         '''
         self._show()
         sessiondict = self.GetSessionList(True)
-        if who in list(sessiondict.keys())[:-1]:
+        if who in sessiondict:
             if sessiondict[who] > 0:
                 who1 = f"{who}{sessiondict[who]}条新消息"
             else:
                 who1 = who
-            self.SessionBox.ListItemControl(Name=who1).Click(simulateMove=False)
+            target_item = self.SessionBox.ListItemControl(Name=who1)
+            if not target_item.Exists(maxSearchSeconds=0.2):
+                target_item = self.SessionBox.ListItemControl(Name=who)
+            if not target_item.Exists(maxSearchSeconds=0.2):
+                target_item = self._find_session_item(who)
+            if target_item:
+                target_item.Click(simulateMove=False)
+            else:
+                self.SessionBox.ListItemControl(Name=who1).Click(simulateMove=False)
             return who
         self.UiaAPI.SendKeys('{Ctrl}f', waitTime=1)
         self.B_Search.SendKeys(who, waitTime=1.5)
