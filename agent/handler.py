@@ -480,6 +480,7 @@ class AgentHandler:
         instances = []
         for idx, item in enumerate(cfg.get("instances", []), 1):
             inst_type = item.get("type", "unknown")
+            inst_name = item.get("name") or inst_type
             inst_config_path = item.get("config", "")
 
             # 读取实例详细配置
@@ -508,6 +509,8 @@ class AgentHandler:
 
             instances.append({
                 "index": idx,
+                "name": inst_name,
+                "display_name": self._instance_display_name(inst_name, inst_type),
                 "type": inst_type,
                 "config_path": inst_config_path,
                 "summary": summary,
@@ -515,6 +518,25 @@ class AgentHandler:
             })
 
         return {"success": True, "data": {"instances": instances}}
+
+    def _instance_display_name(self, inst_name: str, inst_type: str) -> str:
+        """Generate a human-readable instance label for the web panel."""
+        if inst_type == "chat" and inst_name:
+            chat_labels = {
+                "openclaw": "Claw Agent",
+                "hermes": "Hermes Agent",
+            }
+            if inst_name in chat_labels:
+                return chat_labels[inst_name]
+            return f"{inst_name[:1].upper()}{inst_name[1:]} Agent"
+        labels = {
+            "steam": "Steam",
+            "daily": "Daily",
+            "korichat": "KouriChat",
+            "infopush": "InfoPush",
+            "disaster_warning": "Disaster Warning",
+        }
+        return labels.get(inst_type, inst_name or inst_type)
 
     def _instance_summary(self, inst_type: str, detail: dict, item: dict) -> dict:
         """生成实例摘要"""

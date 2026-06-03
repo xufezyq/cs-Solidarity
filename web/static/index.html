@@ -685,7 +685,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="card card-enter" v-for="(inst,idx) in instances" :key="inst.index" :style="{animationDelay: (idx*0.08)+'s'}">
       <div class="expandable" @click="inst._expanded=!inst._expanded">
         <h3>
-          <i class="mdi" :class="typeIcons[inst.type] || 'mdi-package'" style="margin-right:4px;"></i><span>{{ inst.type.toUpperCase() }}</span>
+          <i class="mdi" :class="typeIcons[inst.type] || 'mdi-package'" style="margin-right:4px;"></i><span>{{ inst.display_name || inst.name || inst.type.toUpperCase() }}</span>
           <span class="badge green" style="margin-left:8px;"><i class="mdi mdi-check-circle" style="font-size:11px;margin-right:2px;"></i>运行中</span>
           <span style="float:right;color:var(--text2);font-size:12px;"><i class="mdi" :class="inst._expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></i> {{ inst.config_path }}</span>
         </h3>
@@ -1077,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <h2 style="margin:0;"><i class="mdi mdi-chat-outline" style="margin-right:8px;"></i>聊天</h2>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="dot" :class="chat.connected ? 'green' : 'red'"></span>
-        <span style="font-size:12px;color:var(--text2);">{{ chat.connected ? (chat.personaName || '已连接') : '未连接' }}</span>
+        <span style="font-size:12px;color:var(--text2);">{{ chat.connected ? selectedChatLabel : '未连接' }}</span>
       </div>
     </div>
     <div class="card card-enter" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
@@ -1231,9 +1231,18 @@ createApp({
         .filter(i => i.type === 'chat' && i.summary?.trigger_prefix)
         .map(i => {
           const p = i.summary.trigger_prefix;
-          return { prefix: p, label: _prefixLabelMap[p] || p };
+          return { prefix: p, label: i.display_name || _prefixLabelMap[p] || p };
         });
     });
+    const selectedChatLabel = computed(() => {
+      if (!chat.prefix) return 'KouriChat';
+      const selected = chatPrefixes.value.find(p => p.prefix === chat.prefix);
+      return selected?.label || _prefixLabelMap[chat.prefix] || chat.prefix;
+    });
+    function detectChatPrefix(content) {
+      const prefixes = [...chatPrefixes.value.map(p => p.prefix), ...Object.keys(_prefixLabelMap)];
+      return prefixes.find(p => content === p || content.startsWith(p + ' ')) || '';
+    }
 
     const typeIcons = { steam: 'mdi-steam', daily: 'mdi-clock', chat: 'mdi-robot', korichat: 'mdi-chat', infopush: 'mdi-newspaper', disaster_warning: 'mdi-radar' };
     const leaderboardLabels = {
@@ -1696,10 +1705,15 @@ createApp({
         if (res.success) {
           chat.messages = res.data.messages || [];
           // 从历史消息中提取人设名
+          chat.personaName = null;
           for (let i = chat.messages.length - 1; i >= 0; i--) {
-            if (chat.messages[i].source !== 'user' && chat.messages[i].sender) {
+            if (chat.messages[i].source === 'user' && chat.messages[i].content) {
+              const prefix = detectChatPrefix(chat.messages[i].content);
+              if (prefix) chat.prefix = prefix;
+              if (prefix) break;
+            }
+            if (!chat.personaName && chat.messages[i].source !== 'user' && chat.messages[i].sender) {
               chat.personaName = chat.messages[i].sender;
-              break;
             }
           }
           scrollChatToBottom();
@@ -1755,6 +1769,8 @@ createApp({
       if (!raw || chat.sending) return;
       // 如果选了前缀，拼接到消息前面
       const content = chat.prefix ? chat.prefix + ' ' + raw : raw;
+      const detectedPrefix = detectChatPrefix(content);
+      if (detectedPrefix) chat.prefix = detectedPrefix;
       chat.sending = true;
       chat.input = '';
       // 乐观添加用户消息
@@ -1851,7 +1867,7 @@ createApp({
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll, demoFileInput,
-      overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes,
+      overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes, selectedChatLabel,
       visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,

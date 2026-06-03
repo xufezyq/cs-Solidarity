@@ -368,8 +368,22 @@ def _get_persona_name(instance_name, chat_name):
             return Path(kcfg.get("avatar_dir", "AI")).name
         except Exception:
             return "AI"
-    elif instance_name == "chat":
-        return "Chat"
+    else:
+        try:
+            with open("instconfig/chat_configs.json", "r", encoding="utf-8") as f:
+                chat_cfg = json.load(f)
+            if instance_name in chat_cfg:
+                chat_labels = {
+                    "openclaw": "Claw Agent",
+                    "hermes": "Hermes Agent",
+                }
+                if instance_name in chat_labels:
+                    return chat_labels[instance_name]
+                return f"{instance_name[:1].upper()}{instance_name[1:]} Agent"
+        except Exception:
+            pass
+        if instance_name == "chat":
+            return "Chat"
     return instance_name
 
 
@@ -639,8 +653,9 @@ def create_instances(master_cfg):
     for idx, item in enumerate(master_cfg.get('instances', []), 1):
         try:
             inst_type = item.get('type', f'instance_{idx}')
-            instances.append((inst_type, get_instance_from_item(item)))
-            info(f"实例 {idx} ({inst_type}) 创建成功")
+            inst_name = item.get('name') or inst_type
+            instances.append((inst_name, get_instance_from_item(item)))
+            info(f"实例 {idx} ({inst_name}/{inst_type}) 创建成功")
         except Exception as e:
             error(f"创建实例 {idx} 失败: {e}")
     return instances
