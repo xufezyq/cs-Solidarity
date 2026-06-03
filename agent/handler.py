@@ -116,6 +116,7 @@ class AgentHandler:
             "status.overview": self._status_overview,
             "status.instances": self._status_instances,
             "steam.friends_status": self._steam_friends_status,
+            "steam.reset_pw_season_records": self._steam_reset_pw_season_records,
             "files.list": self._files_list,
             "files.upload": self._files_upload,
             "files.delete": self._files_delete,
@@ -659,6 +660,96 @@ class AgentHandler:
         return self._bot_start(params)
 
     # ── Steam 好友状态 ──
+
+    def _is_bot_process_running(self) -> bool:
+        """检查 PID 文件中的 Bot 进程是否仍在运行。"""
+        if not self.pid_file.exists():
+            return False
+        try:
+            pid = int(self.pid_file.read_text().strip())
+        except Exception:
+            return False
+
+        try:
+            if os.name == "nt":
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                SYNCHRONIZE = 0x00100000
+                handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+                if handle:
+                    kernel32.CloseHandle(handle)
+                    return True
+                return False
+            os.kill(pid, 0)
+            return True
+        except Exception:
+            return False
+
+    def _steam_data_file(self) -> Path:
+        """定位 Steam 运行数据文件。"""
+        config_file = self.root_dir / "config.json"
+        if config_file.exists():
+            try:
+                with open(config_file, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                for item in cfg.get("instances", []):
+                    if item.get("type") == "steam" and item.get("config"):
+                        detail_file = self.root_dir / item["config"]
+                        return detail_file.parent / "steam_data.json"
+            except Exception:
+                pass
+        return self.root_dir / "instconfig" / "steam_data.json"
+
+    def _reset_pw_season_records_file(self) -> Dict[str, Any]:
+        """Bot 未运行时，直接清空 Steam 数据文件中的赛季统计。"""
+        data_file = self._steam_data_file()
+        data_file.parent.mkdir(parents=True, exist_ok=True)
+
+        config = {}
+        if data_file.exists():
+            with open(data_file, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+        history = config.get("friend_pw_history_stats") or {}
+        leaderboard = config.get("friend_pw_leaderboard") or {}
+        config["friend_pw_history_stats"] = {}
+        config["friend_pw_leaderboard"] = {}
+        config["last_update"] = datetime.now().timestamp()
+
+        with open(data_file, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "data": {
+                "cleared_history_players": len(history),
+                "cleared_leaderboard_categories": len(leaderboard),
+                "message": "完美赛季统计已清空",
+                "mode": "file",
+            }
+        }
+
+    def _steam_reset_pw_season_records(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """清空完美平台赛季历史极值和排行榜缓存。"""
+        try:
+            from bot.chat_server import send_action_to_bot
+            result = send_action_to_bot("steam.reset_pw_season_records", {}, timeout=15)
+            if result.get("success"):
+                result.setdefault("data", {})["mode"] = "bot"
+                return result
+            if self._is_bot_process_running():
+                return {
+                    "success": False,
+                    "error": result.get("error", "Bot 控制通道不可用，未执行清空")
+                }
+        except Exception as e:
+            if self._is_bot_process_running():
+                return {"success": False, "error": f"Bot 控制通道不可用，未执行清空: {e}"}
+
+        try:
+            return self._reset_pw_season_records_file()
+        except Exception as e:
+            return {"success": False, "error": f"清空完美赛季统计失败: {e}"}
 
     def _steam_friends_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """获取 Steam 好友在线状态"""

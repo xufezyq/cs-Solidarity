@@ -5,6 +5,7 @@ import json
 import asyncio
 import re
 import threading
+import html
 from datetime import datetime
 from pathlib import Path
 from core import wechat_instance
@@ -42,7 +43,7 @@ class SteamAuto(BaseInstance):
         self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
-        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
+        self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_stars_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
@@ -363,15 +364,38 @@ class SteamAuto(BaseInstance):
         发送消息到所有配置的微信群/个人
         :param message: 要发送的消息内容
         """
-        if not message or not message.strip():
+        if not message or not str(message).strip():
             return
         
         for group in self.wechat_groups:
             try:
-                wechat_instance.send_message(message, group)
+                wechat_instance.send_message(str(message), group)
                 log.info(f"[{datetime.now()}] 消息已发送到: {group}")
             except Exception as e:
                 log.info(f"[{datetime.now()}] 发送消息到 {group} 失败: {e}")
+
+    def send_file(self, file_path: str):
+        """
+        发送文件到所有配置的微信群/个人
+        :param file_path: 要发送的文件路径
+        """
+        if not file_path:
+            return
+
+        for group in self.wechat_groups:
+            try:
+                wechat_instance.send_file(file_path, group)
+                log.info(f"[{datetime.now()}] 文件已发送到: {group}")
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 发送文件到 {group} 失败: {e}")
+
+        try:
+            path_obj = Path(file_path)
+            daily_stats_dir = Path(self.data_path).parent / "generated" / "daily_stats"
+            if path_obj.resolve().parent == daily_stats_dir.resolve():
+                path_obj.unlink(missing_ok=True)
+        except Exception as e:
+            log.debug(f"[{datetime.now()}] 清理临时日报图片失败: {e}")
     
     def format_duration(self, seconds):
         """将秒数格式化为可读的时间格式"""
@@ -775,6 +799,57 @@ class SteamAuto(BaseInstance):
         
         return message
 
+    def build_game_stats_html(self, stats_data):
+        """生成今日游玩统计 HTML。"""
+        if not stats_data:
+            return None
+
+        players = []
+        for steam_id, friend_data in stats_data.items():
+            games = friend_data.get('games', {})
+            total_time = sum(games.values()) if games else 0
+            if total_time <= 0:
+                continue
+            players.append((total_time, friend_data.get('nickname', '未知昵称'), games))
+
+        if not players:
+            return None
+
+        players.sort(key=lambda x: x[0], reverse=True)
+        max_total = max(total for total, _, _ in players) or 1
+        cards = []
+
+        for total_time, nickname, games in players:
+            nickname_html = html.escape(nickname)
+            total_html = html.escape(self.format_duration(total_time))
+            game_rows = []
+            for game_name, duration in sorted(games.items(), key=lambda x: x[1], reverse=True):
+                width = max(6, min(100, duration / max_total * 100))
+                game_html = html.escape(game_name)
+                duration_html = html.escape(self.format_duration(duration))
+                game_rows.append(f"""<div class="game-line">
+  <div class="game-line-top">
+    <span>{game_html}</span>
+    <strong>{duration_html}</strong>
+  </div>
+  <div class="meter"><i style="width: {width:.1f}%;"></i></div>
+</div>""")
+
+            cards.append(f"""<article class="game-player">
+  <div class="player-head">
+    <div class="avatar-token">{html.escape(nickname[:1] or '?')}</div>
+    <div>
+      <div class="player-name">{nickname_html}</div>
+      <div class="player-sub">今日总计 {total_html}</div>
+    </div>
+  </div>
+  <div class="game-lines">
+    {''.join(game_rows)}
+  </div>
+</article>""")
+
+        return '<div class="game-grid">' + ''.join(cards) + '</div>'
+
     def get_friend_pw_stats(self):
         """获取好友今天的完美平台战绩统计信息"""
         if not self.friend_pw_daily_stats:
@@ -874,6 +949,38 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存排行榜数据失败: {e}")
 
+    def reset_pw_season_records(self):
+        """清空完美平台赛季历史极值和排行榜缓存，并同步持久化。"""
+        cleared_history_players = len(self.friend_pw_history_stats or {})
+        cleared_leaderboard_categories = len(self.friend_pw_leaderboard or {})
+
+        try:
+            with _config_lock:
+                config = {}
+                if Path(self.data_path).exists():
+                    with open(self.data_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                config['friend_pw_history_stats'] = {}
+                config['friend_pw_leaderboard'] = {}
+                self._update_last_save_time(config)
+                with open(self.data_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+
+            self.friend_pw_history_stats = {}
+            self.friend_pw_leaderboard = {}
+            log.info(
+                f"[{datetime.now()}] 完美赛季统计已清空: "
+                f"history={cleared_history_players}, leaderboard={cleared_leaderboard_categories}"
+            )
+            return {
+                "cleared_history_players": cleared_history_players,
+                "cleared_leaderboard_categories": cleared_leaderboard_categories,
+                "message": "完美赛季统计已清空"
+            }
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 清空完美赛季统计失败: {e}")
+            raise
+
     def check_and_report_records(self):
         """检查排行榜变化，返回刷新记录的通知消息列表"""
         if not self.friend_pw_history_stats:
@@ -958,7 +1065,7 @@ class SteamAuto(BaseInstance):
             return None
         
         today = datetime.now().strftime("%m月%d日")
-        lines = [f"⚔️ 完美平台日报 {today}", ""]
+        lines = [f"⚔️ 完美平台统计 {today}", ""]
 
         sorted_friends = sorted(pw_stats_data.items(), key=lambda x: x[1]['match_count'], reverse=True)
 
@@ -972,6 +1079,7 @@ class SteamAuto(BaseInstance):
             losses = stats.get('losses', 0)
             draws = stats.get('draws', 0)
             total_score_change = stats.get('total_score_change', 0)
+            total_stars_change = stats.get('total_stars_change', 0)
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
             total_assists = stats.get('total_assists', 0)
@@ -983,6 +1091,8 @@ class SteamAuto(BaseInstance):
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
 
             score_sign = '+' if total_score_change >= 0 else ''
+            stars_sign = '+' if total_stars_change >= 0 else ''
+            score_summary = f"分数{score_sign}{total_score_change}  ⭐{stars_sign}{total_stars_change}"
             win_rate = wins / match_count * 100 if match_count > 0 else 0
 
             # 胜率颜色指示
@@ -990,9 +1100,9 @@ class SteamAuto(BaseInstance):
 
             lines.append(f"👤 {nickname}  {match_count}场")
             if draws > 0:
-                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  {score_summary}")
             else:
-                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  分数{score_sign}{total_score_change}")
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  {score_summary}")
             lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  WE: {avg_we:.1f}")
             lines.append("")
 
@@ -1001,73 +1111,118 @@ class SteamAuto(BaseInstance):
 
         return "\n".join(lines)
 
-    def format_pw_leaderboard_message(self, history_stats_data):
-        """格式化完美平台历史战绩排行榜（紧凑版）"""
+    # 旧版文字排行榜 formatter 保留，后续如需恢复“直接发送文本”的状态，
+    # 可将下面整段取消注释，并替换当前的 format_pw_leaderboard_message。
+    #
+    # def format_pw_leaderboard_message(self, history_stats_data):
+    #     """格式化完美平台历史战绩排行榜（紧凑版）"""
+    #     if not history_stats_data:
+    #         return None
+    #
+    #     valid_players = {sid: d for sid, d in history_stats_data.items()
+    #                     if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0 or d.get('max_we', 0) > 0}
+    #     if not valid_players:
+    #         return None
+    #
+    #     # 定义排行榜类别（只保留 max 类，最低数据类别已屏蔽播报）
+    #     categories = [
+    #         ('🔫 击杀王',   'max_kills',   True,  '杀'),
+    #         ('💀 唐宋八大家','max_deaths', True,  '死'),
+    #         ('👑 RT 之神',   'max_rating',  True,  ''),
+    #         ('⚡ PW RT 之神','max_pw_rating',True, ''),
+    #         ('💪 WE 之神',   'max_we',      True,  ''),
+    #         ('🎖️ 得分王',   'max_score',   True,  '分'),
+    #     ]
+    #     # 旧版（含 min 类，恢复时取消注释）:
+    #     # categories = [
+    #     #     ('🔫 击杀王',   'max_kills',   True,  '杀'),
+    #     #     ('🤪 精神支持', 'min_kills',   False, '杀'),
+    #     #     ('💀 唐宋八大家','max_deaths', True,  '死'),
+    #     #     ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
+    #     #     ('👑 RT 之神',   'max_rating',  True,  ''),
+    #     #     ('🧸 吉祥物',   'min_rating',  False, ''),
+    #     #     ('⚡ PW RT 之神','max_pw_rating',True, ''),
+    #     #     ('❓ 纯路人',   'min_pw_rating',False, ''),
+    #     #     ('💪 WE 之神',   'max_we',      True,  ''),
+    #     #     ('😅 不懂装懂', 'min_we',      False, ''),
+    #     #     ('🎖️ 得分王',   'max_score',   True,  '分'),
+    #     #     ('🗑️ 吊车尾',   'min_score',   False, '分'),
+    #     # ]
+    #
+    #     lines = ["🏆 历史战绩排行榜", ""]
+    #     # 按顺序定义每组包含的 emoji，每个元素是一个 emoji 列表
+    #     # 只有在组的首个 emoji 出现时才切换组（避免屏蔽的 emoji 导致的错误分组）
+    #     category_groups = [
+    #         ['🔫'],      # 击杀类
+    #         ['💀'],      # 死亡类
+    #         ['👑'],      # Rating 类
+    #         ['⚡'],      # PW Rating
+    #         ['💪'],      # WE 类
+    #         ['🎯'],      # 得分类
+    #     ]
+    #     # 旧版（含 min 类的完整分组）:
+    #     # category_groups = [
+    #     #     ['🔫', '🤪'],      # 击杀类
+    #     #     ['💀', '🦎'],      # 死亡类
+    #     #     ['👑', '🧸'],      # Rating 类
+    #     #     ['⚡' , '❓'],      # PW Rating
+    #     #     ['💪', '😅'],      # WE 类
+    #     #     ['🎯', '🗑️'],      # 得分类
+    #     # ]
+    #
+    #     current_group = 0
+    #     for label, field, is_max, unit in categories:
+    #         emoji = label.split()[0]
+    #
+    #         # 检查是否需要切换到下一组
+    #         while current_group < len(category_groups) and emoji not in category_groups[current_group]:
+    #             current_group += 1
+    #             if current_group < len(category_groups):
+    #                 lines.append("")  # 在组之间添加空行
+    #
+    #         if is_max:
+    #             candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
+    #             if not candidates:
+    #                 continue
+    #             best_sid, best_val = max(candidates, key=lambda x: x[1])
+    #         else:
+    #             candidates = [(sid, d.get(field, 9999)) for sid, d in valid_players.items() if 0 < d.get(field, 9999) < 9999]
+    #             if not candidates:
+    #                 continue
+    #             best_sid, best_val = min(candidates, key=lambda x: x[1])
+    #
+    #         nick = valid_players[best_sid].get('pw_nickname', '?')
+    #         val_str = f"{best_val:.2f}" if isinstance(best_val, float) and not unit else str(int(best_val))
+    #         lines.append(f"  {label}  {nick} {val_str}{unit}")
+    #
+    #     if len(lines) <= 2:
+    #         return None
+    #
+    #     return "\n".join(lines)
+
+    def _get_pw_leaderboard_rows(self, history_stats_data):
+        """整理完美平台历史战绩排行榜数据。"""
         if not history_stats_data:
-            return None
+            return []
 
         valid_players = {sid: d for sid, d in history_stats_data.items()
                         if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0 or d.get('max_we', 0) > 0}
         if not valid_players:
-            return None
+            return []
 
-        # 定义排行榜类别（只保留 max 类，最低数据类别已屏蔽播报）
         categories = [
-            ('🔫 击杀王',   'max_kills',   True,  '杀'),
-            ('💀 唐宋八大家','max_deaths', True,  '死'),
-            ('👑 RT 之神',   'max_rating',  True,  ''),
-            ('⚡ PW RT 之神','max_pw_rating',True, ''),
-            ('💪 WE 之神',   'max_we',      True,  ''),
-            ('🎖️ 得分王',   'max_score',   True,  '分'),
+            {'code': 'K', 'name': '击杀王', 'field': 'max_kills', 'is_max': True, 'unit': '杀', 'tone': 'red'},
+            {'code': 'D', 'name': '唐宋八大家', 'field': 'max_deaths', 'is_max': True, 'unit': '死', 'tone': 'slate'},
+            {'code': 'RT', 'name': 'RT 之神', 'field': 'max_rating', 'is_max': True, 'unit': '', 'tone': 'blue'},
+            {'code': 'PR', 'name': 'PW RT 之神', 'field': 'max_pw_rating', 'is_max': True, 'unit': '', 'tone': 'violet'},
+            {'code': 'WE', 'name': 'WE 之神', 'field': 'max_we', 'is_max': True, 'unit': '', 'tone': 'teal'},
+            {'code': 'S', 'name': '得分王', 'field': 'max_score', 'is_max': True, 'unit': '分', 'tone': 'amber'},
         ]
-        # 旧版（含 min 类，恢复时取消注释）:
-        # categories = [
-        #     ('🔫 击杀王',   'max_kills',   True,  '杀'),
-        #     ('🤪 精神支持', 'min_kills',   False, '杀'),
-        #     ('💀 唐宋八大家','max_deaths', True,  '死'),
-        #     ('🦎 怯战蜥蜴', 'min_deaths',  False, '死'),
-        #     ('👑 RT 之神',   'max_rating',  True,  ''),
-        #     ('🧸 吉祥物',   'min_rating',  False, ''),
-        #     ('⚡ PW RT 之神','max_pw_rating',True, ''),
-        #     ('❓ 纯路人',   'min_pw_rating',False, ''),
-        #     ('💪 WE 之神',   'max_we',      True,  ''),
-        #     ('😅 不懂装懂', 'min_we',      False, ''),
-        #     ('🎖️ 得分王',   'max_score',   True,  '分'),
-        #     ('🗑️ 吊车尾',   'min_score',   False, '分'),
-        # ]
 
-        lines = ["🏆 历史战绩排行榜", ""]
-        # 按顺序定义每组包含的 emoji，每个元素是一个 emoji 列表
-        # 只有在组的首个 emoji 出现时才切换组（避免屏蔽的 emoji 导致的错误分组）
-        category_groups = [
-            ['🔫'],      # 击杀类
-            ['💀'],      # 死亡类
-            ['👑'],      # Rating 类
-            ['⚡'],      # PW Rating
-            ['💪'],      # WE 类
-            ['🎯'],      # 得分类
-        ]
-        # 旧版（含 min 类的完整分组）:
-        # category_groups = [
-        #     ['🔫', '🤪'],      # 击杀类
-        #     ['💀', '🦎'],      # 死亡类
-        #     ['👑', '🧸'],      # Rating 类
-        #     ['⚡' , '❓'],      # PW Rating
-        #     ['💪', '😅'],      # WE 类
-        #     ['🎯', '🗑️'],      # 得分类
-        # ]
-
-        current_group = 0
-        for label, field, is_max, unit in categories:
-            emoji = label.split()[0]
-
-            # 检查是否需要切换到下一组
-            while current_group < len(category_groups) and emoji not in category_groups[current_group]:
-                current_group += 1
-                if current_group < len(category_groups):
-                    lines.append("")  # 在组之间添加空行
-
-            if is_max:
+        rows = []
+        for category in categories:
+            field = category['field']
+            if category['is_max']:
                 candidates = [(sid, d.get(field, 0)) for sid, d in valid_players.items() if d.get(field, 0) > 0]
                 if not candidates:
                     continue
@@ -1079,13 +1234,230 @@ class SteamAuto(BaseInstance):
                 best_sid, best_val = min(candidates, key=lambda x: x[1])
 
             nick = valid_players[best_sid].get('pw_nickname', '?')
+            unit = category['unit']
             val_str = f"{best_val:.2f}" if isinstance(best_val, float) and not unit else str(int(best_val))
-            lines.append(f"  {label}  {nick} {val_str}{unit}")
+            rows.append({
+                **category,
+                'nickname': nick,
+                'value': val_str,
+            })
 
-        if len(lines) <= 2:
+        return rows
+
+    def format_pw_leaderboard_message(self, history_stats_data):
+        """格式化完美平台历史战绩排行榜（文本降级版）"""
+        rows = self._get_pw_leaderboard_rows(history_stats_data)
+        if not rows:
             return None
 
+        lines = ["历史战绩排行榜"]
+        for row in rows:
+            lines.append(f"{row['code']:>2}  {row['name']}  {row['nickname']} {row['value']}{row['unit']}")
+
         return "\n".join(lines)
+
+    def build_pw_daily_stats_html(self, pw_stats_data):
+        """生成今日完美平台战绩 HTML。"""
+        if not pw_stats_data:
+            return None
+
+        cards = []
+        sorted_friends = sorted(
+            pw_stats_data.items(),
+            key=lambda x: (x[1].get('match_count', 0), x[1].get('wins', 0)),
+            reverse=True,
+        )
+
+        for steam_id, stats in sorted_friends:
+            match_count = stats.get('match_count', 0)
+            if match_count == 0:
+                continue
+
+            nickname = html.escape(stats.get('pw_nickname', '未知好友'))
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
+            total_score_change = stats.get('total_score_change', 0)
+            total_stars_change = stats.get('total_stars_change', 0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_we = stats.get('total_we', 0)
+
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+            avg_rating = total_rating / match_count if match_count else 0
+            avg_we = total_we / match_count if match_count else 0
+            win_rate = wins / match_count * 100 if match_count else 0
+            score_sign = '+' if total_score_change >= 0 else ''
+            stars_sign = '+' if total_stars_change >= 0 else ''
+            tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
+            record = f"{wins}胜{losses}负"
+            if draws > 0:
+                record += f"{draws}平"
+
+            cards.append(f"""<article class="pw-player">
+  <div class="pw-top">
+    <div>
+      <div class="player-name">{nickname}</div>
+      <div class="player-sub">{match_count} 场对局</div>
+    </div>
+    <div class="win-pill {tone}">{win_rate:.0f}%</div>
+  </div>
+  <div class="record-line">{record}<span>分数 {score_sign}{total_score_change}</span><span>星 {stars_sign}{total_stars_change}</span></div>
+  <div class="stat-strip">
+    <div><span>K/D</span><strong>{kd:.1f}</strong></div>
+    <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
+    <div><span>WE</span><strong>{avg_we:.1f}</strong></div>
+  </div>
+</article>""")
+
+        if not cards:
+            return None
+
+        return '<div class="pw-grid">' + ''.join(cards) + '</div>'
+
+    def build_pw_leaderboard_html(self, history_stats_data):
+        """生成完美平台历史战绩排行榜 HTML。"""
+        rows = self._get_pw_leaderboard_rows(history_stats_data)
+        if not rows:
+            return None
+
+        row_html = []
+        for rank, row in enumerate(rows, start=1):
+            code = html.escape(row['code'])
+            name = html.escape(row['name'])
+            nick = html.escape(row['nickname'])
+            value = html.escape(row['value'])
+            unit = html.escape(row['unit'])
+            tone = html.escape(row['tone'], quote=True)
+            row_html.append(f"""<div class="leaderboard-row tone-{tone}">
+  <div class="rank-num">{rank:02d}</div>
+  <div class="metric-code">{code}</div>
+  <div class="metric-main">
+    <div class="metric-line">
+      <span class="metric-name">{name}</span>
+      <span class="metric-holder">{nick}</span>
+    </div>
+  </div>
+  <div class="metric-value"><span>{value}</span>{unit}</div>
+</div>""")
+
+        return '<div class="leaderboard-grid">' + "\n".join(row_html) + '</div>'
+
+    def render_combined_daily_stats_image(self, sections: list, prefix: str = "daily_report") -> str:
+        """将多个每日统计区块渲染为一张 PNG，返回图片路径。"""
+        from playwright.sync_api import sync_playwright
+
+        valid_sections = [
+            section for section in sections
+            if section.get('body') or section.get('body_html')
+        ]
+        if not valid_sections:
+            raise ValueError("日报内容为空，无法生成图片")
+
+        out_dir = Path(self.data_path).parent / "generated" / "daily_stats"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe_prefix = re.sub(r"[^A-Za-z0-9_-]+", "_", prefix).strip("_") or "daily_stats"
+        out_path = out_dir / f"{safe_prefix}.png"
+
+        for old_path in out_dir.glob(f"{safe_prefix}*.png"):
+            if old_path != out_path:
+                try:
+                    old_path.unlink()
+                except Exception as e:
+                    log.debug(f"[{datetime.now()}] 清理旧日报图片失败: {old_path} {e}")
+
+        report_title = f"每日统计日报 {datetime.now().strftime('%Y-%m-%d')}"
+        html_content = self._build_daily_stats_html(report_title, valid_sections)
+
+        errors = []
+        with sync_playwright() as playwright:
+            browser = None
+            launch_options = [
+                {"channel": "msedge", "headless": True},
+                {"channel": "chrome", "headless": True},
+                {"headless": True},
+            ]
+            for options in launch_options:
+                try:
+                    browser = playwright.chromium.launch(**options)
+                    break
+                except Exception as e:
+                    label = options.get("channel", "bundled chromium")
+                    errors.append(f"{label}: {e}")
+            if not browser:
+                raise RuntimeError("Playwright 浏览器启动失败；" + " | ".join(errors))
+
+            try:
+                page = browser.new_page(
+                    viewport={"width": 900, "height": 1200},
+                    device_scale_factor=2,
+                )
+                page.set_content(html_content, wait_until="domcontentloaded")
+                card = page.locator("#daily-card")
+                card.wait_for(state="visible", timeout=5000)
+                card.screenshot(path=str(out_path), omit_background=False)
+            finally:
+                browser.close()
+
+        return str(out_path)
+
+    def render_daily_stats_image(self, message: str, prefix: str) -> str:
+        """兼容旧调用：单个统计区块也走合并模板。"""
+        lines = message.strip("\n").splitlines()
+        title = lines[0] if lines else "每日统计"
+        body = "\n".join(lines[1:]).strip("\n")
+        return self.render_combined_daily_stats_image([{
+            'title': title,
+            'body': body,
+            'badge': 'Daily',
+            'accent': '#2563eb',
+        }], prefix)
+
+    def _build_daily_stats_html(self, report_title: str, sections: list) -> str:
+        title_html = html.escape(report_title)
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        section_html = "\n".join(self._build_daily_stats_section_html(section) for section in sections)
+        template_path = Path(__file__).parent / "templates" / "daily_stats_card.html"
+        template = template_path.read_text(encoding="utf-8")
+        return (
+            template
+            .replace("{{REPORT_TITLE}}", title_html)
+            .replace("{{GENERATED_AT}}", generated_at)
+            .replace("{{SECTIONS}}", section_html)
+        )
+
+    def _build_daily_stats_section_html(self, section: dict) -> str:
+        title_html = html.escape(section.get('title', '每日统计'))
+        body_html = html.escape(section.get('body', ''))
+        raw_body_html = section.get('body_html')
+        badge_html = html.escape(section.get('badge', 'Daily'))
+        accent = html.escape(section.get('accent', '#2563eb'), quote=True)
+        class_name = html.escape(section.get('class_name', ''), quote=True)
+        section_class = f"section {class_name}".strip()
+        body_block = raw_body_html if raw_body_html else f'<pre class="section-body">{body_html}</pre>'
+        return f"""<section class="{section_class}" style="--accent: {accent};">
+  <div class="section-head">
+    <h2 class="section-title">{title_html}</h2>
+    <span class="badge">{badge_html}</span>
+  </div>
+  {body_block}
+</section>"""
+
+    def send_daily_stats_image(self, sections: list, prefix: str = "daily_report") -> None:
+        """生成合并每日统计图片并入队发送；失败时降级发送合并文本。"""
+        try:
+            image_path = self.render_combined_daily_stats_image(sections, prefix)
+            self.send_file(image_path)
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 生成每日统计图片失败，改为发送文本：{e}")
+            fallback = "\n\n".join(
+                f"{section.get('title', '每日统计')}\n{section.get('body', '')}".strip()
+                for section in sections
+                if section.get('body')
+            )
+            if fallback:
+                self.send_message(fallback)
 
     def reset_daily_stats(self):
         """重置每日游玩统计（在每天 0 点调用）"""
@@ -1096,6 +1468,7 @@ class SteamAuto(BaseInstance):
     def send_daily_stats(self):
         """发送每日游玩统计（日报 + 排行榜，分条发送）"""
         log.info(f"[{datetime.now()}] 执行每日统计任务...")
+        sections = []
         
         # 1. Steam 今日游玩时长
         try:
@@ -1103,8 +1476,19 @@ class SteamAuto(BaseInstance):
             if stats_data:
                 msg = self.format_game_stats_message(stats_data)
                 if msg:
-                    self.send_message(msg)
-                    time.sleep(1)  # 间隔 1 秒避免消息太快
+                    # 旧版文字发送逻辑保留：
+                    # self.send_message(msg)
+                    # time.sleep(1)  # 间隔 1 秒避免消息太快
+                    lines = msg.strip("\n").splitlines()
+                    stats_html = self.build_game_stats_html(stats_data)
+                    sections.append({
+                        'title': '好友今日游玩统计',
+                        'body': "\n".join(lines[1:]).strip("\n"),
+                        'body_html': stats_html,
+                        'badge': 'Steam',
+                        'accent': '#2563eb',
+                        'class_name': 'section-full section-steam',
+                    })
         except Exception as e:
             log.info(f"[{datetime.now()}] Steam 统计失败：{e}")
         
@@ -1114,8 +1498,19 @@ class SteamAuto(BaseInstance):
             if pw_stats_data:
                 msg = self.format_pw_daily_stats_message(pw_stats_data)
                 if msg:
-                    self.send_message(msg)
-                    time.sleep(1)
+                    # 旧版文字发送逻辑保留：
+                    # self.send_message(msg)
+                    # time.sleep(1)
+                    lines = msg.strip("\n").splitlines()
+                    pw_html = self.build_pw_daily_stats_html(pw_stats_data)
+                    sections.append({
+                        'title': '完美平台统计',
+                        'body': "\n".join(lines[1:]).strip("\n"),
+                        'body_html': pw_html,
+                        'badge': 'Perfect World',
+                        'accent': '#14b8a6',
+                        'class_name': 'section-full section-pw',
+                    })
         except Exception as e:
             log.info(f"[{datetime.now()}] 完美平台统计失败：{e}")
 
@@ -1123,11 +1518,26 @@ class SteamAuto(BaseInstance):
         try:
             history_stats_data = self.get_friend_pw_history_stats()
             if history_stats_data:
-                msg = self.format_pw_leaderboard_message(history_stats_data)
-                if msg:
-                    self.send_message(msg)
+                # 旧版文字发送逻辑保留：
+                # msg = self.format_pw_leaderboard_message(history_stats_data)
+                # if msg:
+                #     self.send_message(msg)
+                leaderboard_html = self.build_pw_leaderboard_html(history_stats_data)
+                if leaderboard_html:
+                    fallback_lines = (self.format_pw_leaderboard_message(history_stats_data) or '').splitlines()
+                    sections.append({
+                        'title': '历史战绩排行榜',
+                        'body': "\n".join(fallback_lines[1:]).strip("\n"),
+                        'body_html': leaderboard_html,
+                        'badge': 'Leaderboard',
+                        'accent': '#f59e0b',
+                        'class_name': 'section-full section-leaderboard',
+                    })
         except Exception as e:
             log.info(f"[{datetime.now()}] 排行榜生成失败：{e}")
+
+        if sections:
+            self.send_daily_stats_image(sections, "daily_report")
 
         self.reset_daily_stats()
         log.info(f"[{datetime.now()}] 每日统计任务完成")
@@ -1138,21 +1548,25 @@ class SteamAuto(BaseInstance):
         包含：发送每日统计、清理/刷新需要每天更新的缓存或计数器等。
         如需添加其他每日任务，可在此处扩展。
         """
-        # 维护时间检查：避免在 00:15-08:00 发送消息
+        # 维护时间检查：避免在 00:15-08:00 发送消息，但仍执行非发送类维护任务。
+        skip_send = False
         try:
             from core import check_maintenance
             if check_maintenance():
                 log.info(f"[{datetime.now()}] 当前在维护时段，跳过每日统计发送")
-                return
+                skip_send = True
         except (ImportError, AttributeError):
             pass
         
         log.info(f"[{datetime.now()}] 执行每日更新任务...")
-        try:
-            # 发送并重置每日统计（内部已包含重置逻辑）
-            self.send_daily_stats()
-        except Exception as e:
-            log.info(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
+        if skip_send:
+            self.reset_daily_stats()
+        else:
+            try:
+                # 发送并重置每日统计（内部已包含重置逻辑）
+                self.send_daily_stats()
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 执行 send_daily_stats 失败: {e}")
 
         try:
             # 每天刷新好友列表缓存，确保次日拉取到最新好友变更

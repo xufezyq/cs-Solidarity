@@ -229,7 +229,35 @@ def _needs_wx_send(message):
         return False
     return True
 
-def process_all_pending_messages(msg_queue, orig_senders, instances=None):
+def process_send_file(name, file_path, orig_file_senders):
+    """发送文件。返回 True 表示实际发送了文件。"""
+    if not ENABLE_SEND:
+        debug(f"[发送文件] 跳过：发送功能已禁用 (name={name})")
+        return False
+
+    if is_maintenance_time():
+        info(f"[发送文件] 跳过：当前是维护时间 (name={name})")
+        return False
+
+    if not file_path:
+        warning(f"[发送文件] 空文件路径，已跳过 (name={name})")
+        return False
+
+    try:
+        human_action_delay()
+        sender = orig_file_senders.get(name)
+        if sender:
+            sender(file_path)
+            debug("文件发送完成")
+            return True
+        warning(f"未知文件发送来源: {name}，已跳过")
+        return False
+    except Exception as e:
+        error(f"发送文件失败 ({name}): {e}")
+        return False
+
+
+def process_all_pending_messages(msg_queue, orig_senders, orig_file_senders=None, instances=None):
     """一次性处理队列中所有待发送消息，然后切回文件传输助手并最小化
 
     发送期间微信已在前台，每个消息都会自动捕获发送期间的新消息。
@@ -239,19 +267,28 @@ def process_all_pending_messages(msg_queue, orig_senders, instances=None):
     window_restored = False
     while True:
         try:
-            name, message = msg_queue.get_nowait()
+            item = msg_queue.get_nowait()
+            if len(item) == 2:
+                name, message = item
+                send_type = "message"
+            else:
+                name, send_type, message = item
             if is_maintenance_time():
                 info("维护时段，跳过发送")
                 msg_queue.task_done()
                 continue
             # 首次需要真正发送时才恢复窗口（web-only 消息不弹窗）
-            if not window_restored and _needs_wx_send(message):
+            if not window_restored and (send_type == "file" or _needs_wx_send(message)):
                 hwnd = win32gui.FindWindow('WeChatMainWndForPC', None)
                 if hwnd and win32gui.IsIconic(hwnd):
                     human_delay(300, 1200)
                     restore_wechat()
                 window_restored = True
-            if process_send_message(name, message, orig_senders, instances):
+            if send_type == "file":
+                did_send = process_send_file(name, message, orig_file_senders or {})
+            else:
+                did_send = process_send_message(name, message, orig_senders, instances)
+            if did_send:
                 sent_any = True
                 human_delay(1000, 2000)
             msg_queue.task_done()
@@ -627,17 +664,25 @@ def start_instances(instances):
 
     msg_queue = queue.Queue()
     orig_senders = {}
+    orig_file_senders = {}
 
     for name, inst in instances:
         if not isinstance(inst, BaseInstance):
             continue
         orig_senders[name] = inst.send_message
+        orig_file_senders[name] = inst.send_file
 
         def make_enqueue(n):
             def enqueue(message):
-                msg_queue.put((n, message))
+                msg_queue.put((n, "message", message))
             return enqueue
         inst.send_message = make_enqueue(name)
+
+        def make_file_enqueue(n):
+            def enqueue_file(file_path):
+                msg_queue.put((n, "file", file_path))
+            return enqueue_file
+        inst.send_file = make_file_enqueue(name)
 
         threading.Thread(target=inst.start, daemon=True).start()
         info(f"实例 {name} ({type(inst).__name__}) 已启动")
@@ -765,7 +810,7 @@ def start_instances(instances):
                 with _send_lock:
                     _last_send_time = time.time()
                 if not msg_queue.empty():
-                    process_all_pending_messages(msg_queue, orig_senders, instances)
+                    process_all_pending_messages(msg_queue, orig_senders, orig_file_senders, instances)
                 if not api_send_queue.empty():
                     process_api_send_requests()
                 last_flash_time = time.time()

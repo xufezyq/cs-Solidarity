@@ -9,6 +9,7 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 - 实时查看运行状态和日志
 - 在线编辑配置文件
 - 用户权限管理（管理员/普通用户）
+- Web 聊天与文件管理，支持 Web/Agent 双存储模式
 
 ### 技术栈
 - **后端**：Python 3.9+, FastAPI, WebSocket, JWT 认证
@@ -42,7 +43,7 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 │                              ┌──────────────────▼────────────┐ │
 │                              │  用户浏览器                     │ │
 │                              │  - 登录认证                    │ │
-│                              │  - 仪表盘/配置/日志/控制        │ │
+│                              │  - 仪表盘/配置/日志/控制/聊天/文件│ │
 │                              └───────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -57,9 +58,10 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 ### 3.1 认证与权限
 - **用户角色**：admin（管理员）、user（普通用户）
 - **登录方式**：用户名 + 密码，JWT token（有效期 24 小时）
-- **admin 权限**：查看所有信息 + 修改配置 + 控制 bot + 管理用户
-- **user 权限**：只能查看信息（仪表盘、实例状态、日志）
+- **admin 权限**：查看所有信息 + 修改配置 + 控制 bot + 管理用户 + 切换文件存储模式
+- **user 权限**：查看仪表盘/实例/Steam/日志，使用聊天和文件管理；不能编辑配置、控制 bot 或管理用户
 - **首次运行**：自动生成 admin 账户，随机密码输出到控制台
+- **注册审核**：登录页可提交注册申请，管理员在用户管理页审核通过或拒绝
 
 ### 3.2 仪表盘
 - 显示 bot 运行状态（运行中/已停止/Agent 未连接）
@@ -90,14 +92,27 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 
 ### 3.7 控制面板（仅 admin）
 - 启动/停止/重启 bot
-- Debug 模式开关
 - 状态指示
 
 ### 3.8 用户管理（仅 admin）
 - 用户列表（用户名、角色、创建时间）
+- 待审核注册申请列表
 - 创建新用户
 - 删除用户
 - 修改用户角色
+
+### 3.9 文件管理
+- 支持 `web` 和 `agent` 两种存储模式
+- Web 模式文件保存在 Web Server 的 `web/shared_files/`
+- Agent 模式文件保存在 Agent 端项目目录的 `shared_files/`
+- 分片上传，单片 1MB，最大文件 1GB
+- 普通用户只能删除自己上传的文件，管理员可删除所有文件
+
+### 3.10 聊天
+- Web 用户消息通过 `/api/chat/send` 转发到 Agent，再进入 Bot 本地 TCP 聊天服务
+- 前端从 `chat` 实例摘要读取触发前缀，例如 `/claw`、`/hermes`
+- `sync_to_wx=true` 时回复同步到微信，`false` 时只返回网页
+- 聊天上传文件强制走 Agent 存储，便于 OpenClaw 等同机工具读取
 
 ## 4. 非功能需求
 
@@ -158,6 +173,21 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 }
 ```
 
+#### POST /api/auth/register
+提交注册申请，等待管理员审核
+
+#### GET /api/auth/registrations
+获取待审核注册申请（仅 admin）
+
+#### POST /api/auth/registrations/{username}/approve
+通过注册申请（仅 admin）
+
+#### POST /api/auth/registrations/{username}/reject
+拒绝注册申请（仅 admin）
+
+#### GET /api/auth/me
+获取当前登录用户信息
+
 ### 5.2 用户管理 API（仅 admin）
 
 #### GET /api/users
@@ -172,21 +202,24 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 #### PUT /api/users/{username}/role
 修改用户角色
 
+#### PUT /api/users/{username}/password
+重置用户密码
+
 ### 5.3 配置 API（需通过 Agent）
 
 #### GET /api/config
 获取配置列表
 
-#### GET /api/config/{name}
+#### GET /api/config/{file_path}
 读取指定配置
 
-#### POST /api/config/{name}
+#### PUT /api/config/{file_path}
 写入配置
 
-#### POST /api/config/backup
+#### POST /api/config/{file_path}/backup
 备份配置
 
-#### GET /api/config/backups
+#### GET /api/config/backups/list
 获取备份列表
 
 #### POST /api/config/restore
@@ -200,35 +233,84 @@ cs-Solidarity 是一个基于 wxauto 的微信机器人，运行在内网 Window
 #### GET /api/status/instances
 获取实例列表
 
+#### GET /api/status/agent
+获取 Agent 连接状态
+
+#### GET /api/status/steam/friends-status
+获取 Steam 好友在线状态
+
+#### POST /api/status/steam/pw-season/reset
+清空完美平台赛季历史统计和排行榜缓存（仅 admin）
+
+#### GET /api/status/hardware?source=web
+获取硬件信息
+
 ### 5.5 日志 API
 
-#### GET /api/logs
+#### GET /api/logs/list
 获取日志列表
 
 #### GET /api/logs/{date}
 读取指定日期日志
 
+#### GET /api/logs/today
+读取今日日志
+
 ### 5.6 控制 API（仅 admin）
 
-#### POST /api/control/start
+#### POST /api/control/bot/start
 启动 bot
 
-#### POST /api/control/stop
+#### POST /api/control/bot/stop
 停止 bot
 
-#### POST /api/control/restart
+#### POST /api/control/bot/restart
 重启 bot
 
-#### POST /api/control/debug
-切换 debug 模式
+#### GET /api/control/bot/pid
+获取 bot 进程 PID
 
-### 5.7 WebSocket API
+### 5.7 文件 API
+
+#### GET /api/files/mode
+获取当前文件存储模式
+
+#### PUT /api/files/mode?mode=web|agent
+切换文件存储模式（仅 admin）
+
+#### GET /api/files
+获取文件列表
+
+#### POST /api/files/init-upload
+初始化 Web 模式上传
+
+#### POST /api/files/chunk
+上传文件分片；`target=agent` 可强制上传到 Agent
+
+#### DELETE /api/files/{filename}
+删除文件
+
+#### GET /api/files/download/{filename}
+下载文件
+
+### 5.8 聊天 API
+
+#### POST /api/chat/send
+发送 Web 聊天消息到 Bot 实例
+
+#### GET /api/chat/history
+获取聊天历史
+
+### 5.9 WebSocket API
 
 #### /ws/agent
 Agent 连接端点
 
 #### /ws/logs
 日志推送端点
+
+#### /ws/chat
+聊天消息推送端点
 
 ## 6. 数据模型
 
@@ -238,6 +320,7 @@ Agent 连接端点
   "username": "admin",
   "password_hash": "$2b$...",
   "role": "admin",
+  "display_name": "管理员",
   "created_at": "2024-01-01T00:00:00",
   "last_login": "2024-01-01T00:00:00"
 }
@@ -250,7 +333,7 @@ Agent 连接端点
   "id": "uuid",
   "type": "request",
   "action": "config.read",
-  "params": {"name": "config.json"}
+  "params": {"file": "config.json"}
 }
 
 // 响应
@@ -287,6 +370,8 @@ Agent 连接端点
 2. 运行 Server：`cd web && uvicorn server:app --host 0.0.0.0 --port 11029`
 3. 首次运行会生成 admin 密码，记录并登录修改
 
+说明：`11029` 是当前部署示例端口；如果使用 `python -m web.server` 启动且不传参数，默认端口为 `8080`。
+
 ### 7.3 生产环境
 - 使用 Nginx 反向代理 + HTTPS
 - 配置 systemd/supervisor 管理进程
@@ -294,7 +379,5 @@ Agent 连接端点
 
 ## 8. 未来扩展
 - 多 Agent 支持（管理多台机器）
-- 文件管理器（远程文件浏览）
-- 实时聊天监控
 - 告警通知（邮件/Telegram）
 - 操作审计日志

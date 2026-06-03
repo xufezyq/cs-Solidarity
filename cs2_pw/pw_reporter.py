@@ -44,6 +44,15 @@ class PwStatsReporter:
         self.friend_pw_daily_stats = friend_pw_daily_stats
         self.log = log
 
+    @staticmethod
+    def _is_draw_result(win_team, score1, score2) -> bool:
+        """完美平局可能返回 winTeam=-1；旧逻辑只兼容 winTeam=0。"""
+        if win_team in (0, -1):
+            return True
+        if score1 is None or score2 is None:
+            return False
+        return str(score1) == str(score2)
+
     async def fetch_and_report(self, steam_ids: list) -> list[str]:
         """主入口：获取战绩并生成消息"""
         if not self.pw_api:
@@ -262,7 +271,7 @@ class PwStatsReporter:
                     # 胜负
                     win_team = data.get('winTeam')
                     my_team = data.get('team')
-                    if win_team == 0:
+                    if self._is_draw_result(win_team, score1, score2):
                         result = "平局"
                     elif win_team == my_team:
                         result = "胜利"
@@ -288,6 +297,9 @@ class PwStatsReporter:
             pwRating = data.get('pwRating', 0.0)
             we = data.get('we', 0)
             score_change = data.get('pvpScoreChange', 0)
+            pvpStars = data.get('pvpStars', 0)
+            prev_pvpStars = data.get('_prev_pvpStars', 0)
+            stars_change = pvpStars - prev_pvpStars if pvpStars or prev_pvpStars else 0
             match_id = data.get('matchId', '')
 
             if steam_id not in self.friend_pw_daily_stats:
@@ -298,6 +310,7 @@ class PwStatsReporter:
                     'losses': 0,
                     'draws': 0,
                     'total_score_change': 0,
+                    'total_stars_change': 0,
                     'total_kills': 0,
                     'total_deaths': 0,
                     'total_assists': 0,
@@ -317,6 +330,7 @@ class PwStatsReporter:
                 stats['draws'] += 1
 
             stats['total_score_change'] += score_change
+            stats['total_stars_change'] = stats.get('total_stars_change', 0) + stars_change
             stats['total_kills'] += kills
             stats['total_deaths'] += deaths
             stats['total_assists'] += assists

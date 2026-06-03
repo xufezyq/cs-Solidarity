@@ -26,7 +26,7 @@ pip install -r agent/requirements.txt
 python agent/client.py --server ws://SERVER:11029/ws/agent --token TOKEN --root PATH
 ```
 
-No test suite, linter, or CI/CD is configured. Python 3.7+ for the bot, 3.9+ for the web panel.
+No test suite, linter, or CI/CD is configured. Python 3.10+ is required for the bot because parts of the project use modern type syntax; Python 3.11 is recommended. The web panel needs Python 3.9+.
 
 ## Coding Guidelines
 
@@ -93,10 +93,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **All WeChat GUI operations must run on the main thread.** Background daemon threads run business logic but their `send_message()` calls are monkey-patched at startup to enqueue messages into `msg_queue` instead of executing directly. The main thread serially drains the queue.
 
 Main loop order each iteration:
-1. Maintenance window check (00:15–08:00 stops all operations; `debug_mode` skips this)
-2. Process send queue (all pending sends before any receives)
-3. Flash detection → receive messages → dispatch to instances
-4. Idle timeout → minimize WeChat window
+1. Process Web chat queue (`web_msg_queue`) even when WeChat receive is disabled
+2. Maintenance window check (00:15–08:00 reduces normal operations; `debug_mode` skips this)
+3. Process instance send queue and local API queue (all pending sends before any receives)
+4. Flash detection → receive messages → dispatch to instances
+5. Idle timeout → switch to File Transfer Assistant and minimize WeChat window
 
 **Send-before-receive ordering exists to prevent race conditions** — `ChatWith()` clears unread state, so all sends (which call `ChatWith`) must complete before the receive phase reads unread messages.
 
@@ -107,7 +108,7 @@ All feature modules extend `BaseInstance` (core/base_instance.py) with three met
 - `send_message(message)` — called by main thread to actually send (hooked to enqueue at runtime)
 - `handle_message(chat_name, msg)` — optional, receives incoming messages
 
-Instances are registered via factory pattern in `core/instance_factory.py`. The `config.json` `type` field maps to registered factory functions. Current types: `steam`, `daily`, `chat`, `korichat`, `infopush`.
+Instances are registered via factory pattern in `core/instance_factory.py`. The `config.json` `type` field maps to registered factory functions. Current default types are: `steam`, `daily`, `chat`, `korichat`, `infopush`, `disaster_warning`. `chat` may point at a shared `instconfig/chat_configs.json` and select a named config through the instance item's `name` field.
 
 ### Message Routing
 
@@ -117,7 +118,7 @@ Two-tier dispatch in `main.py`:
 
 ### Anti-Detection
 
-`core/wechat_instance.py` monkey-patches `uiautomation.SetCursorPos` and `uiautomation.Click` to inject Gaussian jitter (±1px) and randomized delays (10–120ms). Polling uses Gaussian-distributed intervals (0.3s ± 0.15s). All human-facing delays use `utils/human_sim.py`.
+`core/wechat_instance.py` monkey-patches `uiautomation.SetCursorPos`, `uiautomation.Click`, `uiautomation.SendKeys`, `wxauto.Click`, `wxauto._show`, and `win32api.SetCursorPos` to inject jitter, Bezier-like movement, randomized delays, and safer window focus behavior. Polling uses `random_poll_interval(2.0, 1.5)`, a clamped log-normal interval with a long tail. All human-facing delays use `utils/human_sim.py`.
 
 ### Dual Capture Mechanism
 
@@ -133,10 +134,13 @@ Both batches are merged and deduplicated by message ID.
 - `agent/client.py` — WebSocket client on bot's machine, handles config read/write, bot control, log streaming
 - `shared/protocol.py` — JSON message protocol (request/response/push/ping)
 - JWT auth with admin/user roles in `web/auth.py`
+- Web chat uses `/api/chat/send` → Agent `chat.send` → local TCP chat server on `127.0.0.1:18766` → `web_msg_queue`.
+- The bot also starts a local HTTP API on `127.0.0.1:18800` for same-machine tools to enqueue text/file sends.
+- File management supports `web` storage in `web/shared_files/` and `agent` storage in the Agent-side `shared_files/`.
 
 ## Configuration
 
-- `config.json` — master config: `debug_mode` flag + list of instance entries with `type` and optional `config` path
+- `config.json` — master config: `debug_mode`, `mock_send`, send/receive/flash switches, maintenance window, optional `web_chat.target_group`, and instance entries with `type`, optional `config`, and optional `name`
 - `instconfig/*.json` — per-instance configs (API keys, schedules, trigger prefixes, target groups/chats)
 - Instance configs are loaded by each instance's `create_from_config()` or `create_from_data()` class method
 

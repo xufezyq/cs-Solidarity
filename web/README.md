@@ -10,7 +10,7 @@ cs-Solidarity Web 控制面板是一个基于 WebSocket 的远程管理工具，
 
 ### 环境要求
 - Python 3.9+
-- 网络：A 机器能访问 B 机器的 WebSocket 端口
+- 网络：Agent 所在机器能主动访问 Web Server 的 WebSocket 端口
 
 ### 安装
 
@@ -33,7 +33,7 @@ uvicorn server:app --host 0.0.0.0 --port 11029
 pip install -r agent/requirements.txt
 
 # 启动 Agent
-python agent/client.py --server ws://B_IP:11029/ws/agent --token your-agent-token --root D:\code\cs-Solidarity
+python -m agent.client --server ws://B_IP:11029/ws/agent --token your-agent-token --root D:\code\cs-Solidarity
 ```
 
 ### 修改 admin 密码
@@ -66,9 +66,11 @@ python agent/client.py --server ws://B_IP:11029/ws/agent --token your-agent-toke
 | 实例管理（查看详情） | ✅ | ✅ |
 | 配置编辑（JSON编辑器） | ✅ | ❌ |
 | Steam 数据（好友/排行榜） | ✅ | ✅ |
+| 聊天页面（转发到 Bot 实例） | ✅ | ✅ |
+| 文件管理（Web/Agent 存储模式） | ✅ | ✅（只能删除自己上传的文件） |
 | 日志查看（筛选/搜索） | ✅ | ✅ |
-| 控制（启停/重启/debug） | ✅ | ❌ |
-| 用户管理（创建/删除/改角色） | ✅ | ❌ |
+| 控制（启动/停止/重启 Bot） | ✅ | ❌ |
+| 用户管理（注册审核/创建/删除/改角色） | ✅ | ❌ |
 
 ## API 文档
 
@@ -86,7 +88,9 @@ python agent/client.py --server ws://B_IP:11029/ws/agent --token your-agent-toke
 ### Server 配置
 - 首次运行自动生成 `users.json`
 - Agent 连接令牌在启动时生成并输出到控制台
-- 默认端口 11029，可通过 uvicorn 参数修改
+- `uvicorn server:app --port 11029` 是当前部署示例端口
+- `python -m web.server` 未指定参数时默认监听 `127.0.0.1:8080`，可通过 `--host`、`--port`、`--token` 修改
+- `web/web_config.json` 中的 `file_storage_mode` 控制文件存储在 Web 端还是 Agent 端
 
 ### 安全建议
 - 生产环境使用 Nginx + HTTPS
@@ -109,6 +113,11 @@ python agent/client.py --server ws://B_IP:11029/ws/agent --token your-agent-toke
 - Agent 会自动重连（指数退避，最长 60 秒）
 - Web 前端会显示"Agent 未连接"状态
 - 配置编辑和控制功能不可用
+
+### Q: 聊天页面和微信同步有什么区别？
+- “微信”模式会把 Web 用户消息加前缀后同步到配置的微信群/好友，并把实例回复返回网页
+- “仅网页”模式只在网页中显示实例回复，不实际发送到微信
+- 聊天上传文件会强制走 Agent 存储，方便 OpenClaw 等同机工具读取
 
 ### Q: 如何查看实时日志？
 - 在 Web 面板的"日志"页面，新日志会通过 WebSocket 实时推送显示

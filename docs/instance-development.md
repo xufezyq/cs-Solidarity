@@ -20,16 +20,14 @@
 ```python
 # core/base_instance.py
 class BaseInstance(ABC):
-    def __init__(self, item):
-        self.item = item  # 配置项
-        self.name = item.get('name', 'unknown')
-        self.msg_queue = None  # 由主线程注入
-        self.wx = None  # 由主线程注入
-    
     @abstractmethod
     def send_message(self, message: str):
         """发送消息（被主线程 hook 为入队）"""
         pass
+
+    def send_file(self, file_path: str):
+        """发送文件（可选实现，被主线程 hook 为入队）"""
+        raise NotImplementedError
     
     @abstractmethod
     def start(self):
@@ -52,23 +50,20 @@ class BaseInstance(ABC):
 ```python
 # instances/my_instance.py
 from core.base_instance import BaseInstance
+from core import wechat_instance
 import time
 
 class MyInstance(BaseInstance):
     """我的自定义实例"""
     
-    def __init__(self, item):
-        super().__init__(item)
-        self.config = item.get('config', {})
+    def __init__(self, config: dict):
+        self.config = config
+        self.name = config.get('name', 'myinstance')
         self.target_group = self.config.get('target_group', '文件传输助手')
     
     def send_message(self, message: str):
-        """发送消息到队列"""
-        if self.msg_queue:
-            self.msg_queue.put((self.name, {
-                "target": self.target_group,
-                "content": message
-            }))
+        """实际发送逻辑；后台调用时会被主程序替换为入队函数"""
+        wechat_instance.send_message(message, self.target_group)
     
     def start(self):
         """后台循环"""
@@ -86,21 +81,31 @@ class MyInstance(BaseInstance):
         """接收并处理消息"""
         content = msg.content if hasattr(msg, 'content') else str(msg)
         print(f"[{self.name}] 收到消息：{chat_name} - {content}")
+
+    @classmethod
+    def create_from_data(cls, data: dict):
+        """从 config.json 的实例项创建实例"""
+        if 'config' in data:
+            import json
+            with open(data['config'], 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        else:
+            config = data
+        return cls(config)
 ```
 
 ### 2. 实现核心方法
 
 #### `send_message(message)`
 
-发送消息到队列，由主线程统一发送：
+实现实际发送逻辑。启动后主程序会把实例的 `send_message()` 替换为入队函数；因此后台线程调用的是队列，主线程消费队列时再调用这里保存的原始方法：
 
 ```python
 def send_message(self, message: str):
-    self.msg_queue.put((self.name, {
-        "target": self.target_group,
+    wechat_instance.send_message({
         "content": message,
         "at": ["某人"]  # 可选：@某人
-    }))
+    }, self.target_group)
 ```
 
 #### `start()`
@@ -134,21 +139,16 @@ def handle_message(self, chat_name, msg):
 
 ### 1. 注册到工厂
 
-在 `core/instance_factory.py` 注册新实例类型：
+在 `core/instance_factory.py` 的 `init_defaults()` 中导入并注册新实例类型：
 
 ```python
 # core/instance_factory.py
 from instances.my_instance import MyInstance
 
-INSTANCE_TYPES = {
-    'steam': SteamAuto,
-    'daily': DailyAuto,
-    'chat': ChatAuto,
-    'korichat': KoriChat,
-    'infopush': InfoPush,
-    'myinstance': MyInstance,  # 新增
-}
+register_instance_type('myinstance', lambda data: MyInstance.create_from_data(data))
 ```
+
+当前内置类型包括 `steam`、`daily`、`chat`、`korichat`、`infopush`、`disaster_warning`。
 
 ### 2. 配置使用
 
@@ -160,10 +160,7 @@ INSTANCE_TYPES = {
     {
       "type": "myinstance",
       "name": "我的实例",
-      "config": {
-        "target_group": "文件传输助手",
-        "interval": 3600
-      }
+      "config": "instconfig/my_instance.json"
     }
   ]
 }
@@ -175,15 +172,12 @@ INSTANCE_TYPES = {
 
 ### 发送消息
 
-**不要直接调用 wxauto！** 使用队列机制：
+**不要直接调用 wxauto！** 实例的原始发送方法应调用 `core.wechat_instance`，由主程序在后台线程中替换为队列入口：
 
 ```python
 # ✅ 正确方式
 def send_message(self, message: str):
-    self.msg_queue.put((self.name, {
-        "target": self.target_group,
-        "content": message
-    }))
+    wechat_instance.send_message(message, self.target_group)
 
 # ❌ 错误方式（直接在后台线程操作微信 GUI）
 def send_message(self, message: str):
@@ -243,8 +237,6 @@ class MyInstance(BaseInstance):
 
 ```python
 def __init__(self, item):
-    super().__init__(item)
-    
     # 从配置文件加载
     config_path = item.get('config')
     if isinstance(config_path, str):
@@ -264,8 +256,6 @@ def __init__(self, item):
 
 ```python
 def __init__(self, item):
-    super().__init__(item)
-    
     self.config = self._load_config(item)
     self._validate_config()
 
@@ -293,8 +283,7 @@ def _validate_config(self):
 import threading
 
 class MyInstance(BaseInstance):
-    def __init__(self, item):
-        super().__init__(item)
+    def __init__(self, config):
         self.lock = threading.Lock()
         self.counter = 0
     
@@ -369,8 +358,7 @@ class MyInstance(BaseInstance):
 
 ```python
 class MyInstance(BaseInstance):
-    def __init__(self, item):
-        super().__init__(item)
+    def __init__(self, config):
         self.timer = None
     
     def stop(self):
@@ -388,6 +376,7 @@ class MyInstance(BaseInstance):
 ```python
 # instances/weather_push.py
 from core.base_instance import BaseInstance
+from core import wechat_instance
 import time
 import requests
 from datetime import datetime
@@ -395,18 +384,13 @@ from datetime import datetime
 class WeatherPush(BaseInstance):
     """每日天气推送实例"""
     
-    def __init__(self, item):
-        super().__init__(item)
-        config = item.get('config', {})
+    def __init__(self, config):
         self.target_group = config.get('target_group')
         self.push_time = config.get('push_time', '08:00')
         self.api_key = config.get('api_key')
     
     def send_message(self, message: str):
-        self.msg_queue.put((self.name, {
-            "target": self.target_group,
-            "content": message
-        }))
+        wechat_instance.send_message(message, self.target_group)
     
     def start(self):
         """后台循环"""

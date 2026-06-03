@@ -107,11 +107,13 @@ Agent 连接令牌在 Web Server 启动时显示在控制台：
 
 ---
 
-## 普通用户连接
+## 普通用户与注册审核
 
-### 创建普通用户（Admin 操作）
+### 用户自助注册
 
-需要用 API 创建，角色为 `user`：
+登录页支持提交注册申请。申请会写入 `web/registrations.json`，管理员登录后可在“用户管理”页面审核通过或拒绝。
+
+也可以用 API 创建普通用户（Admin 操作），角色为 `user`：
 
 ```bash
 curl -X POST http://localhost:11029/api/users \
@@ -126,7 +128,23 @@ curl -X POST http://localhost:11029/api/users \
 
 浏览器打开 `http://localhost:11029`，用管理员分配的账号密码登录即可。
 
-**普通用户权限：** 只能执行操作，不能管理用户（创建/删除/修改角色）。
+**普通用户权限：** 可查看仪表盘、实例、Steam、日志，使用聊天和文件管理；不能编辑配置、控制 Bot 或管理用户。普通用户只能删除自己上传的文件，管理员可删除所有文件。
+
+### 注册审核 API
+
+```bash
+# 查看待审核注册
+curl http://localhost:11029/api/auth/registrations \
+  -H "Authorization: Bearer <admin_token>"
+
+# 通过申请
+curl -X POST http://localhost:11029/api/auth/registrations/test/approve \
+  -H "Authorization: Bearer <admin_token>"
+
+# 拒绝申请
+curl -X POST http://localhost:11029/api/auth/registrations/test/reject \
+  -H "Authorization: Bearer <admin_token>"
+```
 
 ### 其他用户管理 API
 
@@ -160,4 +178,7 @@ curl -X DELETE http://localhost:11029/api/users/test \
 |------|------|
 | `users.json` | 用户数据（admin 密码等），删除后重新生成 |
 | `.secret_key` | JWT 密钥，删除后所有 token 失效需重新登录 |
+| `registrations.json` | 待审核注册申请 |
+| `web_config.json` | Web 端配置，如文件存储模式 |
 | `backups/` | 配置文件自动备份，可安全删除 |
+| `shared_files/` | Web 存储模式下的上传文件 |

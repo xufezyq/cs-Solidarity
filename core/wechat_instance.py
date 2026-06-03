@@ -496,6 +496,94 @@ def send_message(message, group, at=None, at_all=False):
                 _get_main()._sending_count = 0
 
 
+def send_file(filepath, group):
+    """发送文件并复用消息发送的窗口/锁保护。"""
+    if getattr(_get_main(), 'MOCK_SEND', False):
+        log.info(f"[MOCK FILE→{group}]: {filepath}")
+        return []
+
+    with _get_main()._send_lock:
+        _get_main()._sending_count += 1
+        _get_main()._is_sending = True
+        _get_main()._last_send_time = time.time()
+
+    try:
+        wx = get_wechat()
+        human_action_delay()
+
+        with _send_op_lock:
+            pre_caught = []
+            try:
+                all_new = wx.GetAllNewMessage()
+                if all_new and group in all_new:
+                    raw = all_new[group]
+                    for msg in raw:
+                        msg_type = msg.type if hasattr(msg, 'type') else None
+                        sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                        if msg_type != 'self' and sender != 'Self':
+                            pre_caught.append(msg)
+                    if pre_caught:
+                        log.info(f"[send-file] 预捕获 {group} {len(pre_caught)} 条未读消息")
+            except Exception as e:
+                log.debug(f"[send-file] 预捕获失败（非致命）: {e}")
+
+            try:
+                wx.ChatWith(group)
+                human_delay(400, 900)
+            except Exception as e:
+                log.error(f"打开聊天 {group} 失败: {e}")
+                return pre_caught
+
+            last_id_before = None
+            try:
+                pre_msgs = wx.GetAllMessage()
+                if pre_msgs:
+                    last_id_before = pre_msgs[-1].id if hasattr(pre_msgs[-1], 'id') else pre_msgs[-1][-1]
+            except Exception as e:
+                log.debug(f"[send-file] 读取消息列表失败: {e}")
+
+            try:
+                log.info(f"[send-file] 发送文件到 {group}: {filepath}")
+                wx.SendFiles(filepath)
+                with _get_main()._send_lock:
+                    _get_main()._last_send_time = time.time()
+            except Exception as send_e:
+                log.error(f"[send-file] SendFiles 异常: {send_e}")
+                raise
+
+            human_delay(400, 1000)
+
+            post_caught = []
+            try:
+                post_msgs = wx.GetAllMessage()
+                if post_msgs and last_id_before:
+                    found_idx = -1
+                    for i, msg in enumerate(post_msgs):
+                        msg_id = msg.id if hasattr(msg, 'id') else msg[-1]
+                        if msg_id == last_id_before:
+                            found_idx = i
+                            break
+                    raw_new = post_msgs[found_idx + 1:] if found_idx >= 0 else post_msgs
+                    for msg in raw_new:
+                        msg_type = msg.type if hasattr(msg, 'type') else None
+                        sender = msg.sender if hasattr(msg, 'sender') else (msg[0] if isinstance(msg, (list, tuple)) else None)
+                        if msg_type != 'self' and sender != 'Self':
+                            post_caught.append(msg)
+                    if post_caught:
+                        log.info(f"[send-file] 发送期间捕获 {len(post_caught)} 条新消息")
+            except Exception as e:
+                log.debug(f"[send-file] 捕获新消息失败: {e}")
+
+            return pre_caught + post_caught
+
+    finally:
+        with _get_main()._send_lock:
+            _get_main()._sending_count -= 1
+            if _get_main()._sending_count <= 0:
+                _get_main()._is_sending = False
+                _get_main()._sending_count = 0
+
+
 def send_messages(messages, group, at=None, at_all=False):
     """批量发送多条消息到同一聊天（只切换一次窗口，捕获发送期间的新消息）
     

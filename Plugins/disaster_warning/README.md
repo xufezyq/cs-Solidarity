@@ -2,6 +2,23 @@
 <!-- markdownlint-disable MD041 -->
 ![astrbot_plugin_disaster_warning](https://socialify.git.ci/DBJD-CR/astrbot_plugin_disaster_warning/image?custom_description=%F0%9F%9A%A8+%E4%B8%80%E4%B8%AA%E5%9F%BA%E4%BA%8E+AstrBot+%E7%9A%84%E5%A4%9A%E6%95%B0%E6%8D%AE%E6%BA%90%E7%81%BE%E5%AE%B3%E9%A2%84%E8%AD%A6%E6%8F%92%E4%BB%B6&description=1&font=Inter&forks=1&issues=1&language=1&name=1&owner=1&pattern=Charlie+Brown&pulls=1&stargazers=1&theme=Auto)
 
+> **cs-Solidarity 适配说明（2026-06-02）**
+>
+> 本目录保留了上游 `astrbot_plugin_disaster_warning` 的主体文档和功能说明，但在当前仓库中它已经通过 `Plugins/disaster_warning/disaster_instance.py` 适配为 cs-Solidarity 实例，不需要安装 AstrBot。
+>
+> 在 cs-Solidarity 中启用方式是在根目录 `config.json` 添加：
+>
+> ```json
+> {
+>   "type": "disaster_warning",
+>   "config": "instconfig/disaster_warning.json"
+> }
+> ```
+>
+> 当前适配配置使用微信群/好友名作为会话名：`wechat_groups` 用于命令响应广播，`target_sessions` 用于预警推送目标；若省略 `target_sessions`，代码会自动回退到 `wechat_groups`。这与下文 AstrBot 原始文档中的 `平台名:消息类型:会话ID` 说明不同。
+>
+> 内置 Web 管理端由 `web_admin` 控制，当前示例配置默认监听 `127.0.0.1:11030`。灾害告警发送通过适配器直接调用 `core.wechat_instance.send_message`，不经过主框架维护时间拦截，以保证地震、海啸等预警的时效性。
+
 <p align="center">
   <img src="resources/PluginRank.svg" alt="PluginRank">
   <img src="resources/StarRank.svg" alt="StarRank">

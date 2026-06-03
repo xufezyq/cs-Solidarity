@@ -74,3 +74,6 @@ backups/
 
 # 共享文件目录
 shared_files/
+
+# Agent 配置文件
+.agents/
