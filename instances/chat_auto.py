@@ -237,7 +237,7 @@ class ChatAuto(BaseInstance):
         api_key = config.get('api_key')
         if not api_key:
             # 根据模型名称从环境变量读取相应的 API 密钥
-            model = config.get('model', "deepseek-chat")
+            model = config.get('model', "deepseek-v4-flash")
             if 'openclaw' in model.lower():
                 api_key = os.getenv('OPENCLAW_API_KEY')
             elif 'deepseek' in model.lower():
@@ -246,7 +246,7 @@ class ChatAuto(BaseInstance):
         return cls(
             api_key=api_key,
             base_url=config.get('base_url', "https://api.deepseek.com"),
-            model=config.get('model', "deepseek-chat"),
+            model=config.get('model', "deepseek-v4-flash"),
             system_prompt=config.get('system_prompt', ""),
             trigger_prefix=config.get('trigger_prefix', ""),
             allowed_users=config.get('allowed_users', []),
