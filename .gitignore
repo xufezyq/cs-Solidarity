@@ -77,3 +77,9 @@ shared_files/
 
 # Agent 配置文件
 .agents/
+
+# Hyperframes 视频目录
+ppt/hyperframes-video/
+
+# codex技能锁文件
+skills-lock.json
