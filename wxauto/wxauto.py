@@ -216,8 +216,9 @@ class WeChat(WeChatBase):
                 self.ChatWith(session)
                 MsgItems = self.C_MsgList.GetChildren()[-sessiondict[session]:]
                 msgs = self._getmsgs(MsgItems, savepic)
-                self.lastmsgid = msgs[-1][-1]
-                return {session:msgs}
+                if msgs:
+                    self.lastmsgid = msgs[-1][-1]
+                    return {session:msgs}
             # print('没有新消息')
             return None
     
@@ -238,7 +239,9 @@ class WeChat(WeChatBase):
             empty_checks = 0
             for session in pending:
                 self.ChatWith(session)
-                newmessages[session] = self.GetAllMessage()[-pending[session]:]
+                msgs = self.GetAllMessage()[-pending[session]:]
+                if msgs:
+                    newmessages[session] = msgs
                 processed_sessions.add(session)
         self.ChatWith(self._lang('文件传输助手'))
         return newmessages
