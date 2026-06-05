@@ -275,6 +275,15 @@
       margin: 12px 0 0;
       padding: 0 18px 18px 28px;
     }
+    .leaderboard-paired {
+      gap: 10px;
+    }
+    .leaderboard-pair {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 10px;
+    }
     .leaderboard-row {
       --tone: #2f80ed;
       display: grid;
@@ -287,6 +296,12 @@
       border-radius: 10px;
       background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 8%, #ffffff), #ffffff 58%);
     }
+    .leaderboard-row.pair-card {
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      min-height: 60px;
+      padding: 9px 12px;
+      gap: 10px;
+    }
     .leaderboard-row.tone-red { --tone: #dc2626; }
     .leaderboard-row.tone-slate { --tone: #64748b; }
     .leaderboard-row.tone-blue { --tone: #2f80ed; }
@@ -294,6 +309,15 @@
     .leaderboard-row.tone-teal { --tone: #10a37f; }
     .leaderboard-row.tone-amber { --tone: #d97706; }
     .rank-num {
+      color: #7f8fa3;
+      font-size: 14px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+    .pair-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: #7f8fa3;
       font-size: 14px;
       font-weight: 900;
@@ -328,6 +352,10 @@
       gap: 10px;
       min-width: 0;
     }
+    .pair-card .metric-line {
+      align-items: center;
+      gap: 6px;
+    }
     .metric-name {
       flex: none;
       border: 1px solid color-mix(in srgb, var(--tone) 22%, #dce5ef);
@@ -348,6 +376,9 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .pair-card .metric-holder {
+      font-size: 16px;
+    }
     .metric-value {
       display: flex;
       align-items: baseline;
@@ -363,6 +394,9 @@
       font-size: 24px;
       font-weight: 950;
       font-variant-numeric: tabular-nums;
+    }
+    .pair-card .metric-value span {
+      font-size: 22px;
     }
   </style>
 </head>

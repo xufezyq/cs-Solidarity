@@ -993,30 +993,20 @@ class SteamAuto(BaseInstance):
             return []
 
         # 定义所有排行榜类别：(key_name, display_name, emoji, data_field, is_max)
-        # min_* 类别只记录不播报（用户要求屏蔽最低数据的播报）
         categories = [
             ('max_kills', '击杀王', '🔫', 'max_kills', True),
+            ('min_kills', '精神支持', '🫡', 'min_kills', False),
             ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
+            ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
             ('max_rating', 'RT 之神', '📊', 'max_rating', True),
+            ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
             ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
+            ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
             ('max_we', 'WE 之神', '💪', 'max_we', True),
+            ('min_we', '不懂装懂', '😅', 'min_we', False),
             ('max_score', '得分王', '🎯', 'max_score', True),
+            ('min_score', '吊车尾', '📉', 'min_score', False),
         ]
-        # 旧版（含 min 类，恢复时取消注释）:
-        # categories = [
-        #     ('max_kills', '击杀王', '🔫', 'max_kills', True),
-        #     ('min_kills', '精神支持', '🫡', 'min_kills', False),
-        #     ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
-        #     ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
-        #     ('max_rating', 'RT 之神', '📊', 'max_rating', True),
-        #     ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
-        #     ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
-        #     ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
-        #     ('max_we', 'WE 之神', '💪', 'max_we', True),
-        #     ('min_we', '不懂装懂', '😅', 'min_we', False),
-        #     ('max_score', '得分王', '🎯', 'max_score', True),
-        #     ('min_score', '吊车尾', '📉', 'min_score', False),
-        # ]
 
         for cat_key, cat_name, emoji, field, is_max in categories:
             # 找出当前该类别的最佳/最差玩家
@@ -1212,11 +1202,17 @@ class SteamAuto(BaseInstance):
 
         categories = [
             {'code': 'K', 'name': '击杀王', 'field': 'max_kills', 'is_max': True, 'unit': '杀', 'tone': 'red'},
+            {'code': 'k', 'name': '精神支持', 'field': 'min_kills', 'is_max': False, 'unit': '杀', 'tone': 'red'},
             {'code': 'D', 'name': '唐宋八大家', 'field': 'max_deaths', 'is_max': True, 'unit': '死', 'tone': 'slate'},
+            {'code': 'd', 'name': '怯战蜥蜴', 'field': 'min_deaths', 'is_max': False, 'unit': '死', 'tone': 'slate'},
             {'code': 'RT', 'name': 'RT 之神', 'field': 'max_rating', 'is_max': True, 'unit': '', 'tone': 'blue'},
+            {'code': 'rt', 'name': '团队吉祥物', 'field': 'min_rating', 'is_max': False, 'unit': '', 'tone': 'blue'},
             {'code': 'PR', 'name': 'PW RT 之神', 'field': 'max_pw_rating', 'is_max': True, 'unit': '', 'tone': 'violet'},
+            {'code': 'pr', 'name': '纯路人', 'field': 'min_pw_rating', 'is_max': False, 'unit': '', 'tone': 'violet'},
             {'code': 'WE', 'name': 'WE 之神', 'field': 'max_we', 'is_max': True, 'unit': '', 'tone': 'teal'},
+            {'code': 'we', 'name': '不懂装懂', 'field': 'min_we', 'is_max': False, 'unit': '', 'tone': 'teal'},
             {'code': 'S', 'name': '得分王', 'field': 'max_score', 'is_max': True, 'unit': '分', 'tone': 'amber'},
+            {'code': 's', 'name': '吊车尾', 'field': 'min_score', 'is_max': False, 'unit': '分', 'tone': 'amber'},
         ]
 
         rows = []
@@ -1322,16 +1318,14 @@ class SteamAuto(BaseInstance):
         if not rows:
             return None
 
-        row_html = []
-        for rank, row in enumerate(rows, start=1):
+        def build_metric_card(row):
             code = html.escape(row['code'])
             name = html.escape(row['name'])
             nick = html.escape(row['nickname'])
             value = html.escape(row['value'])
             unit = html.escape(row['unit'])
             tone = html.escape(row['tone'], quote=True)
-            row_html.append(f"""<div class="leaderboard-row tone-{tone}">
-  <div class="rank-num">{rank:02d}</div>
+            return f"""<div class="leaderboard-row pair-card tone-{tone}">
   <div class="metric-code">{code}</div>
   <div class="metric-main">
     <div class="metric-line">
@@ -1340,9 +1334,20 @@ class SteamAuto(BaseInstance):
     </div>
   </div>
   <div class="metric-value"><span>{value}</span>{unit}</div>
+</div>"""
+
+        pair_html = []
+        for pair_index in range(0, len(rows), 2):
+            max_row = rows[pair_index]
+            min_row = rows[pair_index + 1] if pair_index + 1 < len(rows) else None
+            right_card = build_metric_card(min_row) if min_row else '<div></div>'
+            pair_html.append(f"""<div class="leaderboard-pair">
+  <div class="pair-num">{pair_index // 2 + 1:02d}</div>
+  {build_metric_card(max_row)}
+  {right_card}
 </div>""")
 
-        return '<div class="leaderboard-grid">' + "\n".join(row_html) + '</div>'
+        return '<div class="leaderboard-grid leaderboard-paired">' + "\n".join(pair_html) + '</div>'
 
     def render_combined_daily_stats_image(self, sections: list, prefix: str = "daily_report") -> str:
         """将多个每日统计区块渲染为一张 PNG，返回图片路径。"""
