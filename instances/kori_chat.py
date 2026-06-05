@@ -9,6 +9,7 @@ import time
 import logging
 import json
 import re
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from core.base_instance import BaseInstance
@@ -44,6 +45,8 @@ class KoriChatInstance(BaseInstance):
         self._image_recognition_service = None
         self._auto_sender = None
         self._wx = None
+        self._processed_messages = OrderedDict()
+        self._max_processed_messages = 1000
 
         self._stop_event = threading.Event()
 
@@ -327,6 +330,20 @@ class KoriChatInstance(BaseInstance):
                 sender = chat_name
                 msg_id = None
                 log.debug("消息是其他格式")
+
+            msg_type = str(getattr(message, 'type', '')).lower()
+            if msg_type in {'self', 'time', 'sys', 'recall'} or sender in {'Self', 'Time', 'SYS', 'Recall'}:
+                log.debug(f"[KoriChat] 跳过非用户消息: type={msg_type}, sender={sender}")
+                return
+
+            if msg_id:
+                dedup_key = (chat_name, str(msg_id))
+                if dedup_key in self._processed_messages:
+                    log.debug(f"[KoriChat] 消息已处理过，跳过: {dedup_key}")
+                    return
+                self._processed_messages[dedup_key] = time.time()
+                while len(self._processed_messages) > self._max_processed_messages:
+                    self._processed_messages.popitem(last=False)
 
             is_group = (sender != chat_name)
             log.debug(f"判断: chat_name={chat_name}, sender={sender}, is_group={is_group}")

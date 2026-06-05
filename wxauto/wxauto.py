@@ -170,9 +170,12 @@ class WeChat(WeChatBase):
             sessionname (str): 聊天对象名
             amount (int): 新消息条数
         """
+        self._last_session_has_at_marker = False
+        self._last_session_at_fallback = False
         raw_session_name = SessionItem.Name or ''
         matchobj = re.search(r'\d+条新消息', raw_session_name)
         has_at_marker = self._has_at_session_marker(SessionItem)
+        self._last_session_has_at_marker = has_at_marker
         amount = 0
         if matchobj:
             try:
@@ -187,7 +190,17 @@ class WeChat(WeChatBase):
             sessionname = self._get_at_session_title(SessionItem, sessionname)
             if amount <= 0:
                 amount = AT_SESSION_FALLBACK_AMOUNT
+                self._last_session_at_fallback = True
         return sessionname, amount
+
+    def _filter_at_messages(self, msgs):
+        """Only keep real @ messages from an @ notification session."""
+        filtered = []
+        for msg in msgs:
+            content = msg.content if hasattr(msg, 'content') else (msg[1] if isinstance(msg, (list, tuple)) and len(msg) > 1 else str(msg))
+            if isinstance(content, str) and '@' in content:
+                filtered.append(msg)
+        return filtered
     
     def CheckNewMessage(self):
         """是否有新消息"""
@@ -212,10 +225,13 @@ class WeChat(WeChatBase):
                 sessiondict = self.GetSessionList(newmessage=True)
                 if sessiondict or not self.CheckNewMessage():
                     break
+            at_marker_sessions = set(getattr(self, '_at_marker_sessions', set()))
             for session in sessiondict:
                 self.ChatWith(session)
                 MsgItems = self.C_MsgList.GetChildren()[-sessiondict[session]:]
                 msgs = self._getmsgs(MsgItems, savepic)
+                if session in at_marker_sessions:
+                    msgs = self._filter_at_messages(msgs)
                 if msgs:
                     self.lastmsgid = msgs[-1][-1]
                     return {session:msgs}
@@ -230,6 +246,7 @@ class WeChat(WeChatBase):
         while True:
             self.A_ChatIcon.DoubleClick(simulateMove=False)
             sessiondict = self.GetSessionList(newmessage=True)
+            at_marker_sessions = set(getattr(self, '_at_marker_sessions', set()))
             pending = {session: sessiondict[session] for session in sessiondict if session not in processed_sessions}
             if not pending:
                 empty_checks += 1
@@ -240,6 +257,8 @@ class WeChat(WeChatBase):
             for session in pending:
                 self.ChatWith(session)
                 msgs = self.GetAllMessage()[-pending[session]:]
+                if session in at_marker_sessions:
+                    msgs = self._filter_at_messages(msgs)
                 if msgs:
                     newmessages[session] = msgs
                 processed_sessions.add(session)
@@ -257,6 +276,9 @@ class WeChat(WeChatBase):
             SessionList (dict): 聊天对象列表，键为聊天对象名，值为新消息条数
         """
         self.SessionItem = self.SessionBox.ListItemControl()
+        if newmessage:
+            self._at_marker_sessions = set()
+            self._at_fallback_sessions = set()
         if reset:
             self.SessionItemList = []
         SessionList = {}
@@ -268,6 +290,10 @@ class WeChat(WeChatBase):
                     break
                 if name not in self.SessionItemList:
                     self.SessionItemList.append(name)
+                if newmessage and getattr(self, '_last_session_has_at_marker', False):
+                    self._at_marker_sessions.add(name)
+                if newmessage and getattr(self, '_last_session_at_fallback', False):
+                    self._at_fallback_sessions.add(name)
                 if name not in SessionList:
                     SessionList[name] = amount
             self.SessionItem = self.SessionItem.GetNextSiblingControl()

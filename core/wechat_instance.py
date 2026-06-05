@@ -6,6 +6,7 @@ import threading
 import random
 import time
 import win32api
+from collections import OrderedDict
 from wxauto import WeChat
 from utils.human_sim import human_delay, human_action_delay
 
@@ -18,6 +19,93 @@ log = logging.getLogger(__name__)
 _wx = None  # 全局WeChat单例对象，所有模块都可以导入使用
 _wx_lock = threading.Lock()  # 防止多线程同时初始化
 _send_op_lock = threading.Lock()  # 防止多个线程同时执行 ChatWith+SendMsg（KoriChat Timer 与主线程冲突）
+_seen_msg_lock = threading.Lock()
+_seen_msg_ids = OrderedDict()
+_MAX_SEEN_MSG_IDS = 5000
+_IGNORED_MSG_TYPES = {'self', 'time', 'sys', 'recall'}
+_IGNORED_SENDERS = {'Self', 'Time', 'SYS', 'Recall'}
+
+
+def _msg_attr(msg, attr, fallback_index=None, default=None):
+    if hasattr(msg, attr):
+        return getattr(msg, attr)
+    if fallback_index is not None and isinstance(msg, (list, tuple)) and len(msg) > fallback_index:
+        return msg[fallback_index]
+    return default
+
+
+def _msg_identity(chat_name, msg):
+    msg_id = _msg_attr(msg, 'id', 2)
+    if msg_id:
+        return chat_name, str(msg_id)
+
+    sender = _msg_attr(msg, 'sender', 0, '')
+    content = _msg_attr(msg, 'content', 1, str(msg))
+    msg_type = _msg_attr(msg, 'type', default=type(msg).__name__)
+    if not content:
+        return None
+    return chat_name, 'fallback', str(msg_type), str(sender), str(content)
+
+
+def _is_user_message(msg):
+    msg_type = str(_msg_attr(msg, 'type', default='')).lower()
+    sender = _msg_attr(msg, 'sender', 0, '')
+    if msg_type in _IGNORED_MSG_TYPES:
+        return False
+    if sender in _IGNORED_SENDERS:
+        return False
+    return True
+
+
+def _filter_unseen_messages(chat_name, msgs, source='receive'):
+    """Filter non-user and already dispatched messages.
+
+    wxauto may repeatedly expose the same muted group chat as "new",
+    especially for @ markers without a numeric unread count. Keep an
+    application-level high-water mark so downstream instances see each
+    message once.
+    """
+    if not msgs:
+        return []
+
+    filtered = []
+    skipped_meta = 0
+    skipped_seen = 0
+
+    with _seen_msg_lock:
+        for msg in msgs:
+            if not _is_user_message(msg):
+                skipped_meta += 1
+                continue
+
+            key = _msg_identity(chat_name, msg)
+            if key and key in _seen_msg_ids:
+                skipped_seen += 1
+                continue
+
+            if key:
+                _seen_msg_ids[key] = time.time()
+                while len(_seen_msg_ids) > _MAX_SEEN_MSG_IDS:
+                    _seen_msg_ids.popitem(last=False)
+            filtered.append(msg)
+
+    if skipped_meta or skipped_seen:
+        log.debug(
+            "[msg-dedup] %s/%s: kept=%d, skipped_meta=%d, skipped_seen=%d",
+            source, chat_name, len(filtered), skipped_meta, skipped_seen
+        )
+    return filtered
+
+
+def _filter_new_message_map(newmessages, source='receive'):
+    if not newmessages:
+        return {}
+    filtered = {}
+    for chat_name, msgs in newmessages.items():
+        kept = _filter_unseen_messages(chat_name, msgs, source=source)
+        if kept:
+            filtered[chat_name] = kept
+    return filtered
 
 
 def _get_main():
@@ -346,7 +434,8 @@ def send_message(message, group, at=None, at_all=False):
                 human_delay(400, 900)
             except Exception as e:
                 log.error(f"打开聊天 {group} 失败: {e}")
-                return pre_caught  # 即使切换失败，预捕获的消息也要返回
+                # 即使切换失败，预捕获的消息也要返回，但仍需过滤去重。
+                return _filter_unseen_messages(group, pre_caught, source='send-message-pre')
 
             # ── 第三步：记录发送前的消息快照 ──
             pre_msgs = []
@@ -485,7 +574,7 @@ def send_message(message, group, at=None, at_all=False):
             except Exception as e:
                 log.debug(f"[send] 捕获新消息失败: {e}")
 
-            return pre_caught + post_caught
+            return _filter_unseen_messages(group, pre_caught + post_caught, source='send-message')
     
     finally:
         # 发送完成后重置标志和计数器
@@ -532,7 +621,7 @@ def send_file(filepath, group):
                 human_delay(400, 900)
             except Exception as e:
                 log.error(f"打开聊天 {group} 失败: {e}")
-                return pre_caught
+                return _filter_unseen_messages(group, pre_caught, source='send-file-pre')
 
             last_id_before = None
             try:
@@ -574,7 +663,7 @@ def send_file(filepath, group):
             except Exception as e:
                 log.debug(f"[send-file] 捕获新消息失败: {e}")
 
-            return pre_caught + post_caught
+            return _filter_unseen_messages(group, pre_caught + post_caught, source='send-file')
 
     finally:
         with _get_main()._send_lock:
@@ -632,7 +721,7 @@ def send_messages(messages, group, at=None, at_all=False):
                 human_delay(400, 900)
             except Exception as e:
                 log.error(f"打开聊天 {group} 失败: {e}")
-                return pre_caught
+                return _filter_unseen_messages(group, pre_caught, source='send-messages-pre')
 
             # ── 记录发送前的消息快照 ──
             last_id_before = None
@@ -714,7 +803,7 @@ def send_messages(messages, group, at=None, at_all=False):
                     _get_main()._last_send_time = time.time()
             except Exception as e:
                 log.error(f"[send] 批量发送失败: {e}")
-                return pre_caught
+                return _filter_unseen_messages(group, pre_caught, source='send-messages-pre')
 
             human_delay(400, 1000)
 
@@ -765,7 +854,7 @@ def send_messages(messages, group, at=None, at_all=False):
                 elif not mid:
                     all_caught.append(msg)
 
-            return all_caught
+            return _filter_unseen_messages(group, all_caught, source='send-messages')
 
     except Exception as e:
         log.error(f"[send] 批量发送失败: {e}")
@@ -827,8 +916,14 @@ def get_new_messages():
             with _send_op_lock:
                 msgs = wx.GetAllNewMessage()
             human_delay(200, 600)
-            log.debug(f"wxauto 返回消息: {msgs}")
-            return msgs
+            filtered = _filter_new_message_map(msgs, source='receive')
+            if msgs != filtered:
+                raw_count = sum(len(v) for v in msgs.values()) if isinstance(msgs, dict) else 0
+                kept_count = sum(len(v) for v in filtered.values())
+                log.debug(f"wxauto 返回消息已过滤: raw={raw_count}, kept={kept_count}, chats={list(filtered.keys())}")
+            else:
+                log.debug(f"wxauto 返回消息: {msgs}")
+            return filtered
         except Exception as e:
             log.error(f"获取新消息失败: {e}")
             import traceback
