@@ -38,7 +38,7 @@ def _find_notification_area_rect():
         screen_w = user32.GetSystemMetrics(0)
         screen_h = user32.GetSystemMetrics(1)
         tray_width = 300
-        tray_height = 48
+        tray_height = 40
         clock_width = 100  # 时钟/日期区域宽度，需要避开
         margin = 4
         # 区域：右下角，避开时钟，向左延伸 300px
