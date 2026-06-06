@@ -138,7 +138,7 @@ select option { background:#1a1035; color:#e8e8f0; }
 .sidebar .user-info .role { display:none; }
 .sidebar .user-info .logout { cursor:pointer; color:var(--red); font-size:13px; transition:opacity .15s; }
 .sidebar .user-info .logout:hover { opacity:.8; }
-.main { flex:1; padding:16px; }
+.main { flex:1; padding:16px; display:flex; flex-direction:column; min-height:0; }
 
 /* Desktop */
 @media(min-width:769px) {
@@ -184,7 +184,7 @@ select option { background:#1a1035; color:#e8e8f0; }
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .star-hint { font-size:11px; color:var(--text2); margin-top:2px; }
-  .main { padding:28px; max-height:100vh; overflow-y:auto; }
+  .main { padding:28px; max-height:100vh; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
 }
 
 /* ═══════════════════════ Glass Components ═══════════════════════ */
@@ -331,8 +331,8 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 .podium { display:flex; align-items:flex-end; justify-content:center; gap:12px; padding:0 0 4px; }
 .podium-item { text-align:center; flex:0 0 auto; }
 .podium-empty { visibility:hidden; }
-.podium-avatar { width:48px; height:48px; border-radius:50%; margin:0 auto 6px; overflow:hidden; background:rgba(255,255,255,0.05); border:2px solid var(--glass-border); display:flex; align-items:center; justify-content:center; }
-.podium-avatar img { width:100%; height:100%; object-fit:cover; }
+.podium-avatar { width:48px; height:48px; border-radius:50%; margin:0 auto 6px; position:relative; background:rgba(255,255,255,0.05); border:2px solid var(--glass-border); display:flex; align-items:center; justify-content:center; }
+.podium-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
 .podium-avatar i { font-size:24px; color:var(--text2); }
 .rank1 { width:60px; height:60px; border-color:var(--yellow); box-shadow:0 0 14px rgba(251,191,36,0.25); }
 .rank2 { border-color:rgba(192,192,192,0.5); }
@@ -388,19 +388,203 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 }
 
 /* Steam 时间轴（历史极值变化 + 好友对局记录） */
-.tl-scroll { overflow-x:auto; overflow-y:hidden; padding:8px 4px 12px; scroll-behavior:smooth; }
-.tl-track { position:relative; display:flex; align-items:flex-start; gap:14px; padding:24px 8px 8px; min-width:min-content; }
-.tl-line { position:absolute; top:64px; left:8px; right:8px; height:2px; background:rgba(255,255,255,0.10); z-index:0; }
-.tl-node { position:relative; flex:0 0 168px; display:flex; flex-direction:column; align-items:center; z-index:1; padding-top:6px; }
-.tl-time { font-size:11px; color:var(--text2); margin-bottom:6px; white-space:nowrap; font-variant-numeric:tabular-nums; }
-.tl-dot { width:14px; height:14px; border-radius:50%; background:#888; box-shadow:0 0 0 3px var(--card, #1a1a1a), 0 0 0 4px currentColor; margin-bottom:8px; flex:0 0 auto; }
-.tl-body { width:100%; text-align:center; padding:0 4px; }
-.tl-title { font-size:13px; font-weight:600; line-height:1.2; margin-bottom:2px; }
-.tl-subtitle { font-size:11px; color:var(--text2); line-height:1.3; }
-.tl-result-win { color:#4caf50; }
-.tl-result-lose { color:#f44336; }
-.tl-result-draw { color:#ffb300; }
-.tl-empty { color:var(--text2); text-align:center; padding:32px 0; font-size:13px; }
+.tl-scroll { overflow-x:auto; overflow-y:hidden; padding:24px 8px 24px; scroll-behavior:smooth; scrollbar-width:thin; scrollbar-color:var(--glass-border) transparent; }
+.tl-scroll::-webkit-scrollbar { height:6px; }
+.tl-scroll::-webkit-scrollbar-track { background:transparent; }
+.tl-scroll::-webkit-scrollbar-thumb { background:var(--glass-border); border-radius:3px; }
+.tl-track { position:relative; display:flex; align-items:stretch; gap:28px; padding:24px 14px 14px; min-width:min-content; }
+.tl-line { position:absolute; top:76px; left:28px; right:28px; height:1px; background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 12%, rgba(255,255,255,0.1) 88%, transparent 100%); z-index:0; pointer-events:none; }
+.tl-line::after { content:''; position:absolute; left:0; right:0; top:-1px; height:3px; background:linear-gradient(90deg, transparent 5%, rgba(124,108,255,0.12) 50%, transparent 95%); filter:blur(2px); }
+.tl-node { position:relative; flex:0 0 188px; display:flex; flex-direction:column; z-index:1; background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border:1px solid var(--glass-border); border-radius:14px; padding:18px 14px 14px; transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease; box-shadow:0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 8px rgba(0,0,0,0.15); }
+.tl-node::before { content:''; position:absolute; top:0; left:14px; right:14px; height:2px; border-radius:0 0 2px 2px; background:linear-gradient(90deg, transparent, var(--accent), transparent); opacity:0.55; }
+.tl-node:hover { transform:translateY(-2px); border-color:var(--glass-border-hover); box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 6px 16px rgba(0,0,0,0.3); }
+.tl-node-win::before  { background:linear-gradient(90deg, transparent, var(--green), transparent); opacity:0.7; }
+.tl-node-lose::before { background:linear-gradient(90deg, transparent, var(--red), transparent); opacity:0.7; }
+.tl-node-start::before{ background:linear-gradient(90deg, transparent, var(--blue), transparent); opacity:0.7; }
+.tl-node-end::before  { background:linear-gradient(90deg, transparent, var(--yellow), transparent); opacity:0.7; }
+.tl-time { font-size:12px; color:var(--text); font-variant-numeric:tabular-nums; display:flex; align-items:center; justify-content:center; gap:5px; white-space:nowrap; letter-spacing:0.2px; order:-1; margin-bottom:8px; }
+.tl-time .tl-time-rel { color:var(--text); font-weight:600; }
+.tl-dot { align-self:center; width:10px; height:10px; border-radius:50%; margin-bottom:6px; flex-shrink:0; box-shadow:0 0 0 3px var(--card, #16161c), 0 0 6px var(--dot-glow, rgba(255,255,255,0.15)); }
+.tl-node-win  .tl-dot { background:var(--green);  --dot-glow: rgba(74,222,128,0.35); }
+.tl-node-lose .tl-dot { background:var(--red);    --dot-glow: rgba(248,113,113,0.35); }
+.tl-node-draw .tl-dot { background:var(--yellow); --dot-glow: rgba(251,191,36,0.35); }
+.tl-node-start .tl-dot { background:var(--blue);  --dot-glow: rgba(96,165,250,0.35); }
+.tl-node-end   .tl-dot { background:var(--yellow);--dot-glow: rgba(251,191,36,0.35); }
+.tl-body { text-align:center; display:flex; flex-direction:column; gap:5px; padding-top:2px; }
+.tl-title { font-size:12.5px; font-weight:600; line-height:1.25; display:flex; align-items:center; justify-content:center; gap:4px; letter-spacing:0.2px; }
+.tl-player { font-size:12px; color:var(--text); font-weight:500; }
+.tl-delta { font-size:11.5px; color:var(--text2); display:flex; align-items:center; justify-content:center; gap:4px; margin:2px 0; }
+.tl-delta b { font-weight:700; color:var(--text); }
+.tl-delta .tl-arrow { font-size:10px; opacity:0.6; }
+
+/* 替换/承接（前任 → 新任） */
+.tl-transition { display:flex; flex-direction:column; align-items:stretch; gap:4px; margin:6px 0 2px; padding:8px 0; border-top:1px dashed var(--glass-border); border-bottom:1px dashed var(--glass-border); position:relative; }
+.tl-transition-prev, .tl-transition-new { display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:11px; padding:2px 6px; }
+.tl-transition-prev { color:var(--text2); opacity:0.75; }
+.tl-transition-new { font-weight:600; }
+.tl-transition-new.tl-win  { color:var(--green); }
+.tl-transition-new.tl-lose { color:var(--red); }
+.tl-transition-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-transition-val { font-variant-numeric:tabular-nums; padding:1px 7px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:999px; font-size:10px; flex:0 0 auto; }
+.tl-transition-prev .tl-transition-val { text-decoration:line-through; text-decoration-color:rgba(255,255,255,0.35); }
+.tl-transition-arrow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:14px; color:var(--text2); opacity:0.5; background:var(--card, #16161c); width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid var(--glass-border); }
+
+/* 胜负徽章 */
+.tl-result-badge { display:inline-flex; align-items:center; font-size:10px; padding:3px 12px; border-radius:999px; font-weight:600; letter-spacing:0.5px; align-self:center; border:1px solid transparent; }
+.tl-result-badge.win  { background:rgba(74,222,128,0.12); color:var(--green); border-color:rgba(74,222,128,0.3); }
+.tl-result-badge.lose { background:rgba(248,113,113,0.12); color:var(--red);   border-color:rgba(248,113,113,0.3); }
+.tl-result-badge.draw { background:rgba(251,191,36,0.12); color:var(--yellow); border-color:rgba(251,191,36,0.3); }
+.tl-map-score { font-size:12px; color:var(--text); font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; }
+.tl-map-score .tl-map { color:var(--text2); font-weight:500; font-size:11px; }
+.tl-map-score b { font-size:14px; letter-spacing:0.5px; }
+.tl-kda { font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:0.3px; }
+
+/* 多人对局组数徽章 */
+.tl-share { position:absolute; top:-10px; right:-8px; font-size:10px; background:linear-gradient(135deg, var(--accent), var(--blue)); color:#fff; padding:2px 7px; border-radius:999px; font-weight:600; display:flex; align-items:center; gap:2px; box-shadow:0 4px 10px rgba(124,108,255,0.4); border:1.5px solid var(--card, #16161c); }
+
+.tl-empty { color:var(--text2); text-align:center; padding:48px 0; font-size:13px; }
+
+/* 游玩记录节点：启动 / 结束 / 多人对局 */
+.tl-node-match { flex:0 0 260px; }
+.tl-node-start, .tl-node-end { flex:0 0 172px; }
+.tl-event-icon { font-size:30px; line-height:1; display:flex; justify-content:center; margin:2px 0 4px; filter:drop-shadow(0 0 8px currentColor); }
+.tl-node-start .tl-event-icon { color:var(--blue); }
+.tl-node-end .tl-event-icon { color:var(--yellow); }
+.tl-event-name { font-size:12.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; letter-spacing:0.2px; }
+.tl-event-action { font-size:10.5px; color:var(--text2); margin-top:1px; }
+
+/* 多人对局内嵌迷你卡 */
+.tl-mini-players { display:grid; justify-content:center; gap:5px; margin-top:8px; }
+.tl-mini-player { position:relative; padding:6px 4px 7px; background:rgba(255,255,255,0.035); border:1px solid var(--glass-border); border-radius:8px; text-align:center; min-width:0; transition:background .15s, border-color .15s; }
+.tl-mini-player:hover { background:rgba(255,255,255,0.06); border-color:var(--glass-border-hover); }
+.tl-mini-player.tl-mini-win  { border-color:rgba(74,222,128,0.25); }
+.tl-mini-player.tl-mini-lose { border-color:rgba(248,113,113,0.25); }
+.tl-mini-player.tl-mini-draw { border-color:rgba(251,191,36,0.25); }
+.tl-mini-name { font-size:10.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-mini-kda { font-size:11.5px; color:var(--text); font-variant-numeric:tabular-nums; font-weight:700; margin-top:1px; letter-spacing:0.3px; }
+.tl-mini-rating { font-size:9.5px; color:var(--accent); margin-top:1px; opacity:0.9; }
+.tl-mini-result { position:absolute; top:-6px; right:-4px; display:inline-block; padding:1px 6px; border-radius:999px; font-size:9px; font-weight:700; letter-spacing:0.3px; border:1px solid var(--card, #16161c); }
+.tl-mini-result.win  { background:rgba(74,222,128,0.85); color:#0a0a1a; }
+.tl-mini-result.lose { background:rgba(248,113,113,0.85); color:#0a0a1a; }
+.tl-mini-result.draw { background:rgba(251,191,36,0.85); color:#0a0a1a; }
+
+/* ═══════════════════════ Empty State 组件 ═══════════════════════ */
+.empty-state { display:flex; flex-direction:column; align-items:center; gap:10px; padding:48px 16px; color:var(--text2); text-align:center; }
+.empty-state .empty-icon { font-size:48px; opacity:0.25; line-height:1; color:var(--text2); }
+.empty-state .empty-title { font-size:14px; color:var(--text); font-weight:500; }
+.empty-state .empty-desc { font-size:12px; color:var(--text2); max-width:320px; line-height:1.5; }
+.empty-state .empty-action { margin-top:8px; }
+
+/* ═══════════════════════ Skeleton 骨架屏 ═══════════════════════ */
+.skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 100%); background-size:200% 100%; animation: skeletonPulse 1.4s ease-in-out infinite; border-radius:6px; }
+@keyframes skeletonPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skel-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.skel-line { height:10px; }
+.skel-bar { height:6px; margin-top:4px; }
+
+/* ═══════════════════════ Typing 打字机三点 ═══════════════════════ */
+.typing-dots { display:inline-flex; gap:4px; align-items:center; padding:2px 0; }
+.typing-dots span { width:6px; height:6px; border-radius:50%; background:var(--text2); animation: typingBounce 1.2s ease-in-out infinite; }
+.typing-dots span:nth-child(2) { animation-delay:0.18s; }
+.typing-dots span:nth-child(3) { animation-delay:0.36s; }
+@keyframes typingBounce { 0%, 60%, 100% { transform:translateY(0); opacity:0.4; } 30% { transform:translateY(-4px); opacity:1; } }
+
+/* ═══════════════════════ Topbar ═══════════════════════ */
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; margin:-20px -20px 18px; background:var(--glass-bg); backdrop-filter:blur(var(--blur)); border-bottom:1px solid var(--glass-border); border-radius:0; position:sticky; top:-20px; z-index:10; }
+.topbar-title { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:600; color:var(--text); }
+.topbar-title .crumb { color:var(--text2); font-weight:500; }
+.topbar-title .crumb-current { color:var(--text); font-weight:600; }
+.topbar-actions { display:flex; align-items:center; gap:14px; }
+.topbar-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); }
+.topbar-status .dot { width:8px; height:8px; }
+.topbar-loading { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); padding:3px 10px; border-radius:999px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); }
+.topbar-loading.active { color:var(--accent); border-color:rgba(124,108,255,0.3); background:rgba(124,108,255,0.08); }
+.topbar-loading .spin { display:inline-block; width:12px; height:12px; border:2px solid transparent; border-top-color:currentColor; border-radius:50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ═══════════════════════ Page 切换动效 ═══════════════════════ */
+.page-enter { animation: pageIn .35s ease both; }
+@keyframes pageIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ═══════════════════════ Login 升级：mesh + 粒子 ═══════════════════════ */
+.login-mesh { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.login-mesh::before, .login-mesh::after, .login-mesh .blob { content:''; position:absolute; border-radius:50%; filter:blur(90px); }
+.login-mesh::before { width:600px; height:600px; background:radial-gradient(circle, rgba(124,108,255,0.55) 0%, transparent 70%); top:-150px; left:-150px; animation: meshDrift1 18s ease-in-out infinite alternate; }
+.login-mesh::after { width:550px; height:550px; background:radial-gradient(circle, rgba(96,165,250,0.5) 0%, transparent 70%); bottom:-180px; right:-120px; animation: meshDrift2 22s ease-in-out infinite alternate; }
+.login-mesh .blob { width:420px; height:420px; background:radial-gradient(circle, rgba(168,85,247,0.4) 0%, transparent 70%); top:50%; left:60%; transform:translate(-50%,-50%); animation: meshDrift3 26s ease-in-out infinite alternate; }
+@keyframes meshDrift1 { 0% { transform:translate(0,0) scale(1); } 100% { transform:translate(80px,60px) scale(1.1); } }
+@keyframes meshDrift2 { 0% { transform:translate(0,0) scale(1); } 100% { transform:translate(-60px,-80px) scale(1.08); } }
+@keyframes meshDrift3 { 0% { transform:translate(-50%,-50%) scale(1); } 100% { transform:translate(-30%,-70%) scale(0.92); } }
+
+.login-particles { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.login-particles span { position:absolute; width:3px; height:3px; background:rgba(255,255,255,0.6); border-radius:50%; box-shadow:0 0 6px rgba(255,255,255,0.6); animation: particleFloat linear infinite; }
+@keyframes particleFloat { 0% { transform:translateY(100vh) scale(0); opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { transform:translateY(-10vh) scale(1); opacity:0; } }
+
+/* ═══════════════════════ Chat 气泡升级 ═══════════════════════ */
+.chat-msg { display:flex; gap:10px; margin-bottom:14px; align-items:flex-end; }
+.chat-msg-user { flex-direction:row-reverse; }
+.chat-avatar { flex:0 0 36px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; flex-shrink:0; }
+.chat-avatar-user { background:linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; box-shadow:0 2px 8px rgba(124,108,255,0.3); }
+.chat-avatar-bot { background:rgba(96,165,250,0.15); color:var(--blue); border:1px solid var(--glass-border); }
+.chat-bubble-wrap { display:flex; flex-direction:column; max-width:75%; }
+.chat-msg-user .chat-bubble-wrap { align-items:flex-end; }
+.chat-bubble { padding:10px 14px; border-radius:14px; word-break:break-word; white-space:pre-wrap; line-height:1.5; }
+.chat-bubble-user { background:linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; border-bottom-right-radius:4px; box-shadow:0 4px 12px rgba(124,108,255,0.25); }
+.chat-bubble-bot { background:var(--glass-bg); border:1px solid var(--glass-border); border-bottom-left-radius:4px; }
+.chat-meta { font-size:11px; margin-bottom:4px; display:flex; gap:10px; align-items:center; }
+.chat-bubble-user .chat-meta { color:rgba(255,255,255,0.85); flex-direction:row-reverse; }
+.chat-bubble-bot .chat-meta { color:var(--text2); }
+.chat-meta .sender { font-weight:600; }
+.chat-meta .time { opacity:0.7; }
+
+/* ═══════════════════════ Top 3 奖牌（替代 emoji） ═══════════════════════ */
+.medal { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; font-size:13px; font-weight:700; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.3); flex-shrink:0; }
+.medal-1 { background:linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow:0 2px 10px rgba(251,191,36,0.4); }
+.medal-2 { background:linear-gradient(135deg, #cbd5e1, #94a3b8); box-shadow:0 2px 8px rgba(148,163,184,0.3); }
+.medal-3 { background:linear-gradient(135deg, #d97706, #92400e); box-shadow:0 2px 8px rgba(217,119,6,0.3); }
+
+/* ═══════════════════════ Count-up 数字 ═══════════════════════ */
+.count-up { font-variant-numeric:tabular-nums; }
+
+/* ═══════════════════════ 工具类 ═══════════════════════ */
+.flex { display:flex; }
+.flex-col { display:flex; flex-direction:column; }
+.flex-between { display:flex; justify-content:space-between; align-items:center; }
+.flex-center { display:flex; align-items:center; justify-content:center; }
+.gap-4 { gap:4px; } .gap-6 { gap:6px; } .gap-8 { gap:8px; } .gap-10 { gap:10px; } .gap-12 { gap:12px; } .gap-16 { gap:16px; }
+.mt-4 { margin-top:4px; } .mt-8 { margin-top:8px; } .mt-12 { margin-top:12px; } .mt-16 { margin-top:16px; }
+.mb-4 { margin-bottom:4px; } .mb-8 { margin-bottom:8px; } .mb-12 { margin-bottom:12px; } .mb-16 { margin-bottom:16px; }
+.ml-4 { margin-left:4px; } .ml-8 { margin-left:8px; } .mr-4 { margin-right:4px; } .mr-8 { margin-right:8px; }
+.p-8 { padding:8px; } .p-12 { padding:12px; } .p-16 { padding:16px; }
+.text-sm { font-size:12px; } .text-md { font-size:13px; } .text-lg { font-size:14px; } .text-xl { font-size:16px; }
+.text-mute { color:var(--text2); }
+.text-accent { color:var(--accent); }
+.text-success { color:var(--green); }
+.text-danger { color:var(--red); }
+.text-center { text-align:center; }
+.text-right { text-align:right; }
+.text-bold { font-weight:600; }
+.text-num { font-variant-numeric:tabular-nums; }
+.cursor-pointer { cursor:pointer; }
+.w-full { width:100%; }
+
+/* ═══════════════════════ 实时监控折线 ═══════════════════════ */
+.metric-spark { display:flex; align-items:flex-end; gap:2px; height:32px; }
+.metric-spark span { flex:1; background:linear-gradient(180deg, var(--accent), rgba(124,108,255,0.2)); border-radius:2px; min-height:2px; transition:height .4s ease; }
+
+/* Tablet (769-1024px) */
+@media(min-width:769px) and (max-width:1024px) {
+  .sidebar { width:180px; }
+  .sidebar .nav-item { padding:8px 12px; font-size:13px; }
+  .main { padding:20px; }
+  .lb-grid { grid-template-columns:repeat(2, 1fr); }
+  .podium-avatar { width:48px; height:48px; }
+  .rank1 { width:56px; height:56px; }
+  .stand1 { width:72px; height:48px; }
+  .stand2 { width:64px; height:36px; }
+  .stand3 { width:64px; height:28px; }
+  .topbar { padding:12px 16px; margin:-20px -20px 14px; }
+}
 
 /* Mobile */
 @media(max-width:768px) {
@@ -423,6 +607,8 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
   .chat-input-bar > button:not(.btn-sm) { flex:0 0 auto; }
   .chat-input-bar input.input-sm { flex:0 0 100%; }
   .chat-input-bar .btn-sm.success { flex:0 0 auto; margin-left:auto; }
+  .topbar { padding:10px 12px; margin:-16px -16px 12px; flex-wrap:wrap; gap:8px; }
+  .topbar-title { font-size:13px; }
 }
 </style>
 </head>
@@ -430,6 +616,8 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 <!-- ═══════════ 登录页（独立于 Vue app，始终可见） ═══════════ -->
 <div id="login-page">
   <div class="login-overlay">
+    <div class="login-mesh"><div class="blob"></div></div>
+    <div class="login-particles" id="loginParticles"></div>
     <div class="login-box">
       <h1>cs-Solidarity</h1>
       <div class="sub">Web 控制面板</div>
@@ -439,9 +627,9 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
         <input id="login-user" placeholder="用户名" autofocus>
         <input id="login-pass" type="password" placeholder="密码">
         <button class="btn" id="login-btn" onclick="doLogin()">登 录</button>
-        <div style="text-align:center;margin-top:14px;">
-          <span style="color:var(--text2);font-size:13px;">还没有账号？</span>
-          <a href="javascript:void(0)" onclick="showRegisterForm()" style="color:var(--accent);font-size:13px;margin-left:4px;">注册账号</a>
+        <div class="text-center mt-16">
+          <span class="text-mute text-md">还没有账号？</span>
+          <a href="javascript:void(0)" onclick="showRegisterForm()" class="text-accent text-md ml-4">注册账号</a>
         </div>
         <!-- GitHub 登录按钮 -->
         <div style="margin-top:20px;">
@@ -461,9 +649,9 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
         <input id="reg-pass2" type="password" placeholder="确认密码">
         <input id="reg-display" placeholder="显示名称（可选）">
         <button class="btn" id="reg-btn" onclick="doRegister()">提交注册</button>
-        <div style="text-align:center;margin-top:14px;">
-          <span style="color:var(--text2);font-size:13px;">已有账号？</span>
-          <a href="javascript:void(0)" onclick="showLoginForm()" style="color:var(--accent);font-size:13px;margin-left:4px;">返回登录</a>
+        <div class="text-center mt-16">
+          <span class="text-mute text-md">已有账号？</span>
+          <a href="javascript:void(0)" onclick="showLoginForm()" class="text-accent text-md ml-4">返回登录</a>
         </div>
       </div>
     </div>
@@ -575,6 +763,20 @@ document.getElementById('reg-display').addEventListener('keyup', function(e) {
 });
 // 如果已登录，跳过登录页（无效 token 由 app 内 api() 自动 logout 处理）
 document.addEventListener('DOMContentLoaded', function() {
+  // 登录页粒子背景（轻量生成 30 个漂浮光点）
+  var particles = document.getElementById('loginParticles');
+  if (particles && !particles.dataset.generated) {
+    particles.dataset.generated = '1';
+    for (var i = 0; i < 30; i++) {
+      var s = document.createElement('span');
+      s.style.left = Math.random() * 100 + '%';
+      s.style.animationDuration = (8 + Math.random() * 12) + 's';
+      s.style.animationDelay = (Math.random() * 10) + 's';
+      s.style.opacity = (0.3 + Math.random() * 0.5);
+      s.style.width = s.style.height = (2 + Math.random() * 3) + 'px';
+      particles.appendChild(s);
+    }
+  }
   if (localStorage.getItem('cs_token')) {
     if (window.__vue_failed) {
       localStorage.removeItem('cs_token');
@@ -619,6 +821,27 @@ document.addEventListener('DOMContentLoaded', function() {
   <!-- Toast -->
   <div class="toast" :class="toast.type" v-if="toast.show" style="position:fixed;top:20px;right:20px;">{{ toast.msg }}</div>
 
+  <!-- 顶栏：面包屑 + 全局状态 -->
+  <div class="topbar page-enter" :key="currentPage">
+    <div class="topbar-title">
+      <i class="mdi" :class="currentNavItem?.icon || 'mdi-circle'"></i>
+      <span class="crumb">cs-Solidarity</span>
+      <span style="opacity:0.4;">/</span>
+      <span class="crumb-current">{{ currentNavItem?.label || currentPage }}</span>
+    </div>
+    <div class="topbar-actions">
+      <div class="topbar-status" v-if="lastRefreshText">
+        <i class="mdi mdi-clock-outline" style="font-size:13px;"></i>
+        <span>{{ lastRefreshText }}</span>
+      </div>
+      <div class="topbar-loading" :class="{active: globalLoading}">
+        <span class="spin" v-if="globalLoading"></span>
+        <i class="mdi mdi-check-circle" v-else style="font-size:13px;color:var(--green);"></i>
+        <span>{{ globalLoading ? '同步中' : '已就绪' }}</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════ 仪表盘 ═══════════ -->
   <div v-if="currentPage==='dashboard'">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-view-dashboard" style="margin-right:8px;"></i>仪表盘</h2>
@@ -662,7 +885,18 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         </template>
-        <div v-else style="color:var(--text2);font-size:13px;padding:8px 0;">无数据</div>
+        <div v-else-if="overview.agent_connected" class="empty-state" style="padding:24px 0;">
+          <div v-for="i in 4" :key="i" style="width:100%;max-width:340px;margin-bottom:10px;">
+            <div class="skel-row"><div class="skeleton skel-line" style="width:30%;"></div><div class="skeleton skel-line" style="width:18%;"></div></div>
+            <div class="skeleton skel-bar" style="width:100%;"></div>
+          </div>
+        </div>
+        <div v-else class="empty-state">
+          <i class="mdi mdi-server-off empty-icon"></i>
+          <div class="empty-title">Agent 未连接</div>
+          <div class="empty-desc">检查 Agent 客户端是否运行，或网络是否可达</div>
+          <button class="btn-sm empty-action" @click="loadOverview"><i class="mdi mdi-refresh" style="margin-right:4px;"></i>重试连接</button>
+        </div>
       </div>
       <div class="card card-enter" style="flex:1;animation-delay:.1s">
         <h2 style="margin-bottom:12px;"><i class="mdi mdi-web" style="margin-right:8px;"></i>Web 服务器 <span style="font-size:12px;color:var(--text2);">{{ webHardware.hostname || '' }}</span></h2>
@@ -677,7 +911,12 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         </template>
-        <div v-else style="color:var(--text2);font-size:13px;padding:8px 0;">无数据</div>
+        <div v-else class="empty-state" style="padding:24px 0;">
+          <div v-for="i in 4" :key="i" style="width:100%;max-width:340px;margin-bottom:10px;">
+            <div class="skel-row"><div class="skeleton skel-line" style="width:30%;"></div><div class="skeleton skel-line" style="width:18%;"></div></div>
+            <div class="skeleton skel-bar" style="width:100%;"></div>
+          </div>
+        </div>
       </div>
     </div>
     <!-- 最近日志 -->
@@ -689,12 +928,16 @@ document.addEventListener('DOMContentLoaded', function() {
           {{ line }}
         </div>
       </div>
-      <div class="empty" v-else>暂无日志</div>
+      <div class="empty-state" v-else>
+        <i class="mdi mdi-text-search empty-icon"></i>
+        <div class="empty-title">暂无最近日志</div>
+        <div class="empty-desc">Bot 启动后会在此显示最新的运行日志</div>
+      </div>
     </div>
   </div>
 
   <!-- ═══════════ 实例管理 ═══════════ -->
-  <div v-if="currentPage==='instances'">
+  <div v-if="currentPage==='instances'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-puzzle" style="margin-right:8px;"></i>实例管理</h2>
     <div v-if="instances.length===0" class="card empty">Agent 未连接或无实例配置</div>
     <div class="card card-enter" v-for="(inst,idx) in instances" :key="inst.index" :style="{animationDelay: (idx*0.08)+'s'}">
@@ -716,7 +959,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 配置编辑 ═══════════ -->
-  <div v-if="currentPage==='config'">
+  <div v-if="currentPage==='config'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-cog" style="margin-right:8px;"></i>配置编辑</h2>
     <div class="row" style="margin-bottom:16px;">
       <div>
@@ -776,54 +1019,67 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
         </div>
       </div>
-      <!-- 排行榜 -->
-      <div class="card card-enter" v-if="steamDetail.friend_pw_leaderboard" style="animation-delay:.08s">
-        <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
-        <!-- 每个类别的 Top 3 -->
-        <div class="lb-grid">
-        <div class="lb-category" v-for="key in lbKeyOrder" :key="key">
-          <template v-if="steamDetail.friend_pw_leaderboard[key]">
-          <div class="lb-cat-header">{{ leaderboardLabels[key] || key }}</div>
-          <div class="podium">
-            <!-- 第2名（左） -->
-            <div class="podium-item" v-if="getTop3(key)[1]">
-              <div class="podium-avatar rank2">
-                <img v-if="getTop3(key)[1].avatar && !failedAvatars.has(key+'_1')" :src="getTop3(key)[1].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_1')">
-                <i v-else class="mdi mdi-account"></i>
-              </div>
-              <div class="podium-rank">2</div>
-              <div class="podium-name">{{ getTop3(key)[1].pw_nickname }}</div>
-              <div class="podium-value">{{ getTop3(key)[1].value }}</div>
-              <div class="podium-stand stand2"></div>
-            </div>
-            <div class="podium-item podium-empty" v-else><div class="podium-stand stand2"></div></div>
-            <!-- 第1名（中） -->
-            <div class="podium-item" v-if="getTop3(key)[0]">
-              <div class="podium-avatar rank1">
-                <img v-if="getTop3(key)[0].avatar && !failedAvatars.has(key+'_0')" :src="getTop3(key)[0].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_0')">
-                <i v-else class="mdi mdi-account"></i>
-              </div>
-              <div class="podium-rank">1</div>
-              <div class="podium-name">{{ getTop3(key)[0].pw_nickname }}</div>
-              <div class="podium-value">{{ getTop3(key)[0].value }}</div>
-              <div class="podium-stand stand1"></div>
-            </div>
-            <div class="podium-item podium-empty" v-else><div class="podium-stand stand1"></div></div>
-            <!-- 第3名（右） -->
-            <div class="podium-item" v-if="getTop3(key)[2]">
-              <div class="podium-avatar rank3">
-                <img v-if="getTop3(key)[2].avatar && !failedAvatars.has(key+'_2')" :src="getTop3(key)[2].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_2')">
-                <i v-else class="mdi mdi-account"></i>
-              </div>
-              <div class="podium-rank">3</div>
-              <div class="podium-name">{{ getTop3(key)[2].pw_nickname }}</div>
-              <div class="podium-value">{{ getTop3(key)[2].value }}</div>
-              <div class="podium-stand stand3"></div>
-            </div>
-            <div class="podium-item podium-empty" v-else><div class="podium-stand stand3"></div></div>
+      <!-- 好友游玩记录时间轴 -->
+      <div class="card card-enter" v-if="steamDetail" style="animation-delay:.08s">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h2 style="margin:0;"><i class="mdi mdi-gamepad-variant" style="margin-right:8px;"></i>好友游玩记录</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:var(--text2);">显示</span>
+            <select class="input-sm" v-model.number="playLimit" @change="loadSteamTimelinePlay" style="min-width:70px;padding:2px 6px;font-size:12px;">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+              <option :value="0">全部</option>
+            </select>
+            <button class="btn-sm" @click="loadSteamTimelinePlay" title="刷新"><i class="mdi mdi-refresh"></i></button>
           </div>
-        </template>
         </div>
+        <div v-if="!steamTimelinePlay.length" class="tl-empty">暂无好友对局记录（CS2 完美对局结束后会出现）</div>
+        <div v-else class="tl-scroll" ref="playScrollEl">
+          <div class="tl-track">
+            <div class="tl-line"></div>
+            <div v-for="ev in playEventsWithShare" :key="ev.id" style="display:flex;flex-direction:column;align-items:center;z-index:1;" :style="{flex: matchCardFlex(ev)}">
+              <div style="font-size:12px;color:var(--text);text-align:center;margin-bottom:8px;display:flex;flex-direction:column;gap:2px;">
+                <span style="font-weight:600;">{{ formatRelTime(ev.timestamp).rel }}</span>
+                <span style="color:var(--text2);font-size:11px;">{{ formatRelTime(ev.timestamp).abs }}</span>
+              </div>
+              <div v-if="ev.kind === 'match' || ev.kind === 'start' || ev.kind === 'end'" style="width:10px;height:10px;border-radius:50%;margin-bottom:8px;" :style="{background: ev.kind==='start'?'var(--blue)':ev.kind==='end'?'var(--yellow)':ev.result==='胜利'?'var(--green)':ev.result==='失败'?'var(--red)':'var(--yellow)', boxShadow:'0 0 0 3px var(--card), 0 0 10px rgba(255,255,255,0.2)'}"></div>
+            <div class="tl-node" :class="(ev.kind === 'start' ? 'tl-node-start' : ev.kind === 'end' ? 'tl-node-end' : 'tl-node-match') + (ev.kind === 'match' ? ' ' + (ev.players && ev.players.length ? (ev.players[0].result === '胜利' ? 'tl-node-win' : ev.players[0].result === '失败' ? 'tl-node-lose' : 'tl-node-draw') : (ev.result === '胜利' ? 'tl-node-win' : ev.result === '失败' ? 'tl-node-lose' : 'tl-node-draw')) : '')" style="flex:0 0 auto;width:100%;" :title="ev.kind === 'match' ? (ev.players && ev.players.length ? ev.players.map(p => `${p.pw_nickname} KDA ${p.kda}`).join(' | ') : `${ev.pw_nickname} ${ev.map_name} ${ev.score} KDA ${ev.kda}`) : `${(ev.all_nicknames || [ev.pw_nickname]).join('、')} ${ev.kind === 'start' ? '启动' : '结束'} ${ev.game_name}`">
+              <div v-if="ev.share_count > 1" class="tl-share"><i class="mdi mdi-account-group" style="font-size:11px;"></i>{{ ev.share_count }}</div>
+              <div class="tl-body">
+                <template v-if="ev.kind === 'start' || ev.kind === 'end'">
+                  <div class="tl-event-icon"><i :class="ev.kind === 'start' ? 'mdi mdi-play-circle' : 'mdi mdi-stop-circle'"></i></div>
+                  <div class="tl-event-name">{{ ev.game_name }}</div>
+                  <div class="tl-player">{{ (ev.all_nicknames || [ev.pw_nickname]).join('、') }}</div>
+                  <div class="tl-event-action">{{ ev.kind === 'start' ? '启动了游戏' : '结束了游戏' }}</div>
+                </template>
+                <template v-else-if="ev.players && ev.players.length">
+                  <div class="tl-map-score">
+                    <span class="tl-map">{{ ev.map_name }}</span>
+                    <b>{{ ev.score }}</b>
+                  </div>
+                  <div class="tl-mini-players" :style="`grid-template-columns:repeat(${ev.players.length}, 82px)`">
+                    <div v-for="p in ev.players" :key="p.steamid" class="tl-mini-player" :class="p.result === '胜利' ? 'tl-mini-win' : p.result === '失败' ? 'tl-mini-lose' : 'tl-mini-draw'">
+                      <div class="tl-mini-name" :title="p.pw_nickname">{{ p.pw_nickname }}</div>
+                      <div class="tl-mini-kda">{{ p.kda }}</div>
+                      <div class="tl-mini-rating">⭐ {{ Number(p.rating || 0).toFixed(2) }}</div>
+                      <div class="tl-mini-result" :class="p.result === '胜利' ? 'win' : p.result === '失败' ? 'lose' : 'draw'">{{ p.result }}</div>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="tl-map-score">
+                    <span class="tl-map">{{ ev.map_name }}</span>
+                    <b>{{ ev.score }}</b>
+                  </div>
+                  <div class="tl-player">{{ ev.pw_nickname }}</div>
+                  <div class="tl-kda">KDA {{ ev.kda }}</div>
+                  <div class="tl-result-badge" :class="ev.result === '胜利' ? 'win' : ev.result === '失败' ? 'lose' : 'draw'">{{ ev.result }}</div>
+                </template>
+              </div>
+            </div>
+            </div>
+          </div>
         </div>
       </div>
       <!-- 历史极值变化时间轴 -->
@@ -845,20 +1101,92 @@ document.addEventListener('DOMContentLoaded', function() {
         <div v-else class="tl-scroll" ref="extremeScrollEl">
           <div class="tl-track">
             <div class="tl-line"></div>
-            <div class="tl-node" v-for="ev in steamTimelineExtreme" :key="ev.id" :title="`${ev.metric_label}: ${ev.old_value} → ${ev.new_value} (${ev.pw_nickname})`">
-              <div class="tl-time">{{ ev.timestamp.slice(5) }}</div>
-              <div class="tl-dot" :style="{color: ev.is_improvement ? '#4caf50' : '#f44336', background: ev.is_improvement ? '#4caf50' : '#f44336'}"></div>
-              <div class="tl-body">
-                <div class="tl-title" :style="{color: ev.is_improvement ? '#4caf50' : '#f44336'}">{{ ev.metric_emoji }} {{ ev.metric_label }}</div>
-                <div class="tl-subtitle">{{ ev.pw_nickname }}</div>
-                <div class="tl-subtitle">{{ ev.old_value }} → <b>{{ ev.new_value }}</b></div>
+            <div v-for="ev in steamTimelineExtreme" :key="ev.id" style="flex:0 0 188px;display:flex;flex-direction:column;align-items:center;z-index:1;">
+              <div style="font-size:12px;color:var(--text);text-align:center;margin-bottom:8px;display:flex;flex-direction:column;gap:2px;">
+                <span style="font-weight:600;">{{ formatRelTime(ev.timestamp).rel }}</span>
+                <span style="color:var(--text2);font-size:11px;">{{ formatRelTime(ev.timestamp).abs }}</span>
               </div>
+              <div style="width:10px;height:10px;border-radius:50%;margin-bottom:8px;box-shadow:0 0 0 3px var(--card), 0 0 10px;" :style="{background: (ev.metric||'').startsWith('max_') ? 'var(--green)' : 'var(--red)'}"></div>
+            <div class="tl-node" :class="(ev.metric||'').startsWith('max_') ? 'tl-node-win' : 'tl-node-lose'" style="flex:0 0 auto;width:100%;" :title="`${ev.metric_label}: ${ev.old_value} → ${ev.new_value} (${ev.pw_nickname})`">
+              <div class="tl-body">
+                <div class="tl-title" :style="{color: (ev.metric||'').startsWith('max_') ? 'var(--green)' : 'var(--red)'}">{{ ev.metric_emoji }} {{ ev.metric_label }}</div>
+                <div v-if="ev.previous_holder && ev.previous_holder !== ev.pw_nickname" class="tl-transition" :title="`前任: ${ev.previous_holder} (${ev.old_value}) → 新任: ${ev.pw_nickname} (${ev.new_value})`">
+                  <div class="tl-transition-prev">
+                    <span class="tl-transition-name">{{ ev.previous_holder }}</span>
+                    <span class="tl-transition-val">{{ ev.old_value }}</span>
+                  </div>
+                  <i class="mdi mdi-chevron-down tl-transition-arrow"></i>
+                  <div class="tl-transition-new" :class="(ev.metric||'').startsWith('max_') ? 'tl-win' : 'tl-lose'">
+                    <span class="tl-transition-name">{{ ev.pw_nickname }}</span>
+                    <span class="tl-transition-val">{{ ev.new_value }}</span>
+                  </div>
+                </div>
+                <template v-else>
+                  <div class="tl-player">{{ ev.pw_nickname }}</div>
+                  <div class="tl-delta">
+                    <span>{{ ev.old_value }}</span>
+                    <i class="mdi mdi-arrow-right tl-arrow"></i>
+                    <b>{{ ev.new_value }}</b>
+                  </div>
+                </template>
+              </div>
+            </div>
             </div>
           </div>
         </div>
       </div>
+      <!-- 排行榜 -->
+      <div class="card card-enter" v-if="steamDetail.friend_pw_leaderboard" style="animation-delay:.16s">
+        <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
+        <!-- 每个类别的 Top 3 -->
+        <div class="lb-grid">
+        <div class="lb-category" v-for="key in lbKeyOrder" :key="key">
+          <template v-if="steamDetail.friend_pw_leaderboard[key]">
+          <div class="lb-cat-header">{{ leaderboardLabels[key] || key }}</div>
+          <div class="podium">
+            <!-- 第2名（左） -->
+            <div class="podium-item" v-if="getTop3(key)[1]">
+              <div class="podium-avatar rank2">
+                <img v-if="getTop3(key)[1].avatar && !failedAvatars.has(key+'_1')" :src="getTop3(key)[1].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_1')">
+                <i v-else class="mdi mdi-account"></i>
+                <div class="medal medal-2" style="position:absolute;bottom:-4px;right:-4px;font-size:11px;width:20px;height:20px;">2</div>
+              </div>
+              <div class="podium-name">{{ getTop3(key)[1].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[1].value }}</div>
+              <div class="podium-stand stand2"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand2"></div></div>
+            <!-- 第1名（中） -->
+            <div class="podium-item" v-if="getTop3(key)[0]">
+              <div class="podium-avatar rank1" style="position:relative;">
+                <img v-if="getTop3(key)[0].avatar && !failedAvatars.has(key+'_0')" :src="getTop3(key)[0].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_0')">
+                <i v-else class="mdi mdi-account"></i>
+                <div class="medal medal-1" style="position:absolute;bottom:-4px;right:-4px;font-size:12px;width:22px;height:22px;">1</div>
+              </div>
+              <div class="podium-name">{{ getTop3(key)[0].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[0].value }}</div>
+              <div class="podium-stand stand1"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand1"></div></div>
+            <!-- 第3名（右） -->
+            <div class="podium-item" v-if="getTop3(key)[2]">
+              <div class="podium-avatar rank3" style="position:relative;">
+                <img v-if="getTop3(key)[2].avatar && !failedAvatars.has(key+'_2')" :src="getTop3(key)[2].avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, key+'_2')">
+                <i v-else class="mdi mdi-account"></i>
+                <div class="medal medal-3" style="position:absolute;bottom:-4px;right:-4px;font-size:11px;width:20px;height:20px;">3</div>
+              </div>
+              <div class="podium-name">{{ getTop3(key)[2].pw_nickname }}</div>
+              <div class="podium-value">{{ getTop3(key)[2].value }}</div>
+              <div class="podium-stand stand3"></div>
+            </div>
+            <div class="podium-item podium-empty" v-else><div class="podium-stand stand3"></div></div>
+          </div>
+        </template>
+        </div>
+        </div>
+      </div>
       <!-- 历史极值 -->
-      <div class="card card-enter" v-if="steamDetail.friend_pw_history_stats" style="animation-delay:.16s">
+      <div class="card card-enter" v-if="steamDetail.friend_pw_history_stats" style="animation-delay:.20s">
         <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>历史极值</h2>
         <div style="overflow-x:auto;">
         <table>
@@ -893,37 +1221,6 @@ document.addEventListener('DOMContentLoaded', function() {
         </table>
         </div>
       </div>
-      <!-- 好友游玩记录时间轴 -->
-      <div class="card card-enter" v-if="steamDetail" style="animation-delay:.20s">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <h2 style="margin:0;"><i class="mdi mdi-gamepad-variant" style="margin-right:8px;"></i>好友游玩记录</h2>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:12px;color:var(--text2);">显示</span>
-            <select class="input-sm" v-model.number="playLimit" @change="loadSteamTimelinePlay" style="min-width:70px;padding:2px 6px;font-size:12px;">
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-              <option :value="0">全部</option>
-            </select>
-            <button class="btn-sm" @click="loadSteamTimelinePlay" title="刷新"><i class="mdi mdi-refresh"></i></button>
-          </div>
-        </div>
-        <div v-if="!steamTimelinePlay.length" class="tl-empty">暂无好友对局记录（CS2 完美对局结束后会出现）</div>
-        <div v-else class="tl-scroll" ref="playScrollEl">
-          <div class="tl-track">
-            <div class="tl-line"></div>
-            <div class="tl-node" v-for="ev in steamTimelinePlay" :key="ev.id" :title="`${ev.pw_nickname} · ${ev.map_name} ${ev.score} · ${ev.result} · KDA ${ev.kda}`">
-              <div class="tl-time">{{ ev.timestamp.slice(5, 16) }}</div>
-              <div class="tl-dot" :class="ev.result === '胜利' ? 'tl-result-win' : ev.result === '失败' ? 'tl-result-lose' : 'tl-result-draw'" :style="{background: ev.result === '胜利' ? '#4caf50' : ev.result === '失败' ? '#f44336' : '#ffb300'}"></div>
-              <div class="tl-body">
-                <div class="tl-title" :class="ev.result === '胜利' ? 'tl-result-win' : ev.result === '失败' ? 'tl-result-lose' : 'tl-result-draw'">{{ ev.map_name }} {{ ev.score }}</div>
-                <div class="tl-subtitle">{{ ev.pw_nickname }} · {{ ev.result }}</div>
-                <div class="tl-subtitle">KDA {{ ev.kda }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       <!-- 好友列表 -->
       <div class="card card-enter" style="animation-delay:.24s">
         <h2><i class="mdi mdi-account-multiple" style="margin-right:8px;"></i>监控好友 ({{ (steamDetail.monitored_friends || []).length }})</h2>
@@ -944,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 文件管理 ═══════════ -->
-  <div v-if="currentPage==='files'">
+  <div v-if="currentPage==='files'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-folder-upload" style="margin-right:8px;"></i>文件管理</h2>
 
     <div class="card card-enter">
@@ -979,7 +1276,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
 
-      <div v-if="!filesData.files.length" class="empty">暂无文件</div>
+      <div v-if="!filesData.files.length" class="empty-state">
+        <i class="mdi mdi-folder-open-outline empty-icon"></i>
+        <div class="empty-title">还没有文件</div>
+        <div class="empty-desc">点击「上传文件」按钮把 Demo 传到 Web 服务器，可用于聊天里分享给好友</div>
+        <button class="btn-sm success empty-action" @click="showUploadModal = true"><i class="mdi mdi-upload" style="margin-right:4px;"></i>上传文件</button>
+      </div>
       <table v-else>
         <thead>
           <tr>
@@ -1035,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 日志 ═══════════ -->
-  <div v-if="currentPage==='logs'">
+  <div v-if="currentPage==='logs'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-file-document" style="margin-right:8px;"></i>日志查看</h2>
     <div class="row" style="margin-bottom:16px;">
       <input class="input-sm" type="date" v-model="logs.date" @change="loadLogs" style="min-width:150px;">
@@ -1063,33 +1365,71 @@ document.addEventListener('DOMContentLoaded', function() {
              :class="{'error':line.includes('ERROR'),'warning':line.includes('WARNING'),'debug':line.includes('DEBUG')}">
           {{ line }}
         </div>
-        <div class="empty" v-if="!logs.lines.length">无日志数据</div>
+        <div class="empty-state" v-if="!logs.lines.length">
+          <i class="mdi mdi-text-search empty-icon"></i>
+          <div class="empty-title">暂无日志</div>
+          <div class="empty-desc">换个日期或关键词试试，或开启「实时推送」查看最新日志</div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ═══════════ 控制 ═══════════ -->
   <div v-if="currentPage==='control'">
-    <h2 style="margin-bottom:16px;"><i class="mdi mdi-play-circle" style="margin-right:8px;"></i>Bot 控制</h2>
-    <div class="card card-enter">
-      <h2><i class="mdi mdi-console" style="margin-right:8px;"></i>进程控制</h2>
-      <div class="row">
-        <div class="stat">
-          <div class="num" style="font-size:20px;"><span class="dot" :class="overview.bot_running ? 'green' : 'red'"></span></div>
-          <div class="label">状态: {{ overview.bot_running ? '运行中' : '已停止' }}</div>
-          <div class="label" v-if="overview.bot_pid">PID: {{ overview.bot_pid }}</div>
+    <div class="row" style="margin-bottom:16px;">
+      <div class="card card-enter" style="flex:1;">
+        <h2 style="margin-bottom:12px;"><i class="mdi mdi-console" style="margin-right:8px;"></i>进程控制</h2>
+        <div class="flex gap-12" style="align-items:center;flex-wrap:wrap;">
+          <span class="topbar-status" style="font-size:13px;">
+            <span class="dot" :class="overview.bot_running ? 'green' : 'red'"></span>
+            <span style="font-weight:500;">{{ overview.bot_running ? '运行中' : '已停止' }}</span>
+            <span v-if="overview.bot_pid" style="color:var(--text2);font-size:12px;margin-left:4px;">PID {{ overview.bot_pid }}</span>
+          </span>
+          <div style="display:flex;gap:8px;margin-left:auto;">
+            <button class="btn-sm success" @click="controlBot('start')" :disabled="overview.bot_running || ctrlLoading"><i class="mdi mdi-play"></i> 启动</button>
+            <button class="btn-sm danger" @click="controlBot('stop')" :disabled="!overview.bot_running || ctrlLoading"><i class="mdi mdi-stop"></i> 停止</button>
+            <button class="btn-sm warn" @click="controlBot('restart')" :disabled="ctrlLoading"><i class="mdi mdi-restart"></i> 重启</button>
+          </div>
         </div>
       </div>
-      <div style="margin-top:16px;display:flex;gap:12px;">
-        <button class="btn-sm success" @click="controlBot('start')" :disabled="overview.bot_running || ctrlLoading"><i class="mdi mdi-play"></i> 启动</button>
-        <button class="btn-sm danger" @click="controlBot('stop')" :disabled="!overview.bot_running || ctrlLoading"><i class="mdi mdi-stop"></i> 停止</button>
-        <button class="btn-sm warn" @click="controlBot('restart')" :disabled="ctrlLoading"><i class="mdi mdi-restart"></i> 重启</button>
+    </div>
+    <div class="row">
+      <div class="card card-enter" style="flex:1;animation-delay:.05s">
+        <h2 style="margin-bottom:12px;"><i class="mdi mdi-pulse" style="margin-right:8px;"></i>Agent 资源监控</h2>
+        <div v-if="overview.hardware && overview.hardware.cpu_percent !== undefined">
+          <div class="skel-row" v-for="(item, idx) in agentHwItems" :key="item.label" style="margin-bottom:14px;">
+            <div>
+              <div style="font-size:13px;color:var(--text);">{{ item.label }}</div>
+              <div class="text-sm text-mute">实时: {{ item.text }}</div>
+            </div>
+            <div class="metric-spark" v-if="idx < 2" style="width:120px;">
+              <span v-for="(v, i) in (metricHistory[idx] || [])" :key="i" :style="{height: Math.max(2, v) + 'px', opacity: 0.4 + i/(metricHistory[idx] || []).length * 0.6}"></span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-state" style="padding:24px 0;">
+          <i class="mdi mdi-chart-line empty-icon"></i>
+          <div class="empty-title">暂无监控数据</div>
+          <div class="empty-desc">Agent 连接后将在此显示 CPU / 内存实时曲线</div>
+        </div>
+      </div>
+      <div class="card card-enter" style="flex:1;animation-delay:.1s">
+        <h2 style="margin-bottom:12px;"><i class="mdi mdi-history" style="margin-right:8px;"></i>最近运行日志</h2>
+        <div v-if="controlLogs.length" style="max-height:50vh;overflow-y:auto;">
+          <div class="log-line" v-for="(line, i) in controlLogs" :key="i"
+               :class="{'error':line.includes('ERROR'),'warning':line.includes('WARNING')}">{{ line }}</div>
+        </div>
+        <div v-else class="empty-state" style="padding:24px 0;">
+          <i class="mdi mdi-text empty-icon"></i>
+          <div class="empty-title">暂无日志</div>
+          <div class="empty-desc">在 Bot 日志页切换到此页可查看最近 5 条</div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ═══════════ 用户管理 ═══════════ -->
-  <div v-if="currentPage==='users'">
+  <div v-if="currentPage==='users'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-account-group" style="margin-right:8px;"></i>用户管理</h2>
 
     <!-- 注册审核 -->
@@ -1138,18 +1478,18 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 修改密码 ═══════════ -->
-  <div v-if="currentPage==='password'">
+  <div v-if="currentPage==='password'" class="page-enter" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-lock" style="margin-right:8px;"></i>修改密码</h2>
-    <div class="card card-enter" style="max-width:400px;">
-      <input class="input-sm" v-model="pwForm.old" type="password" placeholder="当前密码" style="width:100%;margin-bottom:12px;">
-      <input class="input-sm" v-model="pwForm.new1" type="password" placeholder="新密码" style="width:100%;margin-bottom:12px;">
-      <input class="input-sm" v-model="pwForm.new2" type="password" placeholder="确认新密码" style="width:100%;margin-bottom:12px;">
-      <button class="btn-sm success" @click="changePassword"><i class="mdi mdi-check"></i> 确认修改</button>
+    <div class="card card-enter" style="width:320px;padding:24px 20px;">
+      <input class="input-sm" v-model="pwForm.old" type="password" placeholder="当前密码" style="width:100%;margin-bottom:14px;">
+      <input class="input-sm" v-model="pwForm.new1" type="password" placeholder="新密码" style="width:100%;margin-bottom:14px;">
+      <input class="input-sm" v-model="pwForm.new2" type="password" placeholder="确认新密码" style="width:100%;margin-bottom:18px;">
+      <button class="btn-sm success" @click="changePassword" style="width:100%;"><i class="mdi mdi-check"></i> 确认修改</button>
     </div>
   </div>
 
   <!-- ═══════════ 聊天 ═══════════ -->
-  <div v-if="currentPage==='chat'" style="display:flex;flex-direction:column;height:calc(100vh - 40px);height:calc(100dvh - 40px);">
+  <div v-if="currentPage==='chat'" style="display:flex;flex-direction:column;flex:1;min-height:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <h2 style="margin:0;"><i class="mdi mdi-chat-outline" style="margin-right:8px;"></i>聊天</h2>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1160,23 +1500,30 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="card card-enter" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
       <!-- 消息列表 -->
       <div id="chat-messages" style="flex:1;overflow-y:auto;padding:12px;min-height:0;">
-        <div v-if="chat.messages.length===0" style="text-align:center;color:var(--text2);padding:40px 0;">
-          <i class="mdi mdi-chat-outline" style="font-size:48px;opacity:0.3;"></i>
-          <p style="margin-top:8px;">暂无消息</p>
+        <div v-if="chat.messages.length===0" class="empty-state">
+          <i class="mdi mdi-message-outline empty-icon"></i>
+          <div class="empty-title">开始聊天吧</div>
+          <div class="empty-desc">用「/claw」前缀触发 ChatAuto，或下拉切换其它实例</div>
         </div>
-        <div v-for="msg in chat.messages" :key="msg.id" style="margin-bottom:12px;">
-          <div :style="{display:'flex',justifyContent: msg.source==='user' ? 'flex-end' : 'flex-start'}">
-            <div :style="{
-              maxWidth:'75%',padding:'8px 14px',borderRadius:'12px',
-              background: msg.source==='user' ? 'var(--accent)' : 'var(--glass-bg)',
-              border: msg.source==='user' ? 'none' : '1px solid var(--glass-border)',
-              color:'var(--text)',wordBreak:'break-word',whiteSpace:'pre-wrap',
-            }">
-              <div style="font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;gap:12px;">
-                <span :style="{color: msg.source==='user' ? 'rgba(255,255,255,0.7)' : 'var(--text2)'}">{{ msg.sender }}</span>
-                <span :style="{color: msg.source==='user' ? 'rgba(255,255,255,0.5)' : 'var(--text2)'}">{{ formatChatTime(msg.timestamp) }}</span>
-              </div>
-              <div>{{ msg.content }}</div>
+        <div v-for="msg in chat.messages" :key="msg.id" class="chat-msg" :class="msg.source==='user' ? 'chat-msg-user' : 'chat-msg-bot'">
+          <div class="chat-avatar" :class="msg.source==='user' ? 'chat-avatar-user' : 'chat-avatar-bot'">
+            <i :class="msg.source==='user' ? 'mdi mdi-account' : 'mdi mdi-robot'"></i>
+          </div>
+          <div class="chat-bubble-wrap">
+            <div class="chat-meta">
+              <span class="sender">{{ msg.sender || (msg.source==='user' ? '我' : '机器人') }}</span>
+              <span class="time">{{ formatChatTime(msg.timestamp) }}</span>
+            </div>
+            <div class="chat-bubble" :class="msg.source==='user' ? 'chat-bubble-user' : 'chat-bubble-bot'">{{ msg.content }}</div>
+          </div>
+        </div>
+        <!-- 打字中提示 -->
+        <div v-if="chat.typing" class="chat-msg chat-msg-bot">
+          <div class="chat-avatar chat-avatar-bot"><i class="mdi mdi-robot"></i></div>
+          <div class="chat-bubble-wrap">
+            <div class="chat-meta"><span class="sender">机器人</span><span class="time">{{ chat.typingLabel || '正在输入' }}</span></div>
+            <div class="chat-bubble chat-bubble-bot">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
             </div>
           </div>
         </div>
@@ -1217,7 +1564,22 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+const __origCreateApp = createApp;
+window.__patchedCreateApp = function(...args) {
+  const a = __origCreateApp(...args);
+  a.config.errorHandler = function(err, instance, info) {
+    var d = document.createElement('div');
+    d.id = '__vue_err__';
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f00;color:#fff;padding:20px;z-index:999999;white-space:pre-wrap;font-family:monospace;font-size:12px;max-height:80vh;overflow:auto;';
+    d.textContent = 'VUE RENDER ERR: ' + (err.stack || err.message) + '\n\ninfo: ' + info;
+    document.body && document.body.appendChild(d);
+    console.error('VUE_RENDER_ERR:', err, info);
+  };
+  return a;
+};
+// Override Vue.createApp
+Vue.createApp = window.__patchedCreateApp;
 
 createApp({
   setup() {
@@ -1231,6 +1593,9 @@ createApp({
     const currentPage = ref('dashboard');
     const toast = reactive({ show: false, msg: '', type: 'success' });
     const ctrlLoading = ref(false);
+    // 控制页：最近日志 + 资源监控历史（最近 20 个采样点）
+    const controlLogs = ref([]);
+    const metricHistory = reactive([[], []]);
 
     const overview = reactive({});
     const webHardware = reactive({});
@@ -1376,20 +1741,43 @@ createApp({
       { key:'password',  icon:'mdi-lock', label:'修改密码', roles:['admin','user'] },
     ];
     const visibleNav = computed(() => allNav.filter(n => n.roles.includes(user.role)));
+    const currentNavItem = computed(() => allNav.find(n => n.key === currentPage.value));
+    const globalLoading = ref(false);
+    const lastRefreshAt = ref(null);
+    const lastRefreshText = computed(() => {
+      if (!lastRefreshAt.value) return '';
+      const d = new Date(lastRefreshAt.value);
+      const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (diff < 5) return '刚刚同步';
+      if (diff < 60) return `${diff} 秒前同步`;
+      if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前同步`;
+      return '同步于 ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
+    // 定时刷新"X 秒前同步"
+    let _refreshTick = null;
+    function startRefreshTick() {
+      if (_refreshTick) return;
+      _refreshTick = setInterval(() => { /* 触发 computed 重算 */ }, 1000);
+    }
 
     // ── API 工具 ──
     const apiUrl = '';
+    let _inflight = 0;
     async function api(path, opts = {}) {
       const headers = { 'Content-Type': 'application/json' };
       if (token.value) headers['Authorization'] = `Bearer ${token.value}`;
+      _inflight++; globalLoading.value = _inflight > 0;
       try {
         const res = await fetch(apiUrl + path, { ...opts, headers });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || '请求失败');
+        lastRefreshAt.value = Date.now();
         return data;
       } catch (e) {
         if (e.message.includes('401') || e.message.includes('Token')) { doLogout(); }
         throw e;
+      } finally {
+        _inflight--; if (_inflight < 0) _inflight = 0; globalLoading.value = _inflight > 0;
       }
     }
     function showToast(msg, type = 'success') {
@@ -1414,10 +1802,10 @@ createApp({
     async function loadAll() {
       loadOverview();
       loadWebHardware();
-      loadInstances();
+      await loadInstances();
       if (user.role === 'admin') { loadConfigList(); loadUserList(); loadBackups(); }
-      loadSteamData();
       loadSteamFriendsStatus();
+      await loadSteamData();
       loadSteamTimelineExtreme();
       loadSteamTimelinePlay();
     }
@@ -1426,7 +1814,19 @@ createApp({
       try {
         const data = await api('/api/status/overview');
         if (data.data) Object.assign(overview, data.data);
+        // 记录最近 5 条日志到控制页
+        if (data.data?.recent_logs) controlLogs.value = data.data.recent_logs.slice(-5).reverse();
+        // 记录 CPU/内存历史曲线
+        if (data.data?.hardware) {
+          const h = data.data.hardware;
+          pushMetric(metricHistory[0], h.cpu_percent || 0);
+          pushMetric(metricHistory[1], h.memory_percent || 0);
+        }
       } catch(e) { console.error(e); }
+    }
+    function pushMetric(arr, val) {
+      arr.push(val);
+      if (arr.length > 20) arr.shift();
     }
     async function loadWebHardware() {
       try {
@@ -1612,17 +2012,63 @@ createApp({
       try {
         const data = await api(`/api/status/steam/timeline?type=extreme&limit=${extremeLimit.value}`);
         steamTimelineExtreme.value = data.data?.extreme_changes || [];
-        await nextTick();
-        if (extremeScrollEl.value) extremeScrollEl.value.scrollLeft = extremeScrollEl.value.scrollWidth;
+        setTimeout(() => { if (extremeScrollEl.value) extremeScrollEl.value.scrollLeft = extremeScrollEl.value.scrollWidth; }, 100);
       } catch(e) { console.error(e); }
     }
     async function loadSteamTimelinePlay() {
       try {
         const data = await api(`/api/status/steam/timeline?type=play&limit=${playLimit.value}`);
         steamTimelinePlay.value = data.data?.play_records || [];
-        await nextTick();
-        if (playScrollEl.value) playScrollEl.value.scrollLeft = playScrollEl.value.scrollWidth;
+        setTimeout(() => { if (playScrollEl.value) playScrollEl.value.scrollLeft = playScrollEl.value.scrollWidth; }, 100);
       } catch(e) { console.error(e); }
+    }
+    function matchCardFlex(ev) {
+      if (ev.kind !== 'match') return '0 0 172px';
+      const n = ev.players ? ev.players.length : 1;
+      const w = 80 + n * 87;
+      return `0 0 ${w}px`;
+    }
+    const playEventsWithShare = computed(() => {
+      const counts = {};
+      const groupNames = {};
+      for (const e of steamTimelinePlay.value) {
+        const key = e.kind === 'start' || e.kind === 'end' ? e.group_id : e.match_id;
+        if (key) counts[key] = (counts[key] || 0) + 1;
+        if ((e.kind === 'start' || e.kind === 'end') && e.group_id && e.pw_nickname) {
+          if (!groupNames[e.group_id]) groupNames[e.group_id] = [];
+          if (!groupNames[e.group_id].includes(e.pw_nickname)) groupNames[e.group_id].push(e.pw_nickname);
+        }
+      }
+      const seen = {};
+      const result = [];
+      for (const e of steamTimelinePlay.value) {
+        const key = e.kind === 'start' || e.kind === 'end' ? e.group_id : e.match_id;
+        if ((e.kind === 'start' || e.kind === 'end') && e.group_id) {
+          if (seen[e.group_id]) continue;
+          seen[e.group_id] = true;
+          result.push({...e, share_count: counts[key] || 1, all_nicknames: groupNames[e.group_id] || [e.pw_nickname]});
+        } else {
+          result.push({...e, share_count: counts[key] || 1});
+        }
+      }
+      return result;
+    });
+    function formatRelTime(ts) {
+      if (!ts) return { rel: '', abs: '' };
+      const parts = ts.split(' ');
+      const [d, t] = parts;
+      if (!d || !t) return { rel: ts, abs: '' };
+      const [y, m, day] = d.split('-').map(Number);
+      const [hh, mm] = t.split(':').map(Number);
+      const dt = new Date(y, m-1, day, hh, mm);
+      const now = new Date();
+      const diff = Math.floor((now - dt) / 1000);
+      let rel;
+      if (diff < 0 || diff < 60) rel = '刚刚';
+      else if (diff < 3600) rel = `${Math.floor(diff/60)}分钟前`;
+      else if (diff < 86400) rel = `${Math.floor(diff/3600)}小时前`;
+      else rel = `${Math.floor(diff/86400)}天前`;
+      return { rel, abs: ts.slice(5) };
     }
 
     async function resetPwSeasonRecords() {
@@ -1797,6 +2243,12 @@ createApp({
       if (p === 'users') loadUserList();
       if (p === 'files') loadFiles();
       if (p === 'chat') { loadChatHistory(); connectChatWs(); }
+      if (p === 'steam') {
+        nextTick(() => {
+          if (extremeScrollEl.value) extremeScrollEl.value.scrollLeft = extremeScrollEl.value.scrollWidth;
+          if (playScrollEl.value) playScrollEl.value.scrollLeft = playScrollEl.value.scrollWidth;
+        });
+      }
     });
 
     // ── 聊天功能 ──
@@ -1808,11 +2260,6 @@ createApp({
           // 从历史消息中提取人设名
           chat.personaName = null;
           for (let i = chat.messages.length - 1; i >= 0; i--) {
-            if (chat.messages[i].source === 'user' && chat.messages[i].content) {
-              const prefix = detectChatPrefix(chat.messages[i].content);
-              if (prefix) chat.prefix = prefix;
-              if (prefix) break;
-            }
             if (!chat.personaName && chat.messages[i].source !== 'user' && chat.messages[i].sender) {
               chat.personaName = chat.messages[i].sender;
             }
@@ -1963,22 +2410,30 @@ createApp({
     function formatChatTime(ts) {
       if (!ts) return '';
       const d = new Date(ts);
-      return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      const time = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      if (sameDay) return time;
+      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) return '昨天 ' + time;
+      return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
     }
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll, demoFileInput,
       overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes, selectedChatLabel,
-      visibleNav, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
+      visibleNav, currentNavItem, globalLoading, lastRefreshAt, lastRefreshText, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,
+      controlLogs, metricHistory,
       steamTimelineExtreme, steamTimelinePlay, extremeLimit, playLimit,
       extremeScrollEl, playScrollEl,
       loadSteamTimelineExtreme, loadSteamTimelinePlay,
+      playEventsWithShare, matchCardFlex, formatRelTime,
     };
     window.__vueApp = appExports;
     return appExports;

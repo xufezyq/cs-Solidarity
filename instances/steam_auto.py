@@ -8,6 +8,7 @@ import threading
 import html
 from copy import deepcopy
 from datetime import datetime
+from typing import Any, Dict
 from pathlib import Path
 from core import wechat_instance
 from cs2_pw.pw_reporter import PwStatsReporter
@@ -674,7 +675,8 @@ class SteamAuto(BaseInstance):
                     log.info(f"[{datetime.now()}] 记录极值变化失败 ({steam_id}/{field}): {e}")
 
     def _record_play_records(self, processed_matches: list) -> None:
-        """把 reporter 处理过的对局写入时间轴（按 match_id+steamid 去重由 recorder 负责）。"""
+        """把 reporter 处理过的对局写入时间轴：按 match_id 分桶，多人同场合并到一条 match 事件。"""
+        matches_by_id: Dict[str, Dict[str, Any]] = {}
         for entry in processed_matches or []:
             try:
                 steam_id, data, map_name, score1, score2, nickname, result = entry
@@ -683,24 +685,33 @@ class SteamAuto(BaseInstance):
             if not data:
                 continue
             match_id = data.get('matchId', '')
+            if not match_id:
+                continue
             kills = data.get('kill', 0)
             deaths = data.get('death', 0)
             assists = data.get('assist', 0)
-            kda = f"{kills}/{deaths}/{assists}"
-            score_str = f"{score1}:{score2}" if score1 is not None and score2 is not None else "-:-"
+            bucket = matches_by_id.setdefault(match_id, {
+                'map_name': map_name,
+                'score': f"{score1}:{score2}" if score1 is not None and score2 is not None else "-:-",
+                'players': [],
+            })
+            bucket['players'].append({
+                'steamid': steam_id,
+                'pw_nickname': nickname,
+                'kda': f"{kills}/{deaths}/{assists}",
+                'rating': float(data.get('rating', 0.0) or 0.0),
+                'result': result,
+                'we': int(data.get('we', 0) or 0),
+                'pvp_score_change': int(data.get('pvpScoreChange', 0) or 0),
+                'pvp_stars_change': int(data.get('pvpStars', 0) or 0) - int(data.get('_prev_pvpStars', 0) or 0),
+            })
+        for match_id, info in matches_by_id.items():
             try:
-                self.timeline_recorder.record_play_record(
+                self.timeline_recorder.record_game_match(
                     match_id=match_id,
-                    steamid=steam_id,
-                    pw_nickname=nickname,
-                    map_name=map_name,
-                    score=score_str,
-                    result=result,
-                    kda=kda,
-                    rating=float(data.get('rating', 0.0) or 0.0),
-                    we=int(data.get('we', 0) or 0),
-                    pvp_score_change=int(data.get('pvpScoreChange', 0) or 0),
-                    pvp_stars_change=int(data.get('pvpStars', 0) or 0) - int(data.get('_prev_pvpStars', 0) or 0),
+                    map_name=info['map_name'],
+                    score=info['score'],
+                    players=info['players'],
                 )
             except Exception as e:
                 log.info(f"[{datetime.now()}] 记录对局失败 ({match_id}): {e}")
@@ -752,6 +763,16 @@ class SteamAuto(BaseInstance):
                     'lastlogoff': lastlogoff
                 }
 
+                # 写入时间轴启动事件
+                try:
+                    self.timeline_recorder.record_game_start(
+                        steamid=steam_id,
+                        pw_nickname=self.friend_pw_nickname_map.get(steam_id, nickname),
+                        game_name=game_name or f'游戏 {game_id}',
+                    )
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 记录游戏启动失败 ({steam_id}/{game_name}): {e}")
+
             # 检查游戏状态变化：从有游戏变为无游戏
             elif (not game_id or game_id == '0') and prev_game_id and prev_game_id != '0':
                 # 计算游玩时长
@@ -766,16 +787,16 @@ class SteamAuto(BaseInstance):
                 # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
                 if prev_game_id == '730' and self.pw_api:
                     stopped_cs2_friends.append(steam_id)
-                
+
                 # 累计今日游玩时长
                 if steam_id not in self.friend_daily_stats:
                     self.friend_daily_stats[steam_id] = {'nickname': nickname, 'games': {}}
-                
+
                 if prev_game_name not in self.friend_daily_stats[steam_id]['games']:
                     self.friend_daily_stats[steam_id]['games'][prev_game_name] = 0
-                
+
                 self.friend_daily_stats[steam_id]['games'][prev_game_name] += duration
-                
+
                 # 保存当前状态（无游戏）
                 self.friend_game_status[steam_id] = {
                     'gameid': game_id,
@@ -785,6 +806,16 @@ class SteamAuto(BaseInstance):
                     'start_time': None,
                     'lastlogoff': lastlogoff
                 }
+
+                # 写入时间轴结束事件
+                try:
+                    self.timeline_recorder.record_game_end(
+                        steamid=steam_id,
+                        pw_nickname=self.friend_pw_nickname_map.get(steam_id, nickname),
+                        game_name=prev_game_name or f'游戏 {prev_game_id}',
+                    )
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 记录游戏结束失败 ({steam_id}/{prev_game_name}): {e}")
             
             # 首次出现的好友，初始化完整状态
             if steam_id not in self.friend_game_status:

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 # 各类型事件的最大保留条数（环形覆盖：超出后从最旧的开始丢）
 MAX_EXTREME_CHANGES = 200
-MAX_PLAY_RECORDS = 200
+MAX_PLAY_RECORDS = 300
 
 # 读写锁：与 instances/steam_auto.py 中的 _config_lock 同模式
 _timeline_lock = threading.Lock()
@@ -52,6 +52,46 @@ def _save_state(data_path: str, state: Dict[str, list]) -> None:
 def _now_pair() -> Dict[str, str]:
     now = datetime.now()
     return {"timestamp": now.strftime("%Y-%m-%d %H:%M:%S"), "timestamp_iso": now.isoformat()}
+
+
+def _resolve_timestamp(timestamp: Optional[str] = None) -> tuple[str, str]:
+    """支持传入 "%Y-%m-%d %H:%M:%S" 或 ISO；不传则取当前时间。返回 (display, iso)。"""
+    if timestamp:
+        if "T" in timestamp:
+            return timestamp, timestamp
+        return timestamp, timestamp.replace(" ", "T")
+    now = datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S"), now.isoformat()
+
+
+def _find_or_create_group(
+    state: Dict[str, list],
+    kind: str,
+    game_name: str,
+    ts_iso: str,
+    window_seconds: int = 60,
+) -> str:
+    """从已有事件里反推 group_id：60s 内同 kind + 同 game_name 复用同一 group。"""
+    try:
+        new_dt = datetime.fromisoformat(ts_iso)
+    except ValueError:
+        return uuid.uuid4().hex
+    for ev in reversed(state.get("play_records", [])):
+        if ev.get("kind") != kind:
+            continue
+        if ev.get("game_name") != game_name:
+            continue
+        gid = ev.get("group_id")
+        ev_ts = ev.get("timestamp_iso")
+        if not gid or not ev_ts:
+            continue
+        try:
+            ev_dt = datetime.fromisoformat(ev_ts)
+        except ValueError:
+            continue
+        if abs((new_dt - ev_dt).total_seconds()) <= window_seconds:
+            return gid
+    return uuid.uuid4().hex
 
 
 def _push_with_cap(state: Dict[str, list], key: str, event: Dict[str, Any], cap: int) -> None:
@@ -104,47 +144,98 @@ class SteamTimelineRecorder:
 
         with _timeline_lock:
             state = _load_state(self.data_path)
+            # 前任持有者：最近一条同 metric 且 new_value == 本次 old_value 的事件
+            previous_holder = None
+            for prev_event in reversed(state.get("extreme_changes", [])):
+                if prev_event.get("metric") == metric and prev_event.get("new_value") == old_value:
+                    previous_holder = prev_event.get("pw_nickname")
+                    break
+            event["previous_holder"] = previous_holder
             _push_with_cap(state, "extreme_changes", event, MAX_EXTREME_CHANGES)
             _save_state(self.data_path, state)
         return event
 
-    def record_play_record(
+    def record_game_start(
         self,
-        match_id: str,
         steamid: str,
         pw_nickname: str,
-        map_name: str,
-        score: str,
-        result: str,
-        kda: str,
-        rating: float = 0.0,
-        we: int = 0,
-        pvp_score_change: int = 0,
-        pvp_stars_change: int = 0,
+        game_name: str,
+        timestamp: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """记录一次好友完美对局。match_id 已播报过则跳过（去重）。"""
-        if not match_id:
+        """记录一个好友开始玩某游戏。60s 内同游戏名复用 group_id。"""
+        if not steamid or not game_name:
             return None
-
+        ts, ts_iso = _resolve_timestamp(timestamp)
         with _timeline_lock:
             state = _load_state(self.data_path)
-            if any(r.get("match_id") == match_id and r.get("steamid") == steamid for r in state["play_records"]):
-                return None
-
+            group_id = _find_or_create_group(state, "start", game_name, ts_iso)
             event = {
                 "id": uuid.uuid4().hex,
-                "match_id": match_id,
+                "kind": "start",
                 "steamid": steamid,
                 "pw_nickname": pw_nickname,
+                "game_name": game_name,
+                "group_id": group_id,
+                "timestamp": ts,
+                "timestamp_iso": ts_iso,
+            }
+            _push_with_cap(state, "play_records", event, MAX_PLAY_RECORDS)
+            _save_state(self.data_path, state)
+        return event
+
+    def record_game_end(
+        self,
+        steamid: str,
+        pw_nickname: str,
+        game_name: str,
+        timestamp: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """记录一个好友结束玩某游戏。60s 内同游戏名复用 group_id。"""
+        if not steamid or not game_name:
+            return None
+        ts, ts_iso = _resolve_timestamp(timestamp)
+        with _timeline_lock:
+            state = _load_state(self.data_path)
+            group_id = _find_or_create_group(state, "end", game_name, ts_iso)
+            event = {
+                "id": uuid.uuid4().hex,
+                "kind": "end",
+                "steamid": steamid,
+                "pw_nickname": pw_nickname,
+                "game_name": game_name,
+                "group_id": group_id,
+                "timestamp": ts,
+                "timestamp_iso": ts_iso,
+            }
+            _push_with_cap(state, "play_records", event, MAX_PLAY_RECORDS)
+            _save_state(self.data_path, state)
+        return event
+
+    def record_game_match(
+        self,
+        match_id: str,
+        map_name: str,
+        score: str,
+        players: List[Dict[str, Any]],
+        timestamp: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """记录一场多人对局。match_id 已存在则跳过（去重）。players 是 dict 列表。"""
+        if not match_id or not players:
+            return None
+        with _timeline_lock:
+            state = _load_state(self.data_path)
+            if any(r.get("match_id") == match_id and r.get("kind") == "match" for r in state["play_records"]):
+                return None
+            ts, ts_iso = _resolve_timestamp(timestamp)
+            event = {
+                "id": uuid.uuid4().hex,
+                "kind": "match",
+                "match_id": match_id,
                 "map_name": map_name,
                 "score": score,
-                "result": result,
-                "kda": kda,
-                "rating": rating,
-                "we": we,
-                "pvp_score_change": pvp_score_change,
-                "pvp_stars_change": pvp_stars_change,
-                **_now_pair(),
+                "players": players,
+                "timestamp": ts,
+                "timestamp_iso": ts_iso,
             }
             _push_with_cap(state, "play_records", event, MAX_PLAY_RECORDS)
             _save_state(self.data_path, state)
