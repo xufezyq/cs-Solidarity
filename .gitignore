@@ -56,6 +56,8 @@ web/backups/
 # 运行时数据
 instconfig/chat_history.json
 instconfig/steam_data.json
+instconfig/steam_timeline.json
+instconfig/steam_data_archives
 
 # KouriChat 配置文件
 KouriChat/data/config/
