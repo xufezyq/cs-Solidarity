@@ -1525,7 +1525,7 @@ createApp({
     }
 
     async function resetPwSeasonRecords() {
-      if (!confirm('确认清空完美平台历史极值和排行榜？此操作用于赛季刷新，清空后将从新赛季重新统计。')) return;
+      if (!confirm('确认清空完美平台历史极值和排行榜？清空前会自动归档当前赛季数据到 instconfig/steam_data_archives/，此操作用于赛季刷新。')) return;
       try {
         const data = await api('/api/status/steam/pw-season/reset', { method: 'POST' });
         const d = data.data || {};

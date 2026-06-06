@@ -31,6 +31,37 @@ except ImportError:
 # 配置文件读写锁，防止后台线程和 Web 面板同时写入导致损坏
 _config_lock = threading.Lock()
 
+
+def archive_pw_season_data(data_path: str) -> str:
+    """将 steam_data.json 中的赛季数据快照到独立归档文件，返回归档文件路径。
+
+    归档内容：friend_pw_history_stats、friend_pw_leaderboard，外加 archived_at 时间戳。
+    归档文件位于 <data_path 同级>/steam_data_archives/season_<时间戳>.json。
+    """
+    data_file = Path(data_path)
+    archive_dir = data_file.parent / 'steam_data_archives'
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    archive_path = archive_dir / f'season_{timestamp}.json'
+
+    config = {}
+    if data_file.exists():
+        with open(data_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+    archive_data = {
+        'archived_at': datetime.now().isoformat(),
+        'friend_pw_history_stats': config.get('friend_pw_history_stats', {}),
+        'friend_pw_leaderboard': config.get('friend_pw_leaderboard', {}),
+    }
+
+    with open(archive_path, 'w', encoding='utf-8') as f:
+        json.dump(archive_data, f, ensure_ascii=False, indent=2)
+
+    return str(archive_path)
+
+
 class SteamAuto(BaseInstance):
     def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
@@ -97,6 +128,7 @@ class SteamAuto(BaseInstance):
             # 移除空字符串
             self.monitored_friends.discard('')
     
+
     @staticmethod
     def load_config(config_path='config.json'):
         """从配置文件加载配置（线程安全）"""
@@ -950,11 +982,14 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 保存排行榜数据失败: {e}")
 
     def reset_pw_season_records(self):
-        """清空完美平台赛季历史极值和排行榜缓存，并同步持久化。"""
+        """归档并清空完美平台赛季历史极值和排行榜。"""
         cleared_history_players = len(self.friend_pw_history_stats or {})
         cleared_leaderboard_categories = len(self.friend_pw_leaderboard or {})
 
         try:
+            archive_path = archive_pw_season_data(self.data_path)
+            log.info(f"[{datetime.now()}] 完美赛季数据已归档至 {archive_path}")
+
             with _config_lock:
                 config = {}
                 if Path(self.data_path).exists():
@@ -970,12 +1005,14 @@ class SteamAuto(BaseInstance):
             self.friend_pw_leaderboard = {}
             log.info(
                 f"[{datetime.now()}] 完美赛季统计已清空: "
-                f"history={cleared_history_players}, leaderboard={cleared_leaderboard_categories}"
+                f"history={cleared_history_players}, leaderboard={cleared_leaderboard_categories}, "
+                f"archive={archive_path}"
             )
             return {
                 "cleared_history_players": cleared_history_players,
                 "cleared_leaderboard_categories": cleared_leaderboard_categories,
-                "message": "完美赛季统计已清空"
+                "archived_to": archive_path,
+                "message": f"完美赛季统计已清空，已归档至 {archive_path}"
             }
         except Exception as e:
             log.info(f"[{datetime.now()}] 清空完美赛季统计失败: {e}")

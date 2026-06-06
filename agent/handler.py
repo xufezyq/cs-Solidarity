@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 
+from instances.steam_auto import archive_pw_season_data
+
 log = logging.getLogger(__name__)
 
 
@@ -723,9 +725,11 @@ class AgentHandler:
         return self.root_dir / "instconfig" / "steam_data.json"
 
     def _reset_pw_season_records_file(self) -> Dict[str, Any]:
-        """Bot 未运行时，直接清空 Steam 数据文件中的赛季统计。"""
+        """Bot 未运行时，归档 Steam 数据文件中的赛季统计，然后清空。"""
         data_file = self._steam_data_file()
         data_file.parent.mkdir(parents=True, exist_ok=True)
+
+        archive_path = archive_pw_season_data(str(data_file))
 
         config = {}
         if data_file.exists():
@@ -746,7 +750,8 @@ class AgentHandler:
             "data": {
                 "cleared_history_players": len(history),
                 "cleared_leaderboard_categories": len(leaderboard),
-                "message": "完美赛季统计已清空",
+                "archived_to": archive_path,
+                "message": f"完美赛季统计已清空，已归档至 {archive_path}",
                 "mode": "file",
             }
         }
