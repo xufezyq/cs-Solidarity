@@ -119,6 +119,7 @@ class AgentHandler:
             "status.instances": self._status_instances,
             "steam.friends_status": self._steam_friends_status,
             "steam.reset_pw_season_records": self._steam_reset_pw_season_records,
+            "steam.get_timeline": self._steam_get_timeline,
             "files.list": self._files_list,
             "files.upload": self._files_upload,
             "files.delete": self._files_delete,
@@ -777,6 +778,40 @@ class AgentHandler:
             return self._reset_pw_season_records_file()
         except Exception as e:
             return {"success": False, "error": f"清空完美赛季统计失败: {e}"}
+
+    def _steam_get_timeline(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """读取 Steam 时间轴事件（历史极值变化 / 好友对局记录）。
+
+        params:
+            type: "extreme" | "play" | "all"（默认 all）
+            limit: int（默认 50；<= 0 表示不限制）
+        """
+        timeline_type = (params or {}).get("type", "all")
+        try:
+            limit = int((params or {}).get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+
+        data_file = self._steam_data_file()
+        timeline_file = data_file.parent / "steam_timeline.json"
+        if not timeline_file.exists():
+            return {"success": True, "data": {"extreme_changes": [], "play_records": []}}
+
+        try:
+            with open(timeline_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            return {"success": False, "error": f"读取时间轴文件失败: {e}"}
+
+        def _tail(lst):
+            return lst[-limit:] if limit > 0 else lst
+
+        result = {}
+        if timeline_type in ("extreme", "all"):
+            result["extreme_changes"] = _tail(state.get("extreme_changes", []))
+        if timeline_type in ("play", "all"):
+            result["play_records"] = _tail(state.get("play_records", []))
+        return {"success": True, "data": result}
 
     def _steam_friends_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """获取 Steam 好友在线状态"""

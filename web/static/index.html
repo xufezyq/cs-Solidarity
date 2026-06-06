@@ -387,6 +387,21 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
   border:1px solid var(--glass-border); border-radius:8px; width:100%;
 }
 
+/* Steam 时间轴（历史极值变化 + 好友对局记录） */
+.tl-scroll { overflow-x:auto; overflow-y:hidden; padding:8px 4px 12px; scroll-behavior:smooth; }
+.tl-track { position:relative; display:flex; align-items:flex-start; gap:14px; padding:24px 8px 8px; min-width:min-content; }
+.tl-line { position:absolute; top:64px; left:8px; right:8px; height:2px; background:rgba(255,255,255,0.10); z-index:0; }
+.tl-node { position:relative; flex:0 0 168px; display:flex; flex-direction:column; align-items:center; z-index:1; padding-top:6px; }
+.tl-time { font-size:11px; color:var(--text2); margin-bottom:6px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.tl-dot { width:14px; height:14px; border-radius:50%; background:#888; box-shadow:0 0 0 3px var(--card, #1a1a1a), 0 0 0 4px currentColor; margin-bottom:8px; flex:0 0 auto; }
+.tl-body { width:100%; text-align:center; padding:0 4px; }
+.tl-title { font-size:13px; font-weight:600; line-height:1.2; margin-bottom:2px; }
+.tl-subtitle { font-size:11px; color:var(--text2); line-height:1.3; }
+.tl-result-win { color:#4caf50; }
+.tl-result-lose { color:#f44336; }
+.tl-result-draw { color:#ffb300; }
+.tl-empty { color:var(--text2); text-align:center; padding:32px 0; font-size:13px; }
+
 /* Mobile */
 @media(max-width:768px) {
   .row { flex-direction:column; }
@@ -811,6 +826,37 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         </div>
       </div>
+      <!-- 历史极值变化时间轴 -->
+      <div class="card card-enter" v-if="steamDetail" style="animation-delay:.12s">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h2 style="margin:0;"><i class="mdi mdi-timeline-clock-outline" style="margin-right:8px;"></i>历史极值变化</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:var(--text2);">显示</span>
+            <select class="input-sm" v-model.number="extremeLimit" @change="loadSteamTimelineExtreme" style="min-width:70px;padding:2px 6px;font-size:12px;">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+              <option :value="0">全部</option>
+            </select>
+            <button class="btn-sm" @click="loadSteamTimelineExtreme" title="刷新"><i class="mdi mdi-refresh"></i></button>
+          </div>
+        </div>
+        <div v-if="!steamTimelineExtreme.length" class="tl-empty">暂无历史极值变化记录（赛季内有玩家打破纪录时会出现）</div>
+        <div v-else class="tl-scroll" ref="extremeScrollEl">
+          <div class="tl-track">
+            <div class="tl-line"></div>
+            <div class="tl-node" v-for="ev in steamTimelineExtreme" :key="ev.id" :title="`${ev.metric_label}: ${ev.old_value} → ${ev.new_value} (${ev.pw_nickname})`">
+              <div class="tl-time">{{ ev.timestamp.slice(5) }}</div>
+              <div class="tl-dot" :style="{color: ev.is_improvement ? '#4caf50' : '#f44336', background: ev.is_improvement ? '#4caf50' : '#f44336'}"></div>
+              <div class="tl-body">
+                <div class="tl-title" :style="{color: ev.is_improvement ? '#4caf50' : '#f44336'}">{{ ev.metric_emoji }} {{ ev.metric_label }}</div>
+                <div class="tl-subtitle">{{ ev.pw_nickname }}</div>
+                <div class="tl-subtitle">{{ ev.old_value }} → <b>{{ ev.new_value }}</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- 历史极值 -->
       <div class="card card-enter" v-if="steamDetail.friend_pw_history_stats" style="animation-delay:.16s">
         <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>历史极值</h2>
@@ -845,6 +891,37 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>{{ val.min_score < 9999 ? val.min_score : '-' }}</td>
           </tr>
         </table>
+        </div>
+      </div>
+      <!-- 好友游玩记录时间轴 -->
+      <div class="card card-enter" v-if="steamDetail" style="animation-delay:.20s">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h2 style="margin:0;"><i class="mdi mdi-gamepad-variant" style="margin-right:8px;"></i>好友游玩记录</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:var(--text2);">显示</span>
+            <select class="input-sm" v-model.number="playLimit" @change="loadSteamTimelinePlay" style="min-width:70px;padding:2px 6px;font-size:12px;">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+              <option :value="0">全部</option>
+            </select>
+            <button class="btn-sm" @click="loadSteamTimelinePlay" title="刷新"><i class="mdi mdi-refresh"></i></button>
+          </div>
+        </div>
+        <div v-if="!steamTimelinePlay.length" class="tl-empty">暂无好友对局记录（CS2 完美对局结束后会出现）</div>
+        <div v-else class="tl-scroll" ref="playScrollEl">
+          <div class="tl-track">
+            <div class="tl-line"></div>
+            <div class="tl-node" v-for="ev in steamTimelinePlay" :key="ev.id" :title="`${ev.pw_nickname} · ${ev.map_name} ${ev.score} · ${ev.result} · KDA ${ev.kda}`">
+              <div class="tl-time">{{ ev.timestamp.slice(5, 16) }}</div>
+              <div class="tl-dot" :class="ev.result === '胜利' ? 'tl-result-win' : ev.result === '失败' ? 'tl-result-lose' : 'tl-result-draw'" :style="{background: ev.result === '胜利' ? '#4caf50' : ev.result === '失败' ? '#f44336' : '#ffb300'}"></div>
+              <div class="tl-body">
+                <div class="tl-title" :class="ev.result === '胜利' ? 'tl-result-win' : ev.result === '失败' ? 'tl-result-lose' : 'tl-result-draw'">{{ ev.map_name }} {{ ev.score }}</div>
+                <div class="tl-subtitle">{{ ev.pw_nickname }} · {{ ev.result }}</div>
+                <div class="tl-subtitle">KDA {{ ev.kda }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <!-- 好友列表 -->
@@ -1191,6 +1268,12 @@ createApp({
     const failedAvatars = reactive(new Set());
     function onAvatarError(e, key) { failedAvatars.add(key); }
     const steamFriendsStatus = ref([]);
+    const steamTimelineExtreme = ref([]);
+    const steamTimelinePlay = ref([]);
+    const extremeLimit = ref(50);
+    const playLimit = ref(50);
+    const extremeScrollEl = ref(null);
+    const playScrollEl = ref(null);
     const steamFriendsStatusSorted = computed(() => {
       const priority = { 2: 0, 1: 1, 3: 2, 0: 3 };
       return [...steamFriendsStatus.value].sort((a, b) => {
@@ -1335,6 +1418,8 @@ createApp({
       if (user.role === 'admin') { loadConfigList(); loadUserList(); loadBackups(); }
       loadSteamData();
       loadSteamFriendsStatus();
+      loadSteamTimelineExtreme();
+      loadSteamTimelinePlay();
     }
 
     async function loadOverview() {
@@ -1521,6 +1606,22 @@ createApp({
       try {
         const data = await api('/api/status/steam/friends-status');
         steamFriendsStatus.value = data.data?.friends || [];
+      } catch(e) { console.error(e); }
+    }
+    async function loadSteamTimelineExtreme() {
+      try {
+        const data = await api(`/api/status/steam/timeline?type=extreme&limit=${extremeLimit.value}`);
+        steamTimelineExtreme.value = data.data?.extreme_changes || [];
+        await nextTick();
+        if (extremeScrollEl.value) extremeScrollEl.value.scrollLeft = extremeScrollEl.value.scrollWidth;
+      } catch(e) { console.error(e); }
+    }
+    async function loadSteamTimelinePlay() {
+      try {
+        const data = await api(`/api/status/steam/timeline?type=play&limit=${playLimit.value}`);
+        steamTimelinePlay.value = data.data?.play_records || [];
+        await nextTick();
+        if (playScrollEl.value) playScrollEl.value.scrollLeft = playScrollEl.value.scrollWidth;
       } catch(e) { console.error(e); }
     }
 
@@ -1875,6 +1976,9 @@ createApp({
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,
+      steamTimelineExtreme, steamTimelinePlay, extremeLimit, playLimit,
+      extremeScrollEl, playScrollEl,
+      loadSteamTimelineExtreme, loadSteamTimelinePlay,
     };
     window.__vueApp = appExports;
     return appExports;

@@ -83,6 +83,23 @@ async def reset_steam_pw_season_records(current_user: User = Depends(require_adm
     return {"success": True, "data": result.get("data", {})}
 
 
+@router.get("/steam/timeline")
+async def get_steam_timeline(
+    type: str = "all",
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+):
+    """获取 Steam 时间轴事件。type: extreme|play|all，limit<=0 表示不限制。"""
+    result = await bridge.send_request(
+        "steam.get_timeline",
+        {"type": type, "limit": limit},
+        timeout=15,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
+    return {"success": True, "data": result.get("data", {})}
+
+
 @router.get("/hardware")
 async def get_hardware(source: str = "web", current_user: User = Depends(get_current_user)):
     """获取硬件信息（web=本机, agent=Agent 机器）"""

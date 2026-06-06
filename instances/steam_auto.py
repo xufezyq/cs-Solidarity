@@ -6,12 +6,14 @@ import asyncio
 import re
 import threading
 import html
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from core import wechat_instance
 from cs2_pw.pw_reporter import PwStatsReporter
 from core.base_instance import BaseInstance
 from cs2_pw.request import PerfectWorldApi
+from utils.steam_timeline import SteamTimelineRecorder
 import logging
 from dotenv import load_dotenv
 import os
@@ -63,6 +65,23 @@ def archive_pw_season_data(data_path: str) -> str:
 
 
 class SteamAuto(BaseInstance):
+    # 排行榜类别：(key, 显示名, emoji, data_field, is_max)
+    # 单一来源：时间轴历史极值变化与排行榜播报共用此定义
+    LEADERBOARD_CATEGORIES = [
+        ('max_kills', '击杀王', '🔫', 'max_kills', True),
+        ('min_kills', '精神支持', '🫡', 'min_kills', False),
+        ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
+        ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
+        ('max_rating', 'RT 之神', '📊', 'max_rating', True),
+        ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
+        ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
+        ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
+        ('max_we', 'WE 之神', '💪', 'max_we', True),
+        ('min_we', '不懂装懂', '😅', 'min_we', False),
+        ('max_score', '得分王', '🎯', 'max_score', True),
+        ('min_score', '吊车尾', '📉', 'min_score', False),
+    ]
+
     def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
@@ -76,6 +95,10 @@ class SteamAuto(BaseInstance):
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_stars_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
+        # 时间轴记录器（历史极值变化 + 好友对局记录）
+        self.timeline_recorder = SteamTimelineRecorder(self.data_path)
+        # 上一轮 fetch 时的历史极值快照，用于 diff 出变化
+        self._last_history_snapshot = deepcopy(self.friend_pw_history_stats)
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_lines = code_update_lines or []
@@ -565,6 +588,9 @@ class SteamAuto(BaseInstance):
         if not self.pw_api:
             return []
 
+        # 抓取前快照当前历史极值，用于后续 diff 出"新纪录"事件
+        prev_history_snapshot = deepcopy(self.friend_pw_history_stats)
+
         reporter = PwStatsReporter(
             pw_api=self.pw_api,
             friend_pw_nickname_map=self.friend_pw_nickname_map,
@@ -573,7 +599,19 @@ class SteamAuto(BaseInstance):
             log=log.info
         )
 
-        messages = await reporter.fetch_and_report(steam_ids)
+        messages, processed_matches = await reporter.fetch_and_report(steam_ids)
+
+        # 1. 记录历史极值变化
+        try:
+            self._record_extreme_changes(prev_history_snapshot)
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 记录历史极值变化失败: {e}")
+
+        # 2. 记录好友对局
+        try:
+            self._record_play_records(processed_matches)
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 记录好友对局失败: {e}")
 
         # 检查排行榜变化并记录通知
         record_notifications = []
@@ -603,6 +641,69 @@ class SteamAuto(BaseInstance):
             messages.append(record_msg)
 
         return messages
+
+    def _record_extreme_changes(self, prev_snapshot: dict) -> None:
+        """对比抓取前后的历史极值，把变化的指标写入时间轴。"""
+        categories = {field: (label, emoji, is_max) for _, label, emoji, field, is_max in SteamAuto.LEADERBOARD_CATEGORIES}
+        for steam_id, current in self.friend_pw_history_stats.items():
+            if not isinstance(current, dict):
+                continue
+            prev = prev_snapshot.get(steam_id, {}) if isinstance(prev_snapshot.get(steam_id), dict) else {}
+            nickname = current.get('pw_nickname') or self.friend_pw_nickname_map.get(steam_id, '未知好友')
+            for field, (label, emoji, is_max) in categories.items():
+                old_val = prev.get(field)
+                new_val = current.get(field)
+                # 0 是 max_* 的初始值（无数据），跳过；999/9999 是 min_* 的初始值
+                if old_val is None or new_val is None:
+                    continue
+                if old_val == new_val:
+                    continue
+                is_improvement = (new_val > old_val) if is_max else (new_val < old_val)
+                try:
+                    self.timeline_recorder.record_extreme_change(
+                        steamid=steam_id,
+                        pw_nickname=nickname,
+                        metric=field,
+                        metric_label=label,
+                        metric_emoji=emoji,
+                        old_value=old_val,
+                        new_value=new_val,
+                        is_improvement=is_improvement,
+                    )
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 记录极值变化失败 ({steam_id}/{field}): {e}")
+
+    def _record_play_records(self, processed_matches: list) -> None:
+        """把 reporter 处理过的对局写入时间轴（按 match_id+steamid 去重由 recorder 负责）。"""
+        for entry in processed_matches or []:
+            try:
+                steam_id, data, map_name, score1, score2, nickname, result = entry
+            except (ValueError, TypeError):
+                continue
+            if not data:
+                continue
+            match_id = data.get('matchId', '')
+            kills = data.get('kill', 0)
+            deaths = data.get('death', 0)
+            assists = data.get('assist', 0)
+            kda = f"{kills}/{deaths}/{assists}"
+            score_str = f"{score1}:{score2}" if score1 is not None and score2 is not None else "-:-"
+            try:
+                self.timeline_recorder.record_play_record(
+                    match_id=match_id,
+                    steamid=steam_id,
+                    pw_nickname=nickname,
+                    map_name=map_name,
+                    score=score_str,
+                    result=result,
+                    kda=kda,
+                    rating=float(data.get('rating', 0.0) or 0.0),
+                    we=int(data.get('we', 0) or 0),
+                    pvp_score_change=int(data.get('pvpScoreChange', 0) or 0),
+                    pvp_stars_change=int(data.get('pvpStars', 0) or 0) - int(data.get('_prev_pvpStars', 0) or 0),
+                )
+            except Exception as e:
+                log.info(f"[{datetime.now()}] 记录对局失败 ({match_id}): {e}")
 
     def check_status_changes(self):
         """检查好友游戏状态变化，并累计今日游玩时长"""
@@ -1030,20 +1131,7 @@ class SteamAuto(BaseInstance):
             return []
 
         # 定义所有排行榜类别：(key_name, display_name, emoji, data_field, is_max)
-        categories = [
-            ('max_kills', '击杀王', '🔫', 'max_kills', True),
-            ('min_kills', '精神支持', '🫡', 'min_kills', False),
-            ('max_deaths', '唐宋八大家', '💀', 'max_deaths', True),
-            ('min_deaths', '怯战蜥蜴', '🦎', 'min_deaths', False),
-            ('max_rating', 'RT 之神', '📊', 'max_rating', True),
-            ('min_rating', '团队吉祥物', '🧸', 'min_rating', False),
-            ('max_pw_rating', 'PW RT 之神', '⚡', 'max_pw_rating', True),
-            ('min_pw_rating', '纯路人', '👤', 'min_pw_rating', False),
-            ('max_we', 'WE 之神', '💪', 'max_we', True),
-            ('min_we', '不懂装懂', '😅', 'min_we', False),
-            ('max_score', '得分王', '🎯', 'max_score', True),
-            ('min_score', '吊车尾', '📉', 'min_score', False),
-        ]
+        categories = SteamAuto.LEADERBOARD_CATEGORIES
 
         for cat_key, cat_name, emoji, field, is_max in categories:
             # 找出当前该类别的最佳/最差玩家

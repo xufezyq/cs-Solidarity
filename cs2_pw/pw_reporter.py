@@ -56,14 +56,21 @@ class PwStatsReporter:
             return False
         return str(score1) == str(score2)
 
-    async def fetch_and_report(self, steam_ids: list) -> list[str]:
-        """主入口：获取战绩并生成消息"""
+    async def fetch_and_report(self, steam_ids: list) -> tuple:
+        """主入口：获取战绩并生成消息
+
+        Returns:
+            (messages, processed_matches) 元组：
+            - messages: 战报文本列表
+            - processed_matches: 已处理的对局条目列表，每项为
+              (steam_id, match_data, map_name, score1, score2, nickname, result)
+        """
         if not self.pw_api:
-            return []
+            return [], []
 
         match_groups = await self._fetch_match_lists(steam_ids)
         if not match_groups:
-            return []
+            return [], []
 
         self.log(f"[{datetime.now()}] 共发现 {len(match_groups)} 场有效比赛，正在生成战报...")
 
@@ -99,7 +106,7 @@ class PwStatsReporter:
                 pw_name = data.get('nickName', '') or nickname
                 promo_msgs.append(f"🎉 恭喜 {pw_name} 达到 S 段位！")
 
-        return messages + promo_msgs
+        return messages + promo_msgs, all_players
 
     async def _fetch_match_lists(self, steam_ids: list) -> dict:
         """获取所有好友的对局列表"""
