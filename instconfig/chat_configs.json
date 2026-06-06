@@ -9,7 +9,7 @@
   "hermes": {
     "base_url": "http://localhost:18765/v1",
     "api_key": "hermes-secret-key",
-    "model": "MiniMax-M2.7",
+    "model": "MiniMax-M3",
     "system_prompt": "",
     "trigger_prefix": "/hermes",
     "allowed_groups": []
