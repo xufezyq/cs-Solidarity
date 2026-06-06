@@ -28,6 +28,9 @@ class PwStatsReporter:
         'min_score': 9999,
     }
 
+    # 仅播报 N 秒以内结束的比赛；设为 0 或 None 表示不限制
+    MAX_MATCH_AGE_SECONDS = 3600
+
     def __init__(self, pw_api, friend_pw_nickname_map, friend_pw_history_stats,
                  friend_pw_daily_stats, log):
         """
@@ -117,6 +120,23 @@ class PwStatsReporter:
 
                 last_match = matches[0]
                 match_id = last_match.get('matchId')
+
+                # 时间窗口过滤：仅播报最近 1 小时以内结束的比赛
+                end_time_str = last_match.get('endTime')
+                if end_time_str and PwStatsReporter.MAX_MATCH_AGE_SECONDS:
+                    try:
+                        end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
+                        age_seconds = (datetime.now() - end_time).total_seconds()
+                        if age_seconds > PwStatsReporter.MAX_MATCH_AGE_SECONDS:
+                            self.log(
+                                f"[{datetime.now()}] {steam_id} 最近比赛 {match_id} "
+                                f"已结束 {int(age_seconds // 60)} 分钟，"
+                                f"超过 {PwStatsReporter.MAX_MATCH_AGE_SECONDS // 60} 分钟限制，跳过"
+                            )
+                            continue
+                    except ValueError as e:
+                        self.log(f"[{datetime.now()}] 解析对局 {match_id} 结束时间失败: {end_time_str} ({e})")
+                        # 解析失败时按现有流程继续，不因字段异常丢失可能有效的播报
 
                 # 记录上一场的星星和分数，用于计算变化/晋级检测
                 prev_match = matches[1] if len(matches) > 1 else None
