@@ -63,17 +63,17 @@
     },
     "intensity_filter": {
       "enabled": true,
-      "min_magnitude": 6,
-      "min_intensity": 6
+      "min_magnitude": 6.5,
+      "min_intensity": 6.5
     },
     "scale_filter": {
       "enabled": true,
-      "min_magnitude": 6,
-      "min_scale": 6
+      "min_magnitude": 6.5,
+      "min_scale": 6.5
     },
     "magnitude_only_filter": {
       "enabled": true,
-      "min_magnitude": 4.5
+      "min_magnitude": 6.5
     },
     "global_quake_filter": {
       "enabled": false,
