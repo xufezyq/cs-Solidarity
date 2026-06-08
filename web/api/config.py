@@ -29,6 +29,15 @@ async def list_configs(current_user: User = Depends(require_admin)):
     return {"success": True, "data": result.get("data", {})}
 
 
+@router.get("/backups/list")
+async def list_backups(current_user: User = Depends(require_admin)):
+    """获取备份列表"""
+    result = await bridge.send_request("config.backups")
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
+    return {"success": True, "data": result.get("data", {})}
+
+
 @router.get("/{file_path:path}")
 async def read_config(file_path: str, current_user: User = Depends(require_admin)):
     """读取配置文件"""
@@ -54,15 +63,6 @@ async def write_config(file_path: str, req: ConfigWriteRequest, current_user: Us
 async def backup_config(file_path: str, current_user: User = Depends(require_admin)):
     """备份配置文件"""
     result = await bridge.send_request("config.backup", {"file": file_path})
-    if not result.get("success"):
-        raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
-    return {"success": True, "data": result.get("data", {})}
-
-
-@router.get("/backups/list")
-async def list_backups(current_user: User = Depends(require_admin)):
-    """获取备份列表"""
-    result = await bridge.send_request("config.backups")
     if not result.get("success"):
         raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
     return {"success": True, "data": result.get("data", {})}
