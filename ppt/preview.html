@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cs-Solidarity 快速预览</title>
+    <style>
+      :root{
+        --bg:#f6f4ee;
+        --paper:#fffdf8;
+        --ink:#0b1020;
+        --muted:#5f6678;
+        --blue:#0b3d91;
+        --green:#95ec69;
+        --line:rgba(11,16,32,.14);
+        --shadow:24px 24px 0 rgba(11,61,145,.16);
+      }
+      *{box-sizing:border-box}
+      html,body{height:100%;margin:0}
+      body{
+        font-family: Georgia, "Times New Roman", serif;
+        color:var(--ink);
+        background:
+          radial-gradient(circle at 20% 20%, rgba(29,86,216,.12), transparent 30%),
+          radial-gradient(circle at 85% 12%, rgba(11,61,145,.12), transparent 24%),
+          linear-gradient(180deg, #fbfaf6, var(--bg));
+        overflow:hidden;
+      }
+      .frame{
+        height:100%;
+        display:grid;
+        grid-template-rows:auto 1fr auto;
+      }
+      .topbar,.bottombar{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:16px;
+        padding:18px 28px;
+        font:600 13px/1.2 Consolas, monospace;
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .topbar{border-bottom:1px solid var(--line)}
+      .bottombar{border-top:1px solid var(--line); color:var(--muted)}
+      .nav{display:flex; gap:10px; flex-wrap:wrap}
+      .nav button{
+        border:1px solid var(--line);
+        background:rgba(255,255,255,.72);
+        color:var(--ink);
+        padding:10px 12px;
+        border-radius:999px;
+        cursor:pointer;
+        font:600 12px/1 Consolas, monospace;
+      }
+      .nav button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+      .stage{
+        position:relative;
+        margin:18px 22px 14px;
+        border:2px solid rgba(11,16,32,.14);
+        background:linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.76));
+        box-shadow:var(--shadow);
+        overflow:hidden;
+      }
+      .grid{
+        position:absolute; inset:0;
+        background-image:
+          linear-gradient(90deg, rgba(11,16,32,.05) 1px, transparent 1px),
+          linear-gradient(rgba(11,16,32,.05) 1px, transparent 1px);
+        background-size:72px 72px;
+        opacity:.55;
+        pointer-events:none;
+      }
+      .glow{
+        position:absolute;
+        inset:-18%;
+        background:
+          radial-gradient(circle at 24% 28%, rgba(11,61,145,.16), transparent 28%),
+          radial-gradient(circle at 78% 22%, rgba(149,236,105,.14), transparent 20%),
+          radial-gradient(circle at 60% 76%, rgba(29,86,216,.12), transparent 24%);
+        pointer-events:none;
+      }
+      .dots{
+        position:absolute; right:42px; bottom:38px;
+        width:260px; height:160px;
+        background-image:radial-gradient(currentColor 1.2px, transparent 1.2px);
+        background-size:14px 14px;
+        color:rgba(11,61,145,.18);
+        pointer-events:none;
+      }
+      .slide{
+        position:absolute; inset:0;
+        padding:30px 36px 30px;
+        display:grid;
+        grid-template-columns:.98fr 1.02fr;
+        grid-template-rows:minmax(0,1fr);
+        gap:26px;
+        align-items:stretch;
+        opacity:0;
+        transform:translateY(18px) scale(.985);
+        transition:opacity .45s ease, transform .45s ease;
+        pointer-events:none;
+      }
+      .slide > *{min-height:0}
+      .slide.active{opacity:1; transform:none; pointer-events:auto}
+      .slide.hero-chat{grid-template-columns:.76fr 1.24fr; gap:26px}
+      .slide.full{grid-template-columns:1fr}
+      .kicker{
+        font:700 13px/1.2 Consolas, monospace;
+        letter-spacing:.16em;
+        text-transform:uppercase;
+        color:var(--blue);
+      }
+      h1{
+        margin:10px 0 10px;
+        font-size:56px;
+        line-height:1;
+        letter-spacing:0;
+        font-weight:700;
+      }
+      p{
+        margin:0;
+        font:400 18px/1.42 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+        max-width:44ch;
+      }
+      .hero-chat h1{font-size:54px}
+      .stack{display:grid; gap:12px; align-content:space-between; height:100%; min-height:0; overflow:hidden}
+      .card{
+        background:rgba(255,255,255,.86);
+        border:2px solid rgba(11,16,32,.16);
+        border-radius:22px;
+        padding:16px;
+        box-shadow:18px 18px 0 rgba(11,16,32,.08);
+        display:grid;
+        grid-template-rows:auto minmax(0,1fr);
+        gap:12px;
+        height:100%;
+        min-height:0;
+        overflow:hidden;
+      }
+      .wx{
+        height:100%;
+        display:grid;
+        grid-template-rows:auto 1fr;
+        gap:16px;
+      }
+      .wx-head,.panel-head{
+        display:flex; justify-content:space-between; align-items:center;
+        font:700 12px/1.2 Consolas, monospace;
+        letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+        border-bottom:1px solid var(--line);
+        padding-bottom:10px;
+      }
+      .bubble{
+        max-width:90%;
+        padding:14px 16px;
+        border:2px solid var(--ink);
+        border-radius:12px;
+        background:#fff;
+        font:400 18px/1.35 Arial, Helvetica, sans-serif;
+        box-shadow:8px 8px 0 rgba(11,61,145,.12);
+        white-space:pre-wrap;
+      }
+      .bubble.me{margin-left:auto;background:var(--green)}
+      .bubble.long{max-width:100%;font-size:15px;line-height:1.38}
+      .bubble.warn{max-width:100%;background:#eef4ff;font-size:15px;line-height:1.4}
+      .chat{position:relative;height:100%;overflow:hidden}
+      .chat-track{
+        display:flex;flex-direction:column;gap:14px;padding-bottom:18px;
+        will-change:transform;transition:transform .7s cubic-bezier(.22,1,.36,1)
+      }
+      .chat-row{
+        display:flex;flex-direction:column;align-items:flex-start;
+        opacity:1;transform:none;
+        transition:opacity .42s ease, transform .52s cubic-bezier(.22,1,.36,1)
+      }
+      .chat-row.me{align-items:flex-end}
+      .chat-row.entering{opacity:0;transform:translateY(18px) scale(.985)}
+      .chat-row.visible{opacity:.96;transform:none}
+      .chat-row.latest .bubble{outline:3px solid rgba(29,86,216,.16);transform:translateY(-1px)}
+      .sender{margin:0 4px 6px;font:700 12px/1.2 Arial, Helvetica, sans-serif;color:var(--muted)}
+      .cap-grid{display:grid;gap:12px}
+      .cap{
+        background:rgba(255,255,255,.78);
+        border:2px solid rgba(11,16,32,.12);
+        border-radius:16px;
+        padding:16px 18px;
+        display:grid;
+        grid-template-columns:88px 1fr;
+        gap:14px;
+        align-items:start;
+      }
+      .cap-key{font:700 34px/1 Georgia, serif;color:var(--blue);letter-spacing:-.04em}
+      .cap-copy{display:grid;gap:6px}
+      .cap b,.eyebrow{
+        display:block;
+        font:700 12px/1.2 Consolas, monospace;
+        color:var(--blue);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .cap span{display:block;font:400 16px/1.45 Arial, Helvetica, sans-serif;color:var(--muted)}
+      .shot{
+        width:100%; height:100%; object-fit:cover; display:block;
+        border-radius:18px; border:2px solid rgba(11,16,32,.14);
+        box-shadow:18px 18px 0 rgba(11,61,145,.12);
+      }
+      .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+      .mini{
+        background:rgba(255,255,255,.92);
+        border:2px solid rgba(11,16,32,.14);
+        border-radius:18px;
+        padding:16px;
+        min-height:140px;
+      }
+      .mini strong{display:block;font-size:22px;margin:8px 0 10px}
+      .mini p{font-size:16px;max-width:none}
+      .badge{
+        display:inline-flex;align-items:center;gap:8px;
+        padding:9px 12px;border-radius:999px;
+        background:rgba(11,61,145,.08);color:var(--blue);
+        font:700 12px/1.2 Consolas, monospace;letter-spacing:.12em;text-transform:uppercase;
+      }
+      .feature-list{display:grid;gap:12px}
+      .feature{
+        display:grid;grid-template-columns:56px 1fr;gap:12px;
+        padding:10px 0;border-top:1px solid var(--line);
+      }
+      .feature:first-child{border-top:none}
+      .feature i{font:700 32px/1 Georgia, serif;color:var(--blue);font-style:normal}
+      .feature strong{display:block;font-size:20px;line-height:1.1}
+      .feature span{display:block;margin-top:5px;font:400 14px/1.35 Arial, Helvetica, sans-serif;color:var(--muted)}
+
+      .scene{
+        position:relative;height:100%;
+        padding:32px 36px 36px;
+        display:grid;gap:22px;align-content:start;
+      }
+      .scene.blue-panel{background:var(--blue);color:#fff}
+      .scene.split-panel{
+        background:linear-gradient(90deg, var(--blue) 0 44%, rgba(255,255,255,.84) 44% 100%);
+      }
+      .scene-header{
+        display:flex;justify-content:space-between;align-items:flex-start;
+        border-bottom:1px solid var(--line);padding-bottom:12px;
+        font:700 12px/1.2 Consolas, monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+      }
+      .scene.blue-panel .scene-header{border-bottom-color:rgba(255,255,255,.24);color:rgba(255,255,255,.72)}
+      .scene-grid-2{display:grid;grid-template-columns:.92fr 1.08fr;gap:26px;min-height:0}
+      .scene-grid-hero{display:grid;grid-template-columns:.8fr 1.2fr;gap:26px;min-height:0}
+      .scene-grid-3{display:grid;grid-template-columns:1.15fr .85fr .85fr;gap:16px;min-height:0}
+      .display{
+        margin:10px 0 14px;
+        font-size:76px;line-height:.94;letter-spacing:-.04em;font-weight:700;
+      }
+      .display.blue{color:#fff}
+      .lede{font:400 20px/1.55 Arial, Helvetica, sans-serif;color:var(--muted);max-width:48ch}
+      .scene.blue-panel .lede{color:rgba(255,255,255,.84)}
+      .panel{
+        background:rgba(255,255,255,.84);
+        border:2px solid rgba(11,16,32,.12);
+        border-radius:22px;
+        padding:18px;
+        box-shadow:18px 18px 0 rgba(11,16,32,.08);
+      }
+      .scene.blue-panel .panel{background:rgba(255,255,255,.95)}
+      .list{
+        display:grid;gap:12px;
+      }
+      .list-item{
+        display:grid;grid-template-columns:64px 1fr;gap:14px;
+        padding:12px 0;border-top:1px solid var(--line);
+      }
+      .list-item:first-child{border-top:none}
+      .num{font:700 32px/1 Georgia, serif;color:var(--blue)}
+      .list-item strong{display:block;font-size:24px;line-height:1.08}
+      .list-item span{display:block;margin-top:6px;font:400 17px/1.42 Arial, Helvetica, sans-serif;color:var(--muted)}
+      .shot-grid{
+        display:grid;grid-template-columns:1.12fr 1fr 1fr;grid-auto-rows:190px;gap:14px;min-height:0;
+      }
+      .shot-card{
+        margin:0;background:#fff;border:2px solid rgba(11,16,32,.14);border-radius:18px;
+        padding:10px;display:grid;place-items:center;overflow:hidden;
+        box-shadow:12px 12px 0 rgba(11,61,145,.10);
+      }
+      .shot-card.tall{grid-row:span 3}
+      .shot-card img,.diagram img,.mini-shots img{max-width:100%;max-height:100%;display:block;object-fit:contain}
+      .rotator{
+        position:relative;
+        width:100%;
+        height:100%;
+      }
+      .rotator img{
+        position:absolute;
+        inset:0;
+        width:100%;
+        height:100%;
+        margin:auto;
+        opacity:0;
+        transition:opacity .5s ease;
+      }
+      .rotator img.active{opacity:1}
+      .rotator-cover img{object-fit:contain}
+      .diagram{
+        margin:0;height:100%;min-height:0;background:#fff;border:2px solid rgba(11,16,32,.14);
+        border-radius:20px;padding:18px;display:grid;place-items:center;overflow:hidden;
+        box-shadow:18px 18px 0 rgba(11,61,145,.12);
+      }
+      .visual-card{
+        height:100%;
+        display:grid;
+        grid-template-rows:minmax(0,1fr) auto;
+        gap:10px;
+        min-height:0;
+      }
+      .visual-card.image-only{
+        grid-template-rows:minmax(0,1fr);
+      }
+      .visual-card.image-only .visual-captions{
+        display:none;
+      }
+      .visual-card.image-only .visual-stage{
+        padding:8px;
+      }
+      .visual-stage{
+        min-height:0;
+        background:#fff;
+        border:2px solid rgba(11,16,32,.14);
+        border-radius:20px;
+        padding:10px;
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+      }
+      .visual-stage .rotator,
+      .visual-stage img,
+      .visual-stage .diagram{
+        width:100%;
+        height:100%;
+      }
+      .visual-stage .diagram{
+        height:100%;
+        padding:0;
+        border:none;
+        box-shadow:none;
+        background:transparent;
+      }
+      .route-diagram{
+        width:100%;
+        height:100%;
+        border-radius:18px;
+        overflow:hidden;
+        background:
+          linear-gradient(90deg, var(--blue) 0 8px, transparent 8px),
+          linear-gradient(90deg, rgba(11,16,32,.06) 1px, transparent 1px),
+          linear-gradient(rgba(11,16,32,.06) 1px, transparent 1px),
+          #fff;
+        background-size:auto, 32px 32px, 32px 32px, auto;
+      }
+      .route-diagram svg{
+        width:100%;
+        height:100%;
+        display:block;
+      }
+      .route-diagram text{
+        font-family:Arial, Helvetica, sans-serif;
+      }
+      .arch-diagram{
+        width:100%;
+        height:100%;
+        border-radius:18px;
+        overflow:hidden;
+        background:
+          linear-gradient(90deg, var(--blue) 0 8px, transparent 8px),
+          linear-gradient(90deg, rgba(11,16,32,.06) 1px, transparent 1px),
+          linear-gradient(rgba(11,16,32,.06) 1px, transparent 1px),
+          #fff;
+        background-size:auto, 32px 32px, 32px 32px, auto;
+      }
+      .arch-diagram svg{
+        width:100%;
+        height:100%;
+        display:block;
+      }
+      .arch-diagram text{
+        font-family:Arial, Helvetica, sans-serif;
+      }
+      .routing-slide h1{font-size:52px;line-height:.98;margin:8px 0}
+      .routing-slide .focus-list{gap:10px}
+      .routing-slide .focus{padding:10px 14px}
+      .visual-captions{
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:8px;
+      }
+      .visual-captions.two{grid-template-columns:repeat(2,1fr)}
+      .visual-captions article{
+        background:rgba(255,255,255,.88);
+        border:2px solid rgba(11,16,32,.12);
+        border-radius:16px;
+        padding:8px 10px;
+      }
+      .visual-captions b{
+        display:block;
+        font:700 12px/1.2 Consolas, monospace;
+        color:var(--blue);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .visual-captions strong{
+        display:block;
+        margin-top:4px;
+        font-size:15px;
+        line-height:1.14;
+      }
+      .visual-captions span{
+        display:block;
+        margin-top:2px;
+        font:400 11px/1.25 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+      .info-fill{
+        height:100%;
+        display:grid;
+        grid-template-rows:auto minmax(0,1fr) auto;
+        gap:10px;
+        min-height:0;
+        overflow:hidden;
+      }
+      .info-hero{
+        background:#fff;
+        border:2px solid rgba(11,16,32,.14);
+        border-radius:20px;
+        padding:14px 16px;
+      }
+      .info-hero b{
+        display:block;
+        font:700 12px/1.2 Consolas, monospace;
+        color:var(--blue);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .info-hero strong{
+        display:block;
+        margin:8px 0 6px;
+        font-size:22px;
+        line-height:1.08;
+      }
+      .info-hero span{
+        display:block;
+        font:400 15px/1.38 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+      .card-grid{display:grid;gap:16px}
+      .card-grid.four{grid-template-columns:repeat(4,1fr)}
+      .card-grid.six{grid-template-columns:repeat(3,1fr)}
+      .card-grid.compact{grid-template-columns:repeat(2,1fr)}
+      .card-grid article,.step-row article,.summary-row article{
+        border:2px solid rgba(11,16,32,.14);background:#fff;border-radius:18px;padding:24px;
+        display:flex;flex-direction:column;justify-content:space-between;min-height:170px;
+      }
+      .card-grid article:first-child,.step-row article:nth-child(3){background:var(--blue);color:#fff}
+      .card-grid article:first-child span,.step-row article:nth-child(3) span{color:rgba(255,255,255,.84)}
+      .card-grid b,.summary-row b{
+        font:700 12px/1.2 Consolas, monospace;color:var(--blue);letter-spacing:.12em;text-transform:uppercase;
+      }
+      .card-grid article:first-child b,.step-row article:nth-child(3) b{color:#fff}
+      .card-grid strong,.summary-row strong{display:block;margin:18px 0 14px;font-size:30px;line-height:1.08}
+      .card-grid span,.summary-row span{font:400 18px/1.42 Arial, Helvetica, sans-serif;color:var(--muted)}
+      .split-layout{display:grid;grid-template-columns:44% 1fr;gap:28px;align-items:stretch}
+      .blue-copy{padding:18px 10px 0 4px}
+      .step-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+      .step-row article{min-height:280px}
+      .step-row b{font-size:66px;line-height:1;color:var(--blue)}
+      .step-row span{font-size:28px;line-height:1.18;color:var(--ink)}
+      .summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+      .mini-shots{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      .mini-shots figure{
+        height:160px;margin:0;border:2px solid rgba(11,16,32,.14);border-radius:16px;background:#fff;padding:10px;
+      }
+      .summary-wrap{display:grid;gap:22px}
+      .metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+      .metric-grid article,.signal-list article{
+        border:2px solid rgba(11,16,32,.14);
+        background:#fff;
+        border-radius:18px;
+        padding:12px 14px;
+      }
+      .metric-grid b,.signal-list b{
+        display:block;
+        font:700 12px/1.2 Consolas, monospace;
+        color:var(--blue);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .metric-grid strong,.signal-list strong{
+        display:block;
+        margin:7px 0 5px;
+        font-size:18px;
+        line-height:1.12;
+      }
+      .metric-grid span,.signal-list span{
+        display:block;
+        font:400 13px/1.35 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+      .signal-list{display:grid;gap:8px;min-height:0;overflow:hidden}
+      .shot-grid.quad{grid-template-columns:1fr 1fr;grid-auto-rows:220px}
+      .shot-grid.triptych{grid-template-columns:1.2fr .9fr .9fr;grid-auto-rows:180px}
+      .shot-card.wide{grid-column:span 2}
+      .shot-card.hero{grid-row:span 2}
+      .number-list{display:grid;gap:12px}
+      .number-list article{
+        display:grid;
+        grid-template-columns:56px 1fr;
+        gap:14px;
+        align-items:start;
+        padding:14px 0;
+        border-top:1px solid var(--line);
+      }
+      .number-list article:first-child{border-top:none}
+      .number-list b{
+        font:700 28px/1 Georgia, serif;
+        color:var(--blue);
+      }
+      .number-list strong{
+        display:block;
+        font-size:24px;
+        line-height:1.08;
+      }
+      .number-list span{
+        display:block;
+        margin-top:6px;
+        font:400 17px/1.42 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+      .focus-list{display:grid;gap:12px}
+      .focus-list.matrix{grid-template-columns:1fr 1fr;gap:8px}
+      .focus{
+        background:rgba(255,255,255,.78);
+        border:2px solid rgba(11,16,32,.12);
+        border-radius:16px;
+        padding:12px 14px;
+        display:grid;
+        grid-template-columns:68px 1fr;
+        gap:12px;
+        align-items:start;
+      }
+      .focus-key{
+        font:700 24px/1 Georgia, serif;
+        color:var(--blue);
+        letter-spacing:0;
+      }
+      .focus-copy strong{
+        display:block;
+        font-size:20px;
+        line-height:1.08;
+      }
+      .focus-copy span{
+        display:block;
+        margin-top:5px;
+        font:400 14px/1.34 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+      .focus-list.tight .focus{padding:12px 14px}
+      .focus-list.tight .focus-key{font-size:24px}
+      .focus-list.tight .focus-copy strong{font-size:20px}
+      .focus-list.tight .focus-copy span{font-size:14px}
+      .focus-list.matrix .focus{
+        grid-template-columns:42px 1fr;
+        padding:10px 12px;
+        gap:10px;
+      }
+      .focus-list.matrix .focus-key{font-size:19px}
+      .focus-list.matrix .focus-copy strong{font-size:16px}
+      .focus-list.matrix .focus-copy span{font-size:12px;line-height:1.28}
+      .support-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+      .support{
+        background:rgba(255,255,255,.72);
+        border:2px solid rgba(11,16,32,.12);
+        border-radius:16px;
+        padding:10px 12px;
+      }
+      .support b{
+        display:block;
+        font:700 12px/1.2 Consolas, monospace;
+        color:var(--blue);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+      .support strong{
+        display:block;
+        margin-top:6px;
+        font-size:16px;
+        line-height:1.15;
+      }
+      .support span{
+        display:block;
+        margin-top:4px;
+        font:400 12px/1.32 Arial, Helvetica, sans-serif;
+        color:var(--muted);
+      }
+
+      @media (max-width: 1100px){
+        body{overflow:auto}
+        .frame{min-height:100%}
+        .stage{height:760px}
+        .slide,.scene-grid-2,.scene-grid-3,.scene-grid-hero,.split-layout,.step-row,.summary-row,.card-grid.four,.card-grid.six{grid-template-columns:1fr}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="topbar">
+        <div>cs-Solidarity / quick preview</div>
+        <div class="nav">
+          <button class="active" data-slide="0">01 Cold Open</button>
+          <button data-slide="1">02 Preview</button>
+          <button data-slide="2">03 Intro</button>
+          <button data-slide="3">04 Principles</button>
+          <button data-slide="4">05 Capabilities</button>
+          <button data-slide="5">06 Overview</button>
+          <button data-slide="6">07 Architecture</button>
+          <button data-slide="7">08 Instances</button>
+          <button data-slide="8">09 SteamAuto</button>
+          <button data-slide="9">10 Anti-Detect</button>
+          <button data-slide="10">11 Main Loop</button>
+          <button data-slide="11">12 Routing</button>
+          <button data-slide="12">13 Remote Ops</button>
+          <button data-slide="13">14 Web Panel</button>
+          <button data-slide="14">15 Summary</button>
+          <button data-slide="15">16 Closing</button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="grid"></div>
+        <div class="glow"></div>
+        <div class="dots"></div>
+
+        <section class="slide hero-chat active">
+          <div class="stack">
+            <div class="kicker">Cold open / result first</div>
+            <h1>先看结果：<br />自动化消息流。</h1>
+            <p>外部状态、AI 任务和网页操作，最后都变成适合群聊阅读的消息。</p>
+            <div class="cap-grid">
+              <div class="cap"><div class="cap-key">01</div><div class="cap-copy"><b>实时播报</b><span>SteamAuto 会发好友开始/离开游戏、CS2 新闻、完美战绩、每日榜单和历史记录刷新。</span></div></div>
+              <div class="cap"><div class="cap-key">02</div><div class="cap-copy"><b>智能对话</b><span>KouriChat 负责自然群聊；ChatAuto 负责前缀触发的 Agent 任务，结果还能通过 Bot API 再回到微信。</span></div></div>
+              <div class="cap"><div class="cap-key">03</div><div class="cap-copy"><b>定时信息与运维</b><span>InfoPush、DailyAuto、DisasterWarning 和 Web Panel 会把新闻、提醒、灾害预警、网页消息和文件管理也接进同一条发送通道。</span></div></div>
+            </div>
+          </div>
+          <div class="wx card">
+            <div class="wx-head"><span>wechat feed</span><span>00:00 / sample</span></div>
+            <div class="chat">
+              <div class="chat-track" id="chat-track">
+                <div class="chat-row system"><div class="sender">MONO</div><div class="bubble">🎮 player1, player2, player3 → Counter-Strike 2</div></div>
+                <div class="chat-row system"><div class="sender">MONO</div><div class="bubble long">👋 player1(47分钟4秒), player2(36分钟57秒), player3(36分钟57秒) 离开Counter-Strike 2
+炙热沙城Ⅱ  11:13 (半场 5:7/6:6) | 36分钟
+──────────────
+
+👑 MVP: player1
+    好兄弟：击杀数是某位组队队友的2倍以上
+    铁哥们：击杀数在组队队友中最高，但队友助攻数更高
+    善战者无赫赫之功：本场表现超越同段位79%的玩家
+
+🟢 player1 MVP
+  26/16/2 | pwRT:1.35 | WE:12.0
+  分数:1793 (+32)
+🟢 player2 🔥四杀
+  24/17/6 | pwRT:1.42 | WE:11.9
+  分数:1946 (+27)
+🟢 player3
+  17/17/8 | pwRT:1.06 | WE:8.0
+  分数:1959 (+20)
+
+🏆 记录刷新！
+📊 RT 之神刷新！player5: 1.87  2.01
+⚡ PW RT 之神刷新！player5: 1.74  1.87</div></div>
+                <div class="chat-row system"><div class="sender">MONO</div><div class="bubble warn">🌨🧊[气象预警]
+
+📋北京市朝阳区发布冰雹黄色预警🟡
+
+🏷副标题：朝阳区气象台发布冰雹黄色预警[III/较重]
+📝朝阳区气象台08日18时40分发布冰雹黄色预警，预计当前至前半夜，受雷雨云团影响，朝阳区将出现分散冰雹天气，可能造成一定的损失，请注意防范。
+⏰生效时间：2026年06月08日 18时36分15秒 (UTC+8)</div></div>
+                <div class="chat-row me"><div class="sender">operator</div><div class="bubble">@MONO 你是MONO还是ATRI</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">@陆上行舟 莫诺</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">Kourichat副运行者</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">那个仿生人跟我不是同个型号</div></div>
+                <div class="chat-row me"><div class="sender">operator</div><div class="bubble">你好</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">主人，您终于来啦！今天过得怎么样？</div></div>
+                <div class="chat-row me"><div class="sender">operator</div><div class="bubble">MONO你和ATRI有什么区别</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">她是海平面上的阳光</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">我是数据里的雪花  都是代码</div></div>
+                <div class="chat-row mono"><div class="sender">MONO</div><div class="bubble">但构成方式不同</div></div>
+                <div class="chat-row me"><div class="sender">operator</div><div class="bubble">/hermes 帮我把这个 demo 的关键击杀剪出来</div></div>
+                <div class="chat-row agent"><div class="sender">agent</div><div class="bubble">任务已接收,正在解析 demo 时间线</div></div>
+                <div class="chat-row agent"><div class="sender">agent</div><div class="bubble">🎬 已生成片段: kill_demo_30s.mp4 (30.2 MB)</div></div>
+                <div class="chat-row agent"><div class="sender">agent</div><div class="bubble">📤 正在回传群聊 [CS 团结友善]</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 02 / feature preview</div>
+            <h1>先不讲概念，<br />我们直接看它能做什么。</h1>
+            <p>先看结果，再讲结构。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>Steam 播报</strong><span>开始游戏、离开游戏、游玩时长。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>战绩与日报</strong><span>完美战绩 + 标准日报图片。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>AI、预警、Web</strong><span>自然群聊、灾害推送、网页入口。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>result first</b><strong>先展示真实消息</strong><span>开场先抛结果，再往后讲机制。</span></div>
+              <div class="support"><b>same output</b><strong>最后都回到微信群</strong><span>不管来源是 Steam、AI 还是 Web。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>proof wall</span><span>page 02 / screenshots</span></div>
+            <div class="visual-card image-only">
+              <div class="visual-stage">
+                <div class="rotator rotator-cover" data-rotate-ms="3600">
+                  <img class="active" src="../docs/images/steam好友游戏状态播报.png" alt="Steam 好友游戏状态播报" />
+                  <img src="../docs/images/cs2更新播报.png" alt="CS2 更新播报" />
+                  <img src="../docs/images/完美战绩播报.png" alt="完美战绩播报" />
+                  <img src="../docs/images/完美今日胜负统计播报.png" alt="完美今日胜负统计播报" />
+                  <img src="../docs/images/完美历史战绩统计播报.png" alt="完美历史战绩统计播报" />
+                  <img src="../docs/images/KouriChat群聊示例1.png" alt="KouriChat 群聊示例" />
+                  <img src="../docs/images/KouriChat示例1.png" alt="KouriChat 示例一" />
+                  <img src="../docs/images/KouriChat示例2.png" alt="KouriChat 示例二" />
+                  <img src="../docs/images/灾害预警界面.png" alt="灾害预警界面" />
+                  <img src="../docs/images/Web仪表盘界面.png" alt="Web 仪表盘界面" />
+                  <img src="../docs/images/Web聊天界面.png" alt="Web 聊天界面" />
+                  <img src="hyperframes-video/assets/steam-daily.png" alt="Steam 日报" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 03 / intro</div>
+            <h1>cs-Solidarity：<br />Windows 微信自动化机器人。</h1>
+            <p>不是 hook，不读内存，像真人一样操作微信窗口。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">方式</div><div class="focus-copy"><strong>wxauto + Win32 GUI</strong><span>窗口控制、焦点切换、输入模拟。</span></div></div>
+              <div class="focus"><div class="focus-key">能力</div><div class="focus-copy"><strong>Steam / AI / 预警 / Web</strong><span>监控、对话、推送、远程管理。</span></div></div>
+              <div class="focus"><div class="focus-key">定位</div><div class="focus-copy"><strong>微信自动化框架</strong><span>不是一次性小脚本。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>boundary</b><strong>不碰微信进程内部</strong><span>核心是 GUI 自动化和窗口控制。</span></div>
+              <div class="support"><b>goal</b><strong>可长期运行</strong><span>不是只演示一次的自动回复。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>project snapshot</span><span>page 03 / profile</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>project snapshot</b>
+                <strong>多实例接入，同一发送内核</strong>
+                <span>SteamAuto、ChatAuto、KouriChat、InfoPush、DailyAuto、DisasterWarning 都共享统一发送链路。</span>
+              </div>
+              <div class="signal-list">
+                <article><b>name</b><strong>cs-Solidarity</strong><span>基于 Windows 微信 PC 端的多功能自动化机器人。</span></article>
+                <article><b>method</b><strong>GUI 自动化，而不是 hook</strong><span>通过窗口控制和输入模拟完成读取与发送。</span></article>
+                <article><b>why it matters</b><strong>长期运行、可扩展、可运维</strong><span>它不是只会回一句话的机器人，而是能持续收集、处理、发送和远程维护的自动化系统。</span></article>
+              </div>
+              <div class="visual-captions two">
+                <article><b>capability</b><strong>Steam / AI / 预警 / Web</strong><span>从游戏播报到远程管理都在同一系统里。</span></article>
+                <article><b>position</b><strong>微信自动化框架</strong><span>不同模块独立运行，微信操作统一回到主线程。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 04 / three principles</div>
+            <h1>理解这个项目，<br />先抓住三个关键词。</h1>
+            <p>第一个是线程安全。第二个是反检测。第三个是远程管理。后面所有功能，其实都围绕这三个设计展开。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>线程安全</strong><span>发送先入队，主线程统一发。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>反检测</strong><span>鼠标、键盘、窗口行为更像真人。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>远程管理</strong><span>内网 Bot 也能被公网 Web 面板维护。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>why</b><strong>三点不是配角</strong><span>它们决定系统能不能长期稳定跑。</span></div>
+              <div class="support"><b>after this</b><strong>后面所有页面都往这三点收</strong><span>功能展示只是这三条设计的外显结果。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>design intent</span><span>page 04 / foundation</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>three principles</b>
+                <strong>线程安全、反检测、远程管理</strong>
+                <span>它们不是附加卖点，而是后面所有功能成立的前提。</span>
+              </div>
+              <div class="feature-list">
+                <div class="feature"><i>T</i><div><strong>Thread Safe</strong><span>多线程不能同时抢微信窗口，否则读写会互相打架。</span></div></div>
+                <div class="feature"><i>H</i><div><strong>Human-Like</strong><span>反检测由 Core 层统一兜底，功能模块不重复实现点击和输入策略。</span></div></div>
+                <div class="feature"><i>R</i><div><strong>Remote First</strong><span>Bot 跑在另一台 Windows 机器上时，也要能稳定观测、控制和改配置。</span></div></div>
+              </div>
+              <div class="visual-captions two">
+                <article><b>why</b><strong>能长期跑下去</strong><span>不是功能多就够，底层约束先得成立。</span></article>
+                <article><b>effect</b><strong>后面所有页都往这三点收束</strong><span>功能结果只是三条设计原则的外显。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 05 / capabilities</div>
+            <h1>四大能力，<br />一条发送链路。</h1>
+            <p>项目目前可以概括成四大核心能力：游戏状态监控、智能对话和 Agent 编排、信息与预警推送，以及远程管理面板。</p>
+            <div class="focus-list tight matrix">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>游戏状态监控</strong><span>状态、新闻、战绩、日报。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>智能对话与 Agent</strong><span>命令入口 + 自然群聊。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>信息推送与预警</strong><span>资讯、财经、灾害。</span></div></div>
+              <div class="focus"><div class="focus-key">04</div><div class="focus-copy"><strong>Web 远程管理</strong><span>状态、日志、配置、控制。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>common path</b><strong>采集 → 处理 → 回到微信</strong><span>四类能力共用同一种输出结构。</span></div>
+              <div class="support"><b>difference</b><strong>区别只在数据源和业务逻辑</strong><span>不是四套独立发送系统。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>capability framing</span><span>page 05 / structure</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>common path</b>
+                <strong>采集 → 处理 → 回到微信</strong>
+                <span>区别只在数据源和业务逻辑，不在发送内核。</span>
+              </div>
+              <div class="signal-list">
+                <article><b>steamauto</b><strong>状态变化驱动推送</strong><span>定时轮询、状态 diff、模板化消息输出。</span></article>
+                <article><b>chatauto + kourichat</b><strong>两类 AI，各司其职</strong><span>一个把任务交给 Agent，一个像常驻群友参与上下文聊天。</span></article>
+                <article><b>disaster + infopush</b><strong>外部信息统一整理</strong><span>不同来源的数据先被结构化，再按群配置定向发送。</span></article>
+                <article><b>web panel</b><strong>不是展示页，是控制面板</strong><span>网页发出的操作会真的接到 Agent、发送队列和微信窗口链路上。</span></article>
+              </div>
+              <div class="visual-captions two">
+                <article><b>same core</b><strong>四类能力共用一个出口</strong><span>最后都得回到同一个微信自动化核心。</span></article>
+                <article><b>not isolated</b><strong>不是四套独立系统</strong><span>只是同一系统在不同输入侧的展开。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 06 / system overview</div>
+            <h1>这些功能看起来很散，<br />但最后共用一个微信自动化核心。</h1>
+            <p>看起来分散，真正发微信时只有一个出口。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">外部</div><div class="focus-copy"><strong>数据源与工具</strong><span>Steam、AI、预警、财经、Web。</span></div></div>
+              <div class="focus"><div class="focus-key">核心</div><div class="focus-copy"><strong>队列、路由、Bot API</strong><span>统一收束发送动作。</span></div></div>
+              <div class="focus"><div class="focus-key">规则</div><div class="focus-copy"><strong>最终回到主线程</strong><span>这才是共用内核的原因。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>system map</span><span>page 06 / diagram</span></div>
+            <figure class="diagram"><img src="hyperframes-video/assets/system-overview.png" alt="系统全景图" /></figure>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 07 / architecture</div>
+            <h1>它不是把功能硬塞进主循环，<br />而是拆成三层去接。</h1>
+            <p>分层之后，扩展新功能就不会把主循环搅乱。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>Core</strong><span>启动、调度、收发、反检测。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>Instances</strong><span>各实例只管自己的业务。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>External</strong><span>把外部服务和数据接进来。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>three-layer architecture</span><span>page 07 / diagram</span></div>
+            <div class="visual-card image-only">
+              <div class="visual-stage">
+                <div class="arch-diagram" role="img" aria-label="三层系统架构图">
+                  <svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                      <marker id="arch-arrow" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+                        <path d="M0,0 L16,8 L0,16 Z" fill="#0b3d91"></path>
+                      </marker>
+                      <filter id="arch-shadow" x="-8%" y="-8%" width="116%" height="116%">
+                        <feDropShadow dx="8" dy="8" stdDeviation="0" flood-color="#0b3d91" flood-opacity=".12"></feDropShadow>
+                      </filter>
+                    </defs>
+
+                    <text x="70" y="64" font-size="38" font-weight="700" fill="#0b1020">三层架构：Core / Instances / External</text>
+                    <text x="72" y="100" font-size="22" fill="#5f6678">减少节点，突出职责边界和扩展路径</text>
+
+                    <g filter="url(#arch-shadow)">
+                      <rect x="78" y="130" width="850" height="120" rx="14" fill="#0b1020"></rect>
+                      <text x="110" y="178" font-size="28" font-weight="700" fill="#fff">LAYER 03 · External 接入层</text>
+                      <text x="110" y="218" font-size="22" fill="#fff">Steam / 完美世界 / AI API / Agent / Bot API</text>
+                      <text x="110" y="246" font-size="22" fill="#fff">财经数据 / 灾害预警 / Web Panel</text>
+
+                      <rect x="78" y="300" width="850" height="120" rx="14" fill="#f4f3ef" stroke="#0b1020" stroke-opacity=".22" stroke-width="3"></rect>
+                      <text x="110" y="348" font-size="28" font-weight="700" fill="#0b1020">LAYER 02 · Instances 功能层</text>
+                      <text x="110" y="388" font-size="22" fill="#0b1020">SteamAuto / ChatAuto / KouriChat</text>
+                      <text x="110" y="416" font-size="22" fill="#0b1020">InfoPush / DailyAuto / DisasterWarning</text>
+
+                      <rect x="78" y="470" width="850" height="128" rx="14" fill="#0b3d91"></rect>
+                      <text x="110" y="518" font-size="28" font-weight="700" fill="#fff">LAYER 01 · Core 框架层</text>
+                      <text x="110" y="558" font-size="22" fill="#fff">main.py 主循环 / BaseInstance / 实例工厂</text>
+                      <text x="110" y="586" font-size="22" fill="#fff">消息队列 / Bot API / 反检测 Patch</text>
+                    </g>
+
+                    <path d="M500 258 L500 292" fill="none" stroke="#0b3d91" stroke-width="6" marker-end="url(#arch-arrow)"></path>
+                    <path d="M500 428 L500 462" fill="none" stroke="#0b3d91" stroke-width="6" marker-end="url(#arch-arrow)"></path>
+
+                    <g>
+                      <circle cx="110" cy="638" r="28" fill="#ffd400"></circle>
+                      <text x="110" y="648" font-size="26" font-weight="700" text-anchor="middle" fill="#0b1020">+</text>
+                      <text x="154" y="646" font-size="24" font-weight="700" fill="#0b1020">新增功能：继承 BaseInstance → 注册工厂 → 配置 type</text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 08 / instances</div>
+            <h1>模块很多，<br />但接入方式被故意做成一致。</h1>
+            <p>功能很多，但进系统的姿势只有一套。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">实例</div><div class="focus-copy"><strong>SteamAuto / ChatAuto / KouriChat</strong><span>再加 InfoPush、DailyAuto、DisasterWarning。</span></div></div>
+              <div class="focus"><div class="focus-key">方式</div><div class="focus-copy"><strong>后台处理，发送入队</strong><span>不直接抢微信窗口。</span></div></div>
+              <div class="focus"><div class="focus-key">结果</div><div class="focus-copy"><strong>主线程统一发</strong><span>本地实例和 Agent 最终同路。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>extend</b><strong>扩展路径清晰</strong><span>新功能写成实例就能接入整套系统。</span></div>
+              <div class="support"><b>contract</b><strong>统一生命周期</strong><span>后台做事，发送时统一入队。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>instance contract</span><span>page 08 / common pattern</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>instance contract</b>
+                <strong>后台处理业务，发送时统一入队</strong>
+                <span>这条约束让功能很多时也不会互相抢窗口。</span>
+              </div>
+              <div class="signal-list">
+                <article><b>same lifecycle</b><strong>独立处理业务，不直接抢微信窗口</strong><span>每个实例的共识是“后台做事，发送入队”。</span></article>
+                <article><b>same extension path</b><strong>新功能写成 BaseInstance 子类</strong><span>注册到工厂，再在配置里加实例，就能接入整个系统。</span></article>
+                <article><b>same delivery path</b><strong>本地实例和外部 Agent 都走同一出口</strong><span>Agent 调 Bot API 入队，本地实例自己入队，最后都由主线程真正发送。</span></article>
+              </div>
+              <div class="visual-captions two">
+                <article><b>extend</b><strong>扩展成本稳定</strong><span>功能种类变多，但接入姿势不再变化。</span></article>
+                <article><b>queue</b><strong>统一队列是关键接口</strong><span>所有实例的发送动作都在这里汇合。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 09 / steamauto</div>
+            <h1>状态差异，<br />翻译成群聊消息。</h1>
+            <p>状态变化不是日志，而是直接变成可读群消息。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">状态</div><div class="focus-copy"><strong>开始 / 离开游戏</strong><span>由 Steam 状态 diff 生成。</span></div></div>
+              <div class="focus"><div class="focus-key">战绩</div><div class="focus-copy"><strong>完美平台播报</strong><span>对局结果整理成结构化消息。</span></div></div>
+              <div class="focus"><div class="focus-key">日报</div><div class="focus-copy"><strong>标准图片模板</strong><span>自动汇总今日统计和历史排行。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>source</b><strong>Steam Web API + 完美平台</strong><span>状态和比赛数据分别进入同一输出链路。</span></div>
+              <div class="support"><b>important</b><strong>SteamAuto 不直接发微信</strong><span>它只负责发现变化并调用发送函数入队。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>steam outputs</span><span>page 09 / proof</span></div>
+            <div class="visual-card image-only">
+              <div class="visual-stage">
+                <div class="rotator rotator-cover" data-rotate-ms="4200">
+                  <img class="active" src="../docs/images/steam好友游戏状态播报.png" alt="Steam 好友游戏状态播报" />
+                  <img src="../docs/images/cs2更新播报.png" alt="CS2 更新播报" />
+                  <img src="../docs/images/完美战绩播报.png" alt="完美战绩播报" />
+                  <img src="../docs/images/完美今日胜负统计播报.png" alt="完美今日胜负统计播报" />
+                  <img src="../docs/images/完美历史战绩统计播报.png" alt="完美历史战绩统计播报" />
+                  <img src="hyperframes-video/assets/steam-daily.png" alt="Steam 日报" />
+                  <img src="hyperframes-video/assets/steam-daily-overview.png" alt="Steam 日报概览" />
+                  <img src="hyperframes-video/assets/steam-flow.png" alt="Steam 监控流程" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 10 / anti-detect</div>
+            <h1>真正像人一样操作微信的细节，<br />不应该散在每个功能里。</h1>
+            <p>关键不是“能点”，而是“别点得像机器”。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">鼠标</div><div class="focus-copy"><strong>曲线 + 扰动</strong><span>不走死直线。</span></div></div>
+              <div class="focus"><div class="focus-key">键盘</div><div class="focus-copy"><strong>随机输入节奏</strong><span>按键间隔更像真人。</span></div></div>
+              <div class="focus"><div class="focus-key">窗口</div><div class="focus-copy"><strong>切回安全聊天并最小化</strong><span>减少异常暴露。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>anti-detect patch</span><span>page 10 / diagram</span></div>
+            <figure class="diagram"><img src="hyperframes-video/assets/monkey-patch.png" alt="反检测 Patch" /></figure>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 11 / main loop</div>
+            <h1>主循环五步，<br />先发再读。</h1>
+            <p>顺序很重要，先发再读，减少竞态。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>检查维护窗口</strong><span>减少无效操作。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>处理 Web 消息</strong><span>先入统一队列。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>消费发送队列</strong><span>主线程真正发送。</span></div></div>
+              <div class="focus"><div class="focus-key">04</div><div class="focus-copy"><strong>接收并分发新消息</strong><span>按路由交给实例。</span></div></div>
+              <div class="focus"><div class="focus-key">05</div><div class="focus-copy"><strong>空闲时最小化微信</strong><span>降低暴露感。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>main loop</span><span>page 11 / diagram</span></div>
+            <figure class="diagram"><img src="hyperframes-video/assets/main-loop.png" alt="主循环示意图" /></figure>
+          </div>
+        </section>
+
+        <section class="slide routing-slide">
+          <div class="stack">
+            <div class="kicker">Page 12 / routing</div>
+            <h1>命令式功能和自然聊天能共存，<br />靠的是消息路由，不是侥幸。</h1>
+            <p>明确命令走独占，自然聊天走广播。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">独占</div><div class="focus-copy"><strong>前缀命令</strong><span>直接交给 ChatAuto。</span></div></div>
+              <div class="focus"><div class="focus-key">广播</div><div class="focus-copy"><strong>普通聊天</strong><span>继续给 KouriChat 看上下文。</span></div></div>
+              <div class="focus"><div class="focus-key">结果</div><div class="focus-copy"><strong>两类能力共存</strong><span>不会互相抢消息。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>message routing</span><span>page 12 / diagram</span></div>
+            <div class="visual-card image-only">
+              <div class="visual-stage">
+                <div class="route-diagram" role="img" aria-label="消息路由机制图">
+                  <svg viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                      <marker id="route-arrow" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L14,7 L0,14 Z" fill="#0b3d91"></path>
+                      </marker>
+                      <filter id="route-shadow" x="-12%" y="-12%" width="124%" height="124%">
+                        <feDropShadow dx="8" dy="8" stdDeviation="0" flood-color="#0b3d91" flood-opacity=".12"></feDropShadow>
+                      </filter>
+                    </defs>
+
+                    <text x="92" y="88" font-size="42" font-weight="700" fill="#0b1020">消息路由：独占前缀 + 广播监听</text>
+                    <text x="94" y="128" font-size="22" fill="#5f6678">让命令式 AI 与自然对话式 AI 共存，避免实例互相抢消息</text>
+
+                    <g filter="url(#route-shadow)">
+                      <rect x="90" y="292" width="230" height="118" rx="10" fill="#0b3d91"></rect>
+                      <text x="122" y="346" font-size="26" font-weight="700" fill="#fff">Incoming Message</text>
+                      <text x="122" y="382" font-size="21" fill="#fff">微信消息 / Web 消息</text>
+
+                      <rect x="455" y="204" width="315" height="124" rx="10" fill="#ffd400" stroke="#0b1020" stroke-opacity=".24" stroke-width="3"></rect>
+                      <text x="490" y="252" font-size="28" font-weight="700" fill="#0b1020">独占前缀匹配</text>
+                      <text x="490" y="292" font-size="24" fill="#0b1020">/claw → ChatAuto</text>
+                      <text x="490" y="324" font-size="21" fill="#0b1020">命中后停止广播</text>
+
+                      <rect x="455" y="450" width="315" height="124" rx="10" fill="#f4f3ef" stroke="#0b1020" stroke-opacity=".24" stroke-width="3"></rect>
+                      <text x="490" y="498" font-size="28" font-weight="700" fill="#0b1020">广播监听</text>
+                      <text x="490" y="538" font-size="24" fill="#0b1020">KouriChat / InfoPush</text>
+                      <text x="490" y="570" font-size="21" fill="#0b1020">全量观察上下文</text>
+
+                      <rect x="910" y="204" width="300" height="124" rx="10" fill="#0b1020"></rect>
+                      <text x="950" y="264" font-size="28" font-weight="700" fill="#fff">Command Reply</text>
+                      <text x="950" y="306" font-size="24" fill="#fff">命令式 AI 回复</text>
+
+                      <rect x="910" y="450" width="300" height="124" rx="10" fill="#20bf63"></rect>
+                      <text x="950" y="510" font-size="28" font-weight="700" fill="#0b1020">Context Reply</text>
+                      <text x="950" y="552" font-size="24" fill="#0b1020">角色扮演 / 主动消息</text>
+                    </g>
+
+                    <path d="M320 351 L420 266 L450 266" fill="none" stroke="#0b3d91" stroke-width="8" marker-end="url(#route-arrow)"></path>
+                    <path d="M320 351 L420 512 L450 512" fill="none" stroke="#0b3d91" stroke-width="8" marker-end="url(#route-arrow)"></path>
+                    <path d="M770 266 L900 266" fill="none" stroke="#0b3d91" stroke-width="8" marker-end="url(#route-arrow)"></path>
+                    <path d="M770 512 L900 512" fill="none" stroke="#0b3d91" stroke-width="8" marker-end="url(#route-arrow)"></path>
+
+                    <g font-size="24" font-weight="700" text-anchor="middle">
+                      <circle cx="400" cy="266" r="28" fill="#0b3d91"></circle><text x="400" y="275" fill="#fff">1</text>
+                      <circle cx="400" cy="512" r="28" fill="#0b3d91"></circle><text x="400" y="521" fill="#fff">2</text>
+                      <circle cx="845" cy="266" r="28" fill="#0b3d91"></circle><text x="845" y="275" fill="#fff">3</text>
+                      <circle cx="845" cy="512" r="28" fill="#0b3d91"></circle><text x="845" y="521" fill="#fff">4</text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 13 / remote ops</div>
+            <h1>内网 Windows Bot 不需要开公网端口，<br />也能被远程维护。</h1>
+            <p>不做端口映射，靠 Agent 主动连出。</p>
+            <div class="focus-list">
+              <div class="focus"><div class="focus-key">现实</div><div class="focus-copy"><strong>Bot 常在内网 Windows</strong><span>没有公网 IP。</span></div></div>
+              <div class="focus"><div class="focus-key">方案</div><div class="focus-copy"><strong>Agent → Server → Browser</strong><span>浏览器只访问公网 Server。</span></div></div>
+              <div class="focus"><div class="focus-key">结果</div><div class="focus-copy"><strong>远程观测与控制</strong><span>状态、日志、配置都能维护。</span></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>remote management flow</span><span>page 13 / sequence</span></div>
+            <figure class="diagram"><img src="hyperframes-video/assets/sequence-agent.png" alt="远程运维时序图" /></figure>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 14 / web panel</div>
+            <h1>Web 面板，<br />接进真实链路。</h1>
+            <p>重点不是页面多，而是这些页面都接进了真实链路。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">看</div><div class="focus-copy"><strong>Dashboard / Logs</strong><span>状态与日志。</span></div></div>
+              <div class="focus"><div class="focus-key">改</div><div class="focus-copy"><strong>Config / Files</strong><span>配置与文件。</span></div></div>
+              <div class="focus"><div class="focus-key">控</div><div class="focus-copy"><strong>Control / Chat</strong><span>启停和网页发消息。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>real path</b><strong>网页消息会真的发到微信</strong><span>请求、Agent、队列、微信窗口一条链路打通。</span></div>
+              <div class="support"><b>ops</b><strong>可观测也可维护</strong><span>不是只能看状态，而是能改、能控、能排障。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>web panel screens</span><span>page 14 / proof</span></div>
+            <div class="visual-card image-only">
+              <div class="visual-stage">
+                <div class="rotator rotator-cover" data-rotate-ms="3800">
+                  <img class="active" src="../docs/images/Web仪表盘界面.png" alt="Web 仪表盘界面" />
+                  <img src="../docs/images/Web登录界面.png" alt="Web 登录界面" />
+                  <img src="../docs/images/WebSteam数据界面1.png" alt="Web Steam 数据界面一" />
+                  <img src="../docs/images/WebSteam数据界面2.png" alt="Web Steam 数据界面二" />
+                  <img src="../docs/images/WebSteam数据界面3.png" alt="Web Steam 数据界面三" />
+                  <img src="../docs/images/Web聊天界面.png" alt="Web 聊天界面" />
+                  <img src="../docs/images/Web控制界面.png" alt="Web 控制界面" />
+                  <img src="../docs/images/Web配置编辑界面.png" alt="Web 配置编辑界面" />
+                  <img src="../docs/images/Web日志界面.png" alt="Web 日志界面" />
+                  <img src="../docs/images/Web实例管理界面.png" alt="Web 实例管理界面" />
+                  <img src="../docs/images/Web文件管理界面.png" alt="Web 文件管理界面" />
+                  <img src="../docs/images/Web用户管理界面.png" alt="Web 用户管理界面" />
+                  <img src="../docs/images/Web修改密码界面.png" alt="Web 修改密码界面" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 15 / summary</div>
+            <h1>真正的价值：<br />微信自动化框架。</h1>
+            <p>总结一下。cs-Solidarity 表面上是一个微信机器人，但它真正的工程价值，是把微信 GUI 自动化做成了一套框架。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>线程安全</strong><span>后台实例只入队，主线程统一发。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>模块化扩展</strong><span>新功能可独立接入。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>远程可运维</strong><span>内网 Bot 也能被公网管理。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>engineering value</b><strong>真正保留下来的是系统能力</strong><span>不是某一条消息模板，而是一整套稳定机制。</span></div>
+              <div class="support"><b>for whom</b><strong>适合关注 GUI 自动化与机器人系统的人</strong><span>尤其是想看项目如何走向可维护的人。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>final takeaway</span><span>page 15 / engineering value</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>final takeaway</b>
+                <strong>真正被做出来的是一套系统能力</strong>
+                <span>不是某一条消息模板，而是功能、发送、路由、反检测和运维一起成立。</span>
+              </div>
+              <div class="signal-list">
+                <article><b>framework</b><strong>把 GUI 自动化做成可维护系统</strong><span>功能、发送、路由、反检测和运维被系统化了，而不是散落脚本。</span></article>
+                <article><b>scalable</b><strong>新功能有清晰接入路径</strong><span>BaseInstance、工厂注册、配置接入，让扩展成本稳定且可预期。</span></article>
+                <article><b>operable</b><strong>真正适合长期运行</strong><span>远程观测、控制、日志、文件和网页消息都已纳入一条正式链路。</span></article>
+              </div>
+              <div class="visual-captions two">
+                <article><b>core</b><strong>线程安全 + 模块化 + 可运维</strong><span>这三条决定了它为什么不是普通脚本。</span></article>
+                <article><b>audience</b><strong>适合关注自动化系统的人</strong><span>尤其是想看 GUI 自动化如何走向工程化的人。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <div class="stack">
+            <div class="kicker">Page 16 / closing card</div>
+            <h1>以上就是<br />cs-Solidarity。</h1>
+            <p>一个把微信 GUI 自动化做成可维护系统的项目。</p>
+            <div class="focus-list tight">
+              <div class="focus"><div class="focus-key">01</div><div class="focus-copy"><strong>微信自动化</strong><span>基于 wxauto 和 Win32 GUI。</span></div></div>
+              <div class="focus"><div class="focus-key">02</div><div class="focus-copy"><strong>游戏数据推送</strong><span>Steam 状态、CS2 战绩、日报。</span></div></div>
+              <div class="focus"><div class="focus-key">03</div><div class="focus-copy"><strong>AI 群聊机器人</strong><span>KouriChat 与 Agent 入口。</span></div></div>
+            </div>
+            <div class="support-grid">
+              <div class="support"><b>open source</b><strong>GitHub: cs-Solidarity</strong><span>https://github.com/xufezyq/cs-Solidarity</span></div>
+              <div class="support"><b>final note</b><strong>欢迎查看项目</strong><span>如果感兴趣，可以顺手点一个 star。</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><span>project link</span><span>page 16 / closing</span></div>
+            <div class="info-fill">
+              <div class="info-hero">
+                <b>github</b>
+                <strong>https://github.com/xufezyq/cs-Solidarity</strong>
+                <span>表面上是微信机器人，真正的工程价值是把微信 GUI 自动化做成一套框架。</span>
+              </div>
+              <div class="signal-list">
+                <article><b>for wechat automation</b><strong>GUI 自动化工程化</strong><span>线程安全、反检测、消息路由和统一发送队列。</span></article>
+                <article><b>for game data</b><strong>游戏数据推送</strong><span>Steam 状态、完美战绩和每日统计图自动进入微信群。</span></article>
+                <article><b>for ai chat</b><strong>AI 群聊与 Agent</strong><span>自然对话、前缀命令和 Bot API 结果回传共用同一核心。</span></article>
+              </div>
+              <div class="visual-captions two">
+                <article><b>summary</b><strong>线程安全、模块化、可运维</strong><span>三条主线贯穿整个项目。</span></article>
+                <article><b>end</b><strong>以上就是项目介绍</strong><span>画面停留两秒，结束录制。</span></article>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="bottombar">
+        <div>open in browser directly</div>
+        <div>script-aligned html preview</div>
+      </div>
+    </div>
+
+    <script>
+      const buttons = [...document.querySelectorAll('[data-slide]')];
+      const slides = [...document.querySelectorAll('.slide')];
+      const chatTrack = document.getElementById('chat-track');
+      const rotators = [...document.querySelectorAll('.rotator')];
+      const chatRows = chatTrack ? [...chatTrack.querySelectorAll('.chat-row')] : [];
+      const chatTemplates = chatRows.map((row) => row.cloneNode(true));
+      let current = 0;
+      let chatIndex = -1;
+      let chatTimer = null;
+
+      function show(index) {
+        current = index;
+        slides.forEach((slide, i) => slide.classList.toggle('active', i === index));
+        buttons.forEach((button, i) => button.classList.toggle('active', i === index));
+      }
+      function updateChatScroll() {
+        if (!chatTrack) return;
+        const renderedRows = [...chatTrack.querySelectorAll('.chat-row')];
+        renderedRows.forEach((row, i) => row.classList.toggle('latest', i === renderedRows.length - 1));
+        if (!renderedRows.length) {
+          chatTrack.style.transform = 'translateY(0)';
+          return;
+        }
+        const viewport = chatTrack.parentElement;
+        const target = Math.max(0, chatTrack.scrollHeight - viewport.clientHeight);
+        chatTrack.style.transform = `translateY(${-target}px)`;
+      }
+      function getChatDelay(row, index) {
+        if (!row) return 2000;
+        const bubble = row.querySelector('.bubble');
+        const textLength = bubble ? bubble.textContent.trim().length : 0;
+        if (bubble && bubble.classList.contains('long')) return 7800;
+        if (bubble && bubble.classList.contains('warn')) return 7200;
+        if (index <= 0) return 2600;
+        if (textLength > 34) return 2800;
+        return row.classList.contains('mono') ? 1700 : 2100;
+      }
+      function scheduleNextChatStep() {
+        if (!chatTemplates.length || !chatTrack) return;
+        clearTimeout(chatTimer);
+        const delay = chatIndex < 0 ? 1200 : getChatDelay(chatTemplates[chatIndex], chatIndex);
+        chatTimer = setTimeout(() => {
+          if (chatIndex >= chatTemplates.length - 1) {
+            chatIndex = -1;
+            chatTrack.innerHTML = '';
+            updateChatScroll();
+            scheduleNextChatStep();
+            return;
+          }
+          chatIndex += 1;
+          const row = chatTemplates[chatIndex].cloneNode(true);
+          row.classList.add('entering');
+          chatTrack.appendChild(row);
+          row.getBoundingClientRect();
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              row.classList.add('visible');
+              row.classList.remove('entering');
+              updateChatScroll();
+              setTimeout(() => updateChatScroll(), 220);
+              setTimeout(() => updateChatScroll(), 560);
+            });
+          });
+          scheduleNextChatStep();
+        }, delay);
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener('click', () => show(Number(button.dataset.slide)));
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' && current < slides.length - 1) show(current + 1);
+        if (event.key === 'ArrowLeft' && current > 0) show(current - 1);
+      });
+      rotators.forEach((rotator) => {
+        const imgs = [...rotator.querySelectorAll('img')];
+        if (imgs.length <= 1) return;
+        let idx = 0;
+        const delay = Number(rotator.dataset.rotateMs || 3600);
+        setInterval(() => {
+          imgs[idx].classList.remove('active');
+          idx = (idx + 1) % imgs.length;
+          imgs[idx].classList.add('active');
+        }, delay);
+      });
+
+      if (chatTrack) chatTrack.innerHTML = '';
+      updateChatScroll();
+      scheduleNextChatStep();
+    </script>
+  </body>
+</html>

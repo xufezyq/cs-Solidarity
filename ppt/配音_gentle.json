@@ -1,0 +1,2192 @@
+[
+  {
+    "text": "如果一个微信机器人，不只是能自动回复消息，而是能接入 KouriChat，做带人设、记忆和图片识别的自然群聊。",
+    "pronounce_text": "如果一个微信机器人，不只是能自动回复消息，而是能接入KouriChat，做带人设、记忆和图片识别的自然群聊。",
+    "time_begin": 0,
+    "time_end": 8607.48299319728,
+    "text_begin": 0,
+    "text_end": 55,
+    "pronounce_text_begin": 0,
+    "pronounce_text_end": 54
+  },
+  {
+    "text": "还能自动监控 Steam 好友状态，播报 CS2 战绩，接入 AI Agent。",
+    "pronounce_text": "还能自动监控Steam好友状态，播报CS二战绩，接入AI Agent。",
+    "time_begin": 8748,
+    "time_end": 13512.580498866213,
+    "text_begin": 55,
+    "text_end": 95,
+    "pronounce_text_begin": 54,
+    "pronounce_text_end": 89
+  },
+  {
+    "text": "让 Agent 反过来调用 Bot API，回复消息和文件，推送灾害预警，并通过网页远程管理。",
+    "pronounce_text": "让Agent反过来调用Bot API，回复消息和文件，推送灾害预警，并通过网页远程管理。",
+    "time_begin": 13680,
+    "time_end": 20511.156462585033,
+    "text_begin": 95,
+    "text_end": 142,
+    "pronounce_text_begin": 89,
+    "pronounce_text_end": 133
+  },
+  {
+    "text": "你会不会想知道，它是怎么做出来的？",
+    "pronounce_text": "你会不会想知道，它是怎么做出来的？",
+    "time_begin": 20664,
+    "time_end": 23327.174603174604,
+    "text_begin": 142,
+    "text_end": 159,
+    "pronounce_text_begin": 133,
+    "pronounce_text_end": 150
+  },
+  {
+    "text": "这个项目叫 cs-Solidarity。",
+    "pronounce_text": "这个项目叫cs-Solidarity。",
+    "time_begin": 24336,
+    "time_end": 26685.7052154195,
+    "text_begin": 159,
+    "text_end": 179,
+    "pronounce_text_begin": 150,
+    "pronounce_text_end": 169
+  },
+  {
+    "text": "先不讲概念，我们直接看它能做什么。",
+    "pronounce_text": "先不讲概念，我们直接看它能做什么。",
+    "time_begin": 26856,
+    "time_end": 29600.444444444445,
+    "text_begin": 179,
+    "text_end": 196,
+    "pronounce_text_begin": 169,
+    "pronounce_text_end": 186
+  },
+  {
+    "text": "如果你对这个项目感兴趣，也可以去 GitHub 搜索 cs-Solidarity。",
+    "pronounce_text": "如果你对这个项目感兴趣，也可以去GitHub搜索cs-Solidarity。",
+    "time_begin": 30312,
+    "time_end": 34647.011337868484,
+    "text_begin": 196,
+    "text_end": 237,
+    "pronounce_text_begin": 186,
+    "pronounce_text_end": 224
+  },
+  {
+    "text": "顺手点一个 star。",
+    "pronounce_text": "顺手点一个star。",
+    "time_begin": 34812,
+    "time_end": 36302.56689342404,
+    "text_begin": 237,
+    "text_end": 248,
+    "pronounce_text_begin": 224,
+    "pronounce_text_end": 234
+  },
+  {
+    "text": "Steam 好友状态播报，负责监控好友的游戏状态变化。",
+    "pronounce_text": "Steam好友状态播报，负责监控好友的游戏状态变化。",
+    "time_begin": 37512,
+    "time_end": 41533.54195011338,
+    "text_begin": 248,
+    "text_end": 275,
+    "pronounce_text_begin": 234,
+    "pronounce_text_end": 260
+  },
+  {
+    "text": "并把变化整理成群聊通知。比如群友开始玩 Counter-Strike 2，机器人会自动把状态发到微信群；离开游戏时，也会计算本次游玩时长并提醒。",
+    "pronounce_text": "并把变化整理成群聊通知。比如群友开始玩Counter-Strike二，机器人会自动把状态发到微信群;离开游戏时，也会计算本次游玩时长并提醒。",
+    "time_begin": 41688,
+    "time_end": 52176.29931972789,
+    "text_begin": 275,
+    "text_end": 347,
+    "pronounce_text_begin": 260,
+    "pronounce_text_end": 330
+  },
+  {
+    "text": "完美世界战绩播报，负责读取比赛结果。",
+    "pronounce_text": "完美世界战绩播报，负责读取比赛结果。",
+    "time_begin": 52812,
+    "time_end": 55904.74376417234,
+    "text_begin": 347,
+    "text_end": 365,
+    "pronounce_text_begin": 330,
+    "pronounce_text_end": 348
+  },
+  {
+    "text": "它可以把 CS2 对局数据整理成群聊消息，包括击杀、死亡、助攻、评分和排行榜信息。",
+    "pronounce_text": "它可以把CS二对局数据整理成群聊消息，包括击杀、死亡、助攻、评分和排行榜信息。",
+    "time_begin": 56052,
+    "time_end": 63347.555555555555,
+    "text_begin": 365,
+    "text_end": 406,
+    "pronounce_text_begin": 348,
+    "pronounce_text_end": 387
+  },
+  {
+    "text": "AI 能力分成两类。",
+    "pronounce_text": "AI能力分成两类。",
+    "time_begin": 64044,
+    "time_end": 65755.15646258503,
+    "text_begin": 406,
+    "text_end": 416,
+    "pronounce_text_begin": 387,
+    "pronounce_text_end": 396
+  },
+  {
+    "text": "KoriChat 更偏自然聊天，可以结合上下文、人设、记忆和图片识别来决定是否回复。",
+    "pronounce_text": "KoriChat更偏自然聊天，可以结合上下文、人设、记忆和图片识别来决定是否回复。",
+    "time_begin": 65916,
+    "time_end": 72596.22675736962,
+    "text_begin": 416,
+    "text_end": 458,
+    "pronounce_text_begin": 396,
+    "pronounce_text_end": 437
+  },
+  {
+    "text": "而 ChatAuto 更像一个可触发的 Agent 入口。",
+    "pronounce_text": "而ChatAuto更像一个可触发的Agent入口。",
+    "time_begin": 72756,
+    "time_end": 75953.23356009071,
+    "text_begin": 458,
+    "text_end": 487,
+    "pronounce_text_begin": 437,
+    "pronounce_text_end": 462
+  },
+  {
+    "text": "用户在群里发出带前缀的自然语言指令后。",
+    "pronounce_text": "用户在群里发出带前缀的自然语言指令后。",
+    "time_begin": 76104,
+    "time_end": 79336.06349206349,
+    "text_begin": 487,
+    "text_end": 506,
+    "pronounce_text_begin": 462,
+    "pronounce_text_end": 481
+  },
+  {
+    "text": "它会通过大语言模型接口，把任务交给 AI Agent。",
+    "pronounce_text": "它会通过大语言模型接口，把任务交给AI Agent。",
+    "time_begin": 79488,
+    "time_end": 83474.71201814059,
+    "text_begin": 506,
+    "text_end": 533,
+    "pronounce_text_begin": 481,
+    "pronounce_text_end": 507
+  },
+  {
+    "text": "这些能力不是单点功能堆叠，而是一条连续链路。",
+    "pronounce_text": "这些能力不是单点功能堆叠，而是一条连续链路。",
+    "time_begin": 84276,
+    "time_end": 88076.95238095238,
+    "text_begin": 533,
+    "text_end": 555,
+    "pronounce_text_begin": 507,
+    "pronounce_text_end": 529
+  },
+  {
+    "text": "外部状态变化被捕捉，业务模块完成处理。",
+    "pronounce_text": "外部状态变化被捕捉，业务模块完成处理。",
+    "time_begin": 88236,
+    "time_end": 91688.6530612245,
+    "text_begin": 555,
+    "text_end": 574,
+    "pronounce_text_begin": 529,
+    "pronounce_text_end": 548
+  },
+  {
+    "text": "最后再通过统一的发送通道回到微信群。",
+    "pronounce_text": "最后再通过统一的发送通道回到微信群。",
+    "time_begin": 91836,
+    "time_end": 94928.74376417234,
+    "text_begin": 574,
+    "text_end": 592,
+    "pronounce_text_begin": 548,
+    "pronounce_text_end": 566
+  },
+  {
+    "text": "这个 Agent 不只是生成一段文本。",
+    "pronounce_text": "这个Agent不只是生成一段文本。",
+    "time_begin": 95616,
+    "time_end": 97930.87528344672,
+    "text_begin": 592,
+    "text_end": 611,
+    "pronounce_text_begin": 566,
+    "pronounce_text_end": 583
+  },
+  {
+    "text": "它可以继续调用 Bot 本地 API。",
+    "pronounce_text": "它可以继续调用Bot本地API。",
+    "time_begin": 98100,
+    "time_end": 100229.1156462585,
+    "text_begin": 611,
+    "text_end": 630,
+    "pronounce_text_begin": 583,
+    "pronounce_text_end": 599
+  },
+  {
+    "text": "把结果、文件、图片，或者处理后的内容发回微信群。",
+    "pronounce_text": "把结果、文件、图片，或者处理后的内容发回微信群。",
+    "time_begin": 100368,
+    "time_end": 104459.20181405896,
+    "text_begin": 630,
+    "text_end": 654,
+    "pronounce_text_begin": 599,
+    "pronounce_text_end": 623
+  },
+  {
+    "text": "灾害预警系统可以接入地震、气象、海啸等多源数据。",
+    "pronounce_text": "灾害预警系统可以接入地震、气象、海啸等多源数据。",
+    "time_begin": 105264,
+    "time_end": 109390.03174603175,
+    "text_begin": 654,
+    "text_end": 678,
+    "pronounce_text_begin": 623,
+    "pronounce_text_end": 647
+  },
+  {
+    "text": "再按不同群聊配置推送。",
+    "pronounce_text": "再按不同群聊配置推送。",
+    "time_begin": 109548,
+    "time_end": 111537.79591836735,
+    "text_begin": 678,
+    "text_end": 689,
+    "pronounce_text_begin": 647,
+    "pronounce_text_end": 658
+  },
+  {
+    "text": "它的重点是完成数据接入、整理和定向推送。",
+    "pronounce_text": "它的重点是完成数据接入、整理和定向推送。",
+    "time_begin": 111708,
+    "time_end": 114940.06349206349,
+    "text_begin": 689,
+    "text_end": 709,
+    "pronounce_text_begin": 658,
+    "pronounce_text_end": 678
+  },
+  {
+    "text": "Web 管理面板提供远程运维能力。",
+    "pronounce_text": "Web管理面板提供远程运维能力。",
+    "time_begin": 115632,
+    "time_end": 118155.85487528345,
+    "text_begin": 709,
+    "text_end": 726,
+    "pronounce_text_begin": 678,
+    "pronounce_text_end": 694
+  },
+  {
+    "text": "你可以查看 Bot 状态、查日志、改配置、管理实例，甚至执行重启和控制操作。",
+    "pronounce_text": "你可以查看Bot状态、查日志、改配置、管理实例，甚至执行重启和控制操作。",
+    "time_begin": 118296,
+    "time_end": 124558.26757369614,
+    "text_begin": 726,
+    "text_end": 764,
+    "pronounce_text_begin": 694,
+    "pronounce_text_end": 730
+  },
+  {
+    "text": "所以这个项目的重点，不是“我写了一个自动发消息的小脚本”。",
+    "pronounce_text": "所以这个项目的重点，不是“我写了一个自动发消息的小脚本”。",
+    "time_begin": 125352,
+    "time_end": 129512.86167800454,
+    "text_begin": 764,
+    "text_end": 793,
+    "pronounce_text_begin": 730,
+    "pronounce_text_end": 759
+  },
+  {
+    "text": "而是把一整套微信自动化能力，做成了可以长期运行、可以扩展、可以远程运维的系统。",
+    "pronounce_text": "而是把一整套微信自动化能力，做成了可以长期运行、可以扩展、可以远程运维的系统。",
+    "time_begin": 129672,
+    "time_end": 135934.26757369615,
+    "text_begin": 793,
+    "text_end": 832,
+    "pronounce_text_begin": 759,
+    "pronounce_text_end": 798
+  },
+  {
+    "text": "大家好，这次介绍的是 cs-Solidarity。",
+    "pronounce_text": "大家好，这次介绍的是cs-Solidarity。",
+    "time_begin": 137124,
+    "time_end": 140042.5941043084,
+    "text_begin": 832,
+    "text_end": 857,
+    "pronounce_text_begin": 798,
+    "pronounce_text_end": 822
+  },
+  {
+    "text": "一个基于 Windows 微信 PC 端的多功能自动化机器人。",
+    "pronounce_text": "一个基于Windows微信PC端的多功能自动化机器人。",
+    "time_begin": 140184,
+    "time_end": 143741.14285714287,
+    "text_begin": 857,
+    "text_end": 888,
+    "pronounce_text_begin": 822,
+    "pronounce_text_end": 849
+  },
+  {
+    "text": "它的底层不是 hook 微信进程，也不是直接读写微信内存。",
+    "pronounce_text": "它的底层不是hook微信进程，也不是直接读写微信内存。",
+    "time_begin": 144432,
+    "time_end": 148128.46258503402,
+    "text_begin": 888,
+    "text_end": 917,
+    "pronounce_text_begin": 849,
+    "pronounce_text_end": 876
+  },
+  {
+    "text": "而是基于 wxauto、Win32 GUI 自动化和窗口控制能力。",
+    "pronounce_text": "而是基于wxauto、Win三十二GUI自动化和窗口控制能力。",
+    "time_begin": 148284,
+    "time_end": 153512.97959183675,
+    "text_begin": 917,
+    "text_end": 950,
+    "pronounce_text_begin": 876,
+    "pronounce_text_end": 907
+  },
+  {
+    "text": "像真实用户一样操作微信窗口。",
+    "pronounce_text": "像真实用户一样操作微信窗口。",
+    "time_begin": 153684,
+    "time_end": 156138.19501133787,
+    "text_begin": 950,
+    "text_end": 964,
+    "pronounce_text_begin": 907,
+    "pronounce_text_end": 921
+  },
+  {
+    "text": "从功能上看，它能做 Steam 监控、AI 对话、AI Agent 自动化、信息推送、灾害预警和 Web 远程管理。",
+    "pronounce_text": "从功能上看，它能做Steam监控、AI对话、AI Agent自动化、信息推送、灾害预警和Web远程管理。",
+    "time_begin": 156816,
+    "time_end": 164599.17460317462,
+    "text_begin": 964,
+    "text_end": 1022,
+    "pronounce_text_begin": 921,
+    "pronounce_text_end": 973
+  },
+  {
+    "text": "从工程上看，它更像一个微信自动化框架。",
+    "pronounce_text": "从工程上看，它更像一个微信自动化框架。",
+    "time_begin": 165204,
+    "time_end": 168517.33333333334,
+    "text_begin": 1022,
+    "text_end": 1041,
+    "pronounce_text_begin": 973,
+    "pronounce_text_end": 992
+  },
+  {
+    "text": "不同功能模块可以独立运行。",
+    "pronounce_text": "不同功能模块可以独立运行。",
+    "time_begin": 168660,
+    "time_end": 170870.38548752834,
+    "text_begin": 1041,
+    "text_end": 1054,
+    "pronounce_text_begin": 992,
+    "pronounce_text_end": 1005
+  },
+  {
+    "text": "但所有真正操作微信的动作，都会被收束到统一的主线程和反检测机制里。",
+    "pronounce_text": "但所有真正操作微信的动作，都会被收束到统一的主线程和反检测机制里。",
+    "time_begin": 171036,
+    "time_end": 176160.48979591837,
+    "text_begin": 1054,
+    "text_end": 1087,
+    "pronounce_text_begin": 1005,
+    "pronounce_text_end": 1038
+  },
+  {
+    "text": "理解这个项目，可以先抓住三个关键词。",
+    "pronounce_text": "理解这个项目，可以先抓住三个关键词。",
+    "time_begin": 177372,
+    "time_end": 180464.74376417234,
+    "text_begin": 1087,
+    "text_end": 1105,
+    "pronounce_text_begin": 1038,
+    "pronounce_text_end": 1056
+  },
+  {
+    "text": "第一个，是线程安全。",
+    "pronounce_text": "第一个，是线程安全。",
+    "time_begin": 181080,
+    "time_end": 183104.62585034015,
+    "text_begin": 1105,
+    "text_end": 1115,
+    "pronounce_text_begin": 1056,
+    "pronounce_text_end": 1066
+  },
+  {
+    "text": "微信 GUI 自动化，不能让多个后台线程同时操作窗口。",
+    "pronounce_text": "微信GUI自动化，不能让多个后台线程同时操作窗口。",
+    "time_begin": 183276,
+    "time_end": 187332.37188208615,
+    "text_begin": 1115,
+    "text_end": 1142,
+    "pronounce_text_begin": 1066,
+    "pronounce_text_end": 1091
+  },
+  {
+    "text": "所以项目把所有实例要发送的消息先放进队列。",
+    "pronounce_text": "所以项目把所有实例要发送的消息先放进队列。",
+    "time_begin": 187488,
+    "time_end": 191544.37188208615,
+    "text_begin": 1142,
+    "text_end": 1163,
+    "pronounce_text_begin": 1091,
+    "pronounce_text_end": 1112
+  },
+  {
+    "text": "再由主线程统一发送。",
+    "pronounce_text": "再由主线程统一发送。",
+    "time_begin": 191700,
+    "time_end": 193585.306122449,
+    "text_begin": 1163,
+    "text_end": 1173,
+    "pronounce_text_begin": 1112,
+    "pronounce_text_end": 1122
+  },
+  {
+    "text": "第二个，是反检测。",
+    "pronounce_text": "第二个，是反检测。",
+    "time_begin": 194292,
+    "time_end": 195968.32653061225,
+    "text_begin": 1173,
+    "text_end": 1182,
+    "pronounce_text_begin": 1122,
+    "pronounce_text_end": 1131
+  },
+  {
+    "text": "自动化如果每次点击都太直、太准、太规律，就很容易暴露机器行为。",
+    "pronounce_text": "自动化如果每次点击都太直、太准、太规律，就很容易暴露机器行为。",
+    "time_begin": 196128,
+    "time_end": 201066.73015873015,
+    "text_begin": 1182,
+    "text_end": 1213,
+    "pronounce_text_begin": 1131,
+    "pronounce_text_end": 1162
+  },
+  {
+    "text": "项目在鼠标、键盘、窗口切换和等待时间上，都加入了更接近真人操作的随机性。",
+    "pronounce_text": "项目在鼠标、键盘、窗口切换和等待时间上，都加入了更接近真人操作的随机性。",
+    "time_begin": 201204,
+    "time_end": 207744.90702947846,
+    "text_begin": 1213,
+    "text_end": 1249,
+    "pronounce_text_begin": 1162,
+    "pronounce_text_end": 1198
+  },
+  {
+    "text": "第三个，是远程管理。",
+    "pronounce_text": "第三个，是远程管理。",
+    "time_begin": 208440,
+    "time_end": 210429.79591836734,
+    "text_begin": 1249,
+    "text_end": 1259,
+    "pronounce_text_begin": 1198,
+    "pronounce_text_end": 1208
+  },
+  {
+    "text": "Bot 可以跑在内网 Windows 电脑上，Web Server 跑在公网 VPS 上。",
+    "pronounce_text": "Bot可以跑在内网Windows电脑上，Web Server跑在公网VPS上。",
+    "time_begin": 210600,
+    "time_end": 215573.56009070296,
+    "text_begin": 1259,
+    "text_end": 1304,
+    "pronounce_text_begin": 1208,
+    "pronounce_text_end": 1247
+  },
+  {
+    "text": "Agent 主动向外连接 Server。",
+    "pronounce_text": "Agent主动向外连接Server。",
+    "time_begin": 215712,
+    "time_end": 217841.1156462585,
+    "text_begin": 1304,
+    "text_end": 1324,
+    "pronounce_text_begin": 1247,
+    "pronounce_text_end": 1265
+  },
+  {
+    "text": "这样浏览器就能远程管理 Bot，同时不需要给内网机器做端口映射。",
+    "pronounce_text": "这样浏览器就能远程管理Bot，同时不需要给内网机器做端口映射。",
+    "time_begin": 217980,
+    "time_end": 223313.4693877551,
+    "text_begin": 1324,
+    "text_end": 1356,
+    "pronounce_text_begin": 1265,
+    "pronounce_text_end": 1296
+  },
+  {
+    "text": "后面所有功能，其实都围绕这三个设计展开。",
+    "pronounce_text": "后面所有功能，其实都围绕这三个设计展开。",
+    "time_begin": 224100,
+    "time_end": 227482.9931972789,
+    "text_begin": 1356,
+    "text_end": 1376,
+    "pronounce_text_begin": 1296,
+    "pronounce_text_end": 1316
+  },
+  {
+    "text": "项目目前可以概括成四大核心能力。",
+    "pronounce_text": "项目目前可以概括成四大核心能力。",
+    "time_begin": 228672,
+    "time_end": 231265.51473922902,
+    "text_begin": 1376,
+    "text_end": 1392,
+    "pronounce_text_begin": 1316,
+    "pronounce_text_end": 1332
+  },
+  {
+    "text": "第一，游戏状态监控。",
+    "pronounce_text": "第一，游戏状态监控。",
+    "time_begin": 231876,
+    "time_end": 233900.62585034015,
+    "text_begin": 1392,
+    "text_end": 1402,
+    "pronounce_text_begin": 1332,
+    "pronounce_text_end": 1342
+  },
+  {
+    "text": "它会定时拉取 Steam 好友状态。",
+    "pronounce_text": "它会定时拉取Steam好友状态。",
+    "time_begin": 234072,
+    "time_end": 236386.87528344672,
+    "text_begin": 1402,
+    "text_end": 1420,
+    "pronounce_text_begin": 1342,
+    "pronounce_text_end": 1358
+  },
+  {
+    "text": "判断谁开始游戏、谁结束游戏，并把变化推送到微信群。",
+    "pronounce_text": "判断谁开始游戏、谁结束游戏，并把变化推送到微信群。",
+    "time_begin": 236556,
+    "time_end": 241076.7709750567,
+    "text_begin": 1420,
+    "text_end": 1445,
+    "pronounce_text_begin": 1358,
+    "pronounce_text_end": 1383
+  },
+  {
+    "text": "第二，智能对话和 Agent 编排。",
+    "pronounce_text": "第二，智能对话和Agent编排。",
+    "time_begin": 241704,
+    "time_end": 244297.51473922902,
+    "text_begin": 1445,
+    "text_end": 1463,
+    "pronounce_text_begin": 1383,
+    "pronounce_text_end": 1399
+  },
+  {
+    "text": "它支持 OpenAI 兼容接口。",
+    "pronounce_text": "它支持OpenAI兼容接口。",
+    "time_begin": 244440,
+    "time_end": 246569.1156462585,
+    "text_begin": 1463,
+    "text_end": 1479,
+    "pronounce_text_begin": 1399,
+    "pronounce_text_end": 1413
+  },
+  {
+    "text": "既可以用命令前缀触发 ChatAuto，把自然语言任务交给 AI Agent。",
+    "pronounce_text": "既可以用命令前缀触发ChatAuto，把自然语言任务交给AI Agent。",
+    "time_begin": 246708,
+    "time_end": 252215.61904761905,
+    "text_begin": 1479,
+    "text_end": 1518,
+    "pronounce_text_begin": 1413,
+    "pronounce_text_end": 1450
+  },
+  {
+    "text": "也可以像 KouriChat 一样监听群聊上下文，做更自然的长期对话。",
+    "pronounce_text": "也可以像KouriChat一样监听群聊上下文，做更自然的长期对话。",
+    "time_begin": 252360,
+    "time_end": 257194.2403628118,
+    "text_begin": 1518,
+    "text_end": 1553,
+    "pronounce_text_begin": 1450,
+    "pronounce_text_end": 1483
+  },
+  {
+    "text": "第三，信息与预警推送。",
+    "pronounce_text": "第三，信息与预警推送。",
+    "time_begin": 257904,
+    "time_end": 260323.3650793651,
+    "text_begin": 1553,
+    "text_end": 1564,
+    "pronounce_text_begin": 1483,
+    "pronounce_text_end": 1494
+  },
+  {
+    "text": "除了日常资讯、金价、股票，还可以接入 CS 新闻日报、地震、气象和海啸预警。",
+    "pronounce_text": "除了日常资讯、金价、股票，还可以接入CS新闻日报、地震、气象和海啸预警。",
+    "time_begin": 260460,
+    "time_end": 266966.0770975057,
+    "text_begin": 1564,
+    "text_end": 1602,
+    "pronounce_text_begin": 1494,
+    "pronounce_text_end": 1530
+  },
+  {
+    "text": "第四，远程管理面板。",
+    "pronounce_text": "第四，远程管理面板。",
+    "time_begin": 267588,
+    "time_end": 269868.0453514739,
+    "text_begin": 1602,
+    "text_end": 1612,
+    "pronounce_text_begin": 1530,
+    "pronounce_text_end": 1540
+  },
+  {
+    "text": "它提供 Dashboard、日志、配置、文件、实例和控制能力。",
+    "pronounce_text": "它提供Dashboard、日志、配置、文件、实例和控制能力。",
+    "time_begin": 270036,
+    "time_end": 274591.60090702947,
+    "text_begin": 1612,
+    "text_end": 1643,
+    "pronounce_text_begin": 1540,
+    "pronounce_text_end": 1570
+  },
+  {
+    "text": "让这个 Bot 不只是能跑，还能被远程维护。",
+    "pronounce_text": "让这个Bot不只是能跑，还能被远程维护。",
+    "time_begin": 274752,
+    "time_end": 278134.99319727893,
+    "text_begin": 1643,
+    "text_end": 1665,
+    "pronounce_text_begin": 1570,
+    "pronounce_text_end": 1590
+  },
+  {
+    "text": "系统全景可以拆成三部分。",
+    "pronounce_text": "系统全景可以拆成三部分。",
+    "time_begin": 279324,
+    "time_end": 281453.1156462585,
+    "text_begin": 1665,
+    "text_end": 1677,
+    "pronounce_text_begin": 1590,
+    "pronounce_text_end": 1602
+  },
+  {
+    "text": "第一部分是外部数据源和外部工具。",
+    "pronounce_text": "第一部分是外部数据源和外部工具。",
+    "time_begin": 282060,
+    "time_end": 284804.44444444444,
+    "text_begin": 1677,
+    "text_end": 1693,
+    "pronounce_text_begin": 1602,
+    "pronounce_text_end": 1618
+  },
+  {
+    "text": "比如 Steam Web API、完美世界、AI 模型接口、AI Agent、财经接口、灾害预警数据源。",
+    "pronounce_text": "比如Steam Web API、完美世界、AI模型接口、AI Agent、财经接口、灾害预警数据源。",
+    "time_begin": 0,
+    "time_end": 6900.816326530612,
+    "text_begin": 0,
+    "text_end": 52,
+    "pronounce_text_begin": 0,
+    "pronounce_text_end": 50
+  },
+  {
+    "text": "以及像 CS2-insight-agent 这样的 demo 解析和视频处理工具。",
+    "pronounce_text": "以及像CS二，insight，agent这样的demo解析和视频处理工具。",
+    "time_begin": 7056,
+    "time_end": 12145.659863945577,
+    "text_begin": 52,
+    "text_end": 93,
+    "pronounce_text_begin": 50,
+    "pronounce_text_end": 87
+  },
+  {
+    "text": "第二部分是 Bot 主程序。",
+    "pronounce_text": "第二部分是Bot主程序。",
+    "time_begin": 12852,
+    "time_end": 14946.285714285714,
+    "text_begin": 93,
+    "text_end": 107,
+    "pronounce_text_begin": 87,
+    "pronounce_text_end": 99
+  },
+  {
+    "text": "它负责实例调度、消息队列、消息路由、本地 Bot API，以及最终的微信窗口操作。",
+    "pronounce_text": "它负责实例调度、消息队列、消息路由、本地Bot API，以及最终的微信窗口操作。",
+    "time_begin": 15084,
+    "time_end": 22379.555555555555,
+    "text_begin": 107,
+    "text_end": 148,
+    "pronounce_text_begin": 99,
+    "pronounce_text_end": 139
+  },
+  {
+    "text": "第三部分是 Web 管理部分。",
+    "pronounce_text": "第三部分是Web管理部分。",
+    "time_begin": 23004,
+    "time_end": 25133.115646258502,
+    "text_begin": 148,
+    "text_end": 163,
+    "pronounce_text_begin": 139,
+    "pronounce_text_end": 152
+  },
+  {
+    "text": "Agent 跑在内网 Windows 上，Server 跑在公网 VPS 上。",
+    "pronounce_text": "Agent跑在内网Windows上，Server跑在公网VPS上。",
+    "time_begin": 25272,
+    "time_end": 29537.351473922903,
+    "text_begin": 163,
+    "text_end": 202,
+    "pronounce_text_begin": 152,
+    "pronounce_text_end": 185
+  },
+  {
+    "text": "浏览器访问 Server，再由 Server 通过 WebSocket，把操作转发给 Agent。",
+    "pronounce_text": "浏览器访问Server，再由Server通过WebSocket，把操作转发给Agent。",
+    "time_begin": 29700,
+    "time_end": 35137.95918367347,
+    "text_begin": 202,
+    "text_end": 251,
+    "pronounce_text_begin": 185,
+    "pronounce_text_end": 229
+  },
+  {
+    "text": "最关键的一点是：",
+    "pronounce_text": "最关键的一点是：",
+    "time_begin": 35820,
+    "time_end": 37380.226757369615,
+    "text_begin": 251,
+    "text_end": 259,
+    "pronounce_text_begin": 229,
+    "pronounce_text_end": 237
+  },
+  {
+    "text": "不管消息来自 Steam、AI、Agent、灾害预警，还是 Web 面板。",
+    "pronounce_text": "不管消息来自Steam、AI、Agent、灾害预警，还是Web面板。",
+    "time_begin": 37548,
+    "time_end": 42347.410430839,
+    "text_begin": 259,
+    "text_end": 296,
+    "pronounce_text_begin": 237,
+    "pronounce_text_end": 271
+  },
+  {
+    "text": "最后真正操作微信的动作，都必须回到 Bot 主线程。",
+    "pronounce_text": "最后真正操作微信的动作，都必须回到Bot主线程。",
+    "time_begin": 42516,
+    "time_end": 46433.052154195015,
+    "text_begin": 296,
+    "text_end": 322,
+    "pronounce_text_begin": 271,
+    "pronounce_text_end": 295
+  },
+  {
+    "text": "这就是为什么这些能力，可以共用一个微信自动化核心。",
+    "pronounce_text": "这就是为什么这些能力，可以共用一个微信自动化核心。",
+    "time_begin": 47232,
+    "time_end": 51218.71201814059,
+    "text_begin": 322,
+    "text_end": 347,
+    "pronounce_text_begin": 295,
+    "pronounce_text_end": 320
+  },
+  {
+    "text": "项目内部可以拆成三层。",
+    "pronounce_text": "项目内部可以拆成三层。",
+    "time_begin": 52416,
+    "time_end": 54510.28571428572,
+    "text_begin": 347,
+    "text_end": 358,
+    "pronounce_text_begin": 320,
+    "pronounce_text_end": 331
+  },
+  {
+    "text": "第一层是 Core 框架层。",
+    "pronounce_text": "第一层是Core框架层。",
+    "time_begin": 55116,
+    "time_end": 57140.62585034013,
+    "text_begin": 358,
+    "text_end": 372,
+    "pronounce_text_begin": 331,
+    "pronounce_text_end": 343
+  },
+  {
+    "text": "这里包括 main.py 主循环、BaseInstance 基类、实例工厂、消息队列和反检测 Patch。",
+    "pronounce_text": "这里包括main.py主循环、BaseInstance基类、实例工厂、消息队列和反检测Patch。",
+    "time_begin": 57312,
+    "time_end": 64143.15646258504,
+    "text_begin": 372,
+    "text_end": 425,
+    "pronounce_text_begin": 343,
+    "pronounce_text_end": 392
+  },
+  {
+    "text": "这一层决定整个系统怎么启动、怎么调度、怎么收发消息。",
+    "pronounce_text": "这一层决定整个系统怎么启动、怎么调度、怎么收发消息。",
+    "time_begin": 64296,
+    "time_end": 68491.69160997732,
+    "text_begin": 425,
+    "text_end": 451,
+    "pronounce_text_begin": 392,
+    "pronounce_text_end": 418
+  },
+  {
+    "text": "第二层是 Instances 功能层。",
+    "pronounce_text": "第二层是Instances功能层。",
+    "time_begin": 69192,
+    "time_end": 71890.0045351474,
+    "text_begin": 451,
+    "text_end": 470,
+    "pronounce_text_begin": 418,
+    "pronounce_text_end": 435
+  },
+  {
+    "text": "SteamAuto、ChatAuto、KouriChat、InfoPush、DailyAuto、DisasterWarning，都是独立实例。",
+    "pronounce_text": "SteamAuto、ChatAuto、KouriChat、InfoPush、DailyAuto、DisasterWarning，都是独立实例。",
+    "time_begin": 72036,
+    "time_end": 79215.45578231293,
+    "text_begin": 470,
+    "text_end": 541,
+    "pronounce_text_begin": 435,
+    "pronounce_text_end": 506
+  },
+  {
+    "text": "它们各自处理业务逻辑，但不直接抢占微信窗口。",
+    "pronounce_text": "它们各自处理业务逻辑，但不直接抢占微信窗口。",
+    "time_begin": 79380,
+    "time_end": 82867.48299319728,
+    "text_begin": 541,
+    "text_end": 563,
+    "pronounce_text_begin": 506,
+    "pronounce_text_end": 528
+  },
+  {
+    "text": "第三层是 External 接入层。",
+    "pronounce_text": "第三层是External接入层。",
+    "time_begin": 83556,
+    "time_end": 85975.36507936507,
+    "text_begin": 563,
+    "text_end": 581,
+    "pronounce_text_begin": 528,
+    "pronounce_text_end": 544
+  },
+  {
+    "text": "它负责连接 Steam、完美世界、AI 接口、AI Agent、Bot 本地 API、财经数据、灾害预警和 Web Panel。",
+    "pronounce_text": "它负责连接Steam、完美世界、AI接口、AI Agent、Bot本地API、财经数据、灾害预警和Web Panel。",
+    "time_begin": 86112,
+    "time_end": 93082.47619047618,
+    "text_begin": 581,
+    "text_end": 645,
+    "pronounce_text_begin": 544,
+    "pronounce_text_end": 603
+  },
+  {
+    "text": "这个分层的好处是，新功能不需要硬塞进主循环。",
+    "pronounce_text": "这个分层的好处是，新功能不需要硬塞进主循环。",
+    "time_begin": 93780,
+    "time_end": 97441.63265306123,
+    "text_begin": 645,
+    "text_end": 667,
+    "pronounce_text_begin": 603,
+    "pronounce_text_end": 625
+  },
+  {
+    "text": "你只需要写一个新的 BaseInstance 子类，注册到工厂。",
+    "pronounce_text": "你只需要写一个新的BaseInstance子类，注册到工厂。",
+    "time_begin": 97596,
+    "time_end": 101292.46258503401,
+    "text_begin": 667,
+    "text_end": 699,
+    "pronounce_text_begin": 625,
+    "pronounce_text_end": 655
+  },
+  {
+    "text": "再在配置里添加实例，就能接入整个系统。",
+    "pronounce_text": "再在配置里添加实例，就能接入整个系统。",
+    "time_begin": 101448,
+    "time_end": 104714.89342403629,
+    "text_begin": 699,
+    "text_end": 718,
+    "pronounce_text_begin": 655,
+    "pronounce_text_end": 674
+  },
+  {
+    "text": "项目目前包括六种实例。",
+    "pronounce_text": "项目目前包括六种实例。",
+    "time_begin": 105912,
+    "time_end": 107936.62585034013,
+    "text_begin": 718,
+    "text_end": 729,
+    "pronounce_text_begin": 674,
+    "pronounce_text_end": 685
+  },
+  {
+    "text": "SteamAuto 负责游戏状态、CS2 新闻、完美战绩和每日榜单。",
+    "pronounce_text": "SteamAuto负责游戏状态、CS二新闻、完美战绩和每日榜单。",
+    "time_begin": 108576,
+    "time_end": 113236.09070294784,
+    "text_begin": 729,
+    "text_end": 763,
+    "pronounce_text_begin": 685,
+    "pronounce_text_end": 717
+  },
+  {
+    "text": "ChatAuto 不只是负责命令式 AI 对话。",
+    "pronounce_text": "ChatAuto不只是负责命令式AI对话。",
+    "time_begin": 113760,
+    "time_end": 116643.7641723356,
+    "text_begin": 763,
+    "text_end": 787,
+    "pronounce_text_begin": 717,
+    "pronounce_text_end": 738
+  },
+  {
+    "text": "它更重要的作用，是把微信群里的自然语言请求，变成 AI Agent 任务。",
+    "pronounce_text": "它更重要的作用，是把微信群里的自然语言请求，变成AI Agent任务。",
+    "time_begin": 116784,
+    "time_end": 122152.29931972788,
+    "text_begin": 787,
+    "text_end": 824,
+    "pronounce_text_begin": 738,
+    "pronounce_text_end": 773
+  },
+  {
+    "text": "先通过大语言模型接口理解用户意图。",
+    "pronounce_text": "先通过大语言模型接口理解用户意图。",
+    "time_begin": 122292,
+    "time_end": 125071.27437641723,
+    "text_begin": 824,
+    "text_end": 841,
+    "pronounce_text_begin": 773,
+    "pronounce_text_end": 790
+  },
+  {
+    "text": "再让 Agent 调用 Bot API，把结果发回对应群聊。",
+    "pronounce_text": "再让Agent调用Bot API，把结果发回对应群聊。",
+    "time_begin": 125208,
+    "time_end": 129159.8820861678,
+    "text_begin": 841,
+    "text_end": 871,
+    "pronounce_text_begin": 790,
+    "pronounce_text_end": 817
+  },
+  {
+    "text": "这让微信不只是一个聊天入口，而是变成了 Agent 的交互界面。",
+    "pronounce_text": "这让微信不只是一个聊天入口，而是变成了Agent的交互界面。",
+    "time_begin": 129852,
+    "time_end": 133374.31292517006,
+    "text_begin": 871,
+    "text_end": 903,
+    "pronounce_text_begin": 817,
+    "pronounce_text_end": 847
+  },
+  {
+    "text": "它可以承接定时汇总、文件处理、内容生成和结果回传这类工作流。",
+    "pronounce_text": "它可以承接定时汇总、文件处理、内容生成和结果回传这类工作流。",
+    "time_begin": 133524,
+    "time_end": 138358.2403628118,
+    "text_begin": 903,
+    "text_end": 933,
+    "pronounce_text_begin": 847,
+    "pronounce_text_end": 877
+  },
+  {
+    "text": "再通过 Bot API，把处理结果发回对应群聊。",
+    "pronounce_text": "再通过Bot API，把处理结果发回对应群聊。",
+    "time_begin": 138528,
+    "time_end": 142015.48299319728,
+    "text_begin": 933,
+    "text_end": 957,
+    "pronounce_text_begin": 877,
+    "pronounce_text_end": 900
+  },
+  {
+    "text": "KouriChat 则是另一类 AI 能力。",
+    "pronounce_text": "KouriChat则是另一类AI能力。",
+    "time_begin": 142812,
+    "time_end": 145301.02494331065,
+    "text_begin": 957,
+    "text_end": 979,
+    "pronounce_text_begin": 900,
+    "pronounce_text_end": 919
+  },
+  {
+    "text": "它不是命令入口，而是更接近“常驻群友”的自然聊天机器人。",
+    "pronounce_text": "它不是命令入口，而是更接近“常驻群友”的自然聊天机器人。",
+    "time_begin": 145440,
+    "time_end": 149635.69160997734,
+    "text_begin": 979,
+    "text_end": 1007,
+    "pronounce_text_begin": 919,
+    "pronounce_text_end": 947
+  },
+  {
+    "text": "它可以按群配置不同人设，读取群聊上下文。",
+    "pronounce_text": "它可以按群配置不同人设，读取群聊上下文。",
+    "time_begin": 149796,
+    "time_end": 153387.97278911565,
+    "text_begin": 1007,
+    "text_end": 1027,
+    "pronounce_text_begin": 947,
+    "pronounce_text_end": 967
+  },
+  {
+    "text": "结合记忆系统和图片识别来判断是否回复。",
+    "pronounce_text": "结合记忆系统和图片识别来判断是否回复。",
+    "time_begin": 153540,
+    "time_end": 156922.9931972789,
+    "text_begin": 1027,
+    "text_end": 1046,
+    "pronounce_text_begin": 967,
+    "pronounce_text_end": 986
+  },
+  {
+    "text": "有的群只在艾特或触发词命中时回复。",
+    "pronounce_text": "有的群只在艾特或触发词命中时回复。",
+    "time_begin": 157068,
+    "time_end": 160056.25396825396,
+    "text_begin": 1046,
+    "text_end": 1063,
+    "pronounce_text_begin": 986,
+    "pronounce_text_end": 1003
+  },
+  {
+    "text": "有的群可以配置成更主动的陪伴式对话。",
+    "pronounce_text": "有的群可以配置成更主动的陪伴式对话。",
+    "time_begin": 160200,
+    "time_end": 163048.9342403628,
+    "text_begin": 1063,
+    "text_end": 1081,
+    "pronounce_text_begin": 1003,
+    "pronounce_text_end": 1021
+  },
+  {
+    "text": "这也能看出 ChatAuto 和 KouriChat 的区别：",
+    "pronounce_text": "这也能看出ChatAuto和KouriChat的区别：",
+    "time_begin": 163728,
+    "time_end": 166751.08390022675,
+    "text_begin": 1081,
+    "text_end": 1112,
+    "pronounce_text_begin": 1021,
+    "pronounce_text_end": 1048
+  },
+  {
+    "text": "ChatAuto 负责把明确命令交给 Agent。",
+    "pronounce_text": "ChatAuto负责把明确命令交给Agent。",
+    "time_begin": 166896,
+    "time_end": 169814.5941043084,
+    "text_begin": 1112,
+    "text_end": 1137,
+    "pronounce_text_begin": 1048,
+    "pronounce_text_end": 1071
+  },
+  {
+    "text": "KouriChat 负责更自然地参与聊天。",
+    "pronounce_text": "KouriChat负责更自然地参与聊天。",
+    "time_begin": 169956,
+    "time_end": 172375.3650793651,
+    "text_begin": 1137,
+    "text_end": 1158,
+    "pronounce_text_begin": 1071,
+    "pronounce_text_end": 1091
+  },
+  {
+    "text": "InfoPush 负责金价、股票、每日新闻这类定时信息。",
+    "pronounce_text": "InfoPush负责金价、股票、每日新闻这类定时信息。",
+    "time_begin": 173052,
+    "time_end": 177073.54195011337,
+    "text_begin": 1158,
+    "text_end": 1186,
+    "pronounce_text_begin": 1091,
+    "pronounce_text_end": 1118
+  },
+  {
+    "text": "DailyAuto 负责固定时间发送固定消息，比如每日提醒。",
+    "pronounce_text": "DailyAuto负责固定时间发送固定消息，比如每日提醒。",
+    "time_begin": 177588,
+    "time_end": 181957.84126984127,
+    "text_begin": 1186,
+    "text_end": 1216,
+    "pronounce_text_begin": 1118,
+    "pronounce_text_end": 1147
+  },
+  {
+    "text": "DisasterWarning 负责灾害预警，把不同来源的数据整理后推送到对应会话。",
+    "pronounce_text": "DisasterWarning负责灾害预警，把不同来源的数据整理后推送到对应会话。",
+    "time_begin": 182484,
+    "time_end": 187921.95918367346,
+    "text_begin": 1216,
+    "text_end": 1258,
+    "pronounce_text_begin": 1147,
+    "pronounce_text_end": 1188
+  },
+  {
+    "text": "这些实例看起来功能差异很大。",
+    "pronounce_text": "这些实例看起来功能差异很大。",
+    "time_begin": 188532,
+    "time_end": 191055.85487528343,
+    "text_begin": 1258,
+    "text_end": 1272,
+    "pronounce_text_begin": 1188,
+    "pronounce_text_end": 1202
+  },
+  {
+    "text": "但它们接入主程序的方式是一致的。",
+    "pronounce_text": "但它们接入主程序的方式是一致的。",
+    "time_begin": 191196,
+    "time_end": 193859.17460317462,
+    "text_begin": 1272,
+    "text_end": 1288,
+    "pronounce_text_begin": 1202,
+    "pronounce_text_end": 1218
+  },
+  {
+    "text": "后台处理业务，发送时进入队列。",
+    "pronounce_text": "后台处理业务，发送时进入队列。",
+    "time_begin": 194004,
+    "time_end": 196887.7641723356,
+    "text_begin": 1288,
+    "text_end": 1303,
+    "pronounce_text_begin": 1218,
+    "pronounce_text_end": 1233
+  },
+  {
+    "text": "或者由 Agent 调用 Bot API 入队。",
+    "pronounce_text": "或者由Agent调用Bot API入队。",
+    "time_begin": 197028,
+    "time_end": 199842.10430839003,
+    "text_begin": 1303,
+    "text_end": 1327,
+    "pronounce_text_begin": 1233,
+    "pronounce_text_end": 1253
+  },
+  {
+    "text": "最后都由主线程操作微信。",
+    "pronounce_text": "最后都由主线程操作微信。",
+    "time_begin": 199980,
+    "time_end": 202364.53514739228,
+    "text_begin": 1327,
+    "text_end": 1339,
+    "pronounce_text_begin": 1253,
+    "pronounce_text_end": 1265
+  },
+  {
+    "text": "SteamAuto 是最容易理解的一个实例。",
+    "pronounce_text": "SteamAuto是最容易理解的一个实例。",
+    "time_begin": 203580,
+    "time_end": 206243.17460317462,
+    "text_begin": 1339,
+    "text_end": 1361,
+    "pronounce_text_begin": 1265,
+    "pronounce_text_end": 1286
+  },
+  {
+    "text": "它会定时调用 Steam Web API，拿到好友当前状态。",
+    "pronounce_text": "它会定时调用Steam Web API，拿到好友当前状态。",
+    "time_begin": 206856,
+    "time_end": 210773.052154195,
+    "text_begin": 1361,
+    "text_end": 1391,
+    "pronounce_text_begin": 1286,
+    "pronounce_text_end": 1315
+  },
+  {
+    "text": "然后把这一轮状态和上一轮缓存做对比。",
+    "pronounce_text": "然后把这一轮状态和上一轮缓存做对比。",
+    "time_begin": 210924,
+    "time_end": 214481.14285714287,
+    "text_begin": 1391,
+    "text_end": 1409,
+    "pronounce_text_begin": 1315,
+    "pronounce_text_end": 1333
+  },
+  {
+    "text": "如果某个好友的游戏状态从空变成 730，就说明他开始玩 CS2。",
+    "pronounce_text": "如果某个好友的游戏状态从空变成七百三十，就说明他开始玩CS二。",
+    "time_begin": 215100,
+    "time_end": 220328.97959183675,
+    "text_begin": 1409,
+    "text_end": 1441,
+    "pronounce_text_begin": 1333,
+    "pronounce_text_end": 1364
+  },
+  {
+    "text": "如果从 730 变为空，就说明他离开了 CS2。",
+    "pronounce_text": "如果从七百三十变为空，就说明他离开了CS二。",
+    "time_begin": 220500,
+    "time_end": 224417.052154195,
+    "text_begin": 1441,
+    "text_end": 1465,
+    "pronounce_text_begin": 1364,
+    "pronounce_text_end": 1386
+  },
+  {
+    "text": "机器人就可以生成一条群聊通知。",
+    "pronounce_text": "机器人就可以生成一条群聊通知。",
+    "time_begin": 224568,
+    "time_end": 227196.3446712018,
+    "text_begin": 1465,
+    "text_end": 1480,
+    "pronounce_text_begin": 1386,
+    "pronounce_text_end": 1401
+  },
+  {
+    "text": "这些进入游戏、离开游戏和战绩播报消息，不是人工写死的文案。",
+    "pronounce_text": "这些进入游戏、离开游戏和战绩播报消息，不是人工写死的文案。",
+    "time_begin": 227880,
+    "time_end": 232749.0702947846,
+    "text_begin": 1480,
+    "text_end": 1509,
+    "pronounce_text_begin": 1401,
+    "pronounce_text_end": 1430
+  },
+  {
+    "text": "而是代码根据 Steam 状态变化、游戏名称和计时结果生成的。",
+    "pronounce_text": "而是代码根据Steam状态变化、游戏名称和计时结果生成的。",
+    "time_begin": 232920,
+    "time_end": 237545.26077097506,
+    "text_begin": 1509,
+    "text_end": 1540,
+    "pronounce_text_begin": 1430,
+    "pronounce_text_end": 1459
+  },
+  {
+    "text": "对于 CS2，项目还可以继续接入完美世界平台。",
+    "pronounce_text": "对于CS二，项目还可以继续接入完美世界平台。",
+    "time_begin": 238248,
+    "time_end": 241839.97278911565,
+    "text_begin": 1540,
+    "text_end": 1563,
+    "pronounce_text_begin": 1459,
+    "pronounce_text_end": 1481
+  },
+  {
+    "text": "查询最近比赛数据。",
+    "pronounce_text": "查询最近比赛数据。",
+    "time_begin": 241992,
+    "time_end": 243772.81632653062,
+    "text_begin": 1563,
+    "text_end": 1572,
+    "pronounce_text_begin": 1481,
+    "pronounce_text_end": 1490
+  },
+  {
+    "text": "并把结果整理成适合群聊阅读的播报。",
+    "pronounce_text": "并把结果整理成适合群聊阅读的播报。",
+    "time_begin": 243936,
+    "time_end": 246750.10430839003,
+    "text_begin": 1572,
+    "text_end": 1589,
+    "pronounce_text_begin": 1490,
+    "pronounce_text_end": 1507
+  },
+  {
+    "text": "每天的定时任务，还会把这些数据合成一张标准日报图片。",
+    "pronounce_text": "每天的定时任务，还会把这些数据合成一张标准日报图片。",
+    "time_begin": 247356,
+    "time_end": 251621.3514739229,
+    "text_begin": 1589,
+    "text_end": 1615,
+    "pronounce_text_begin": 1507,
+    "pronounce_text_end": 1533
+  },
+  {
+    "text": "它不是手工排版，而是代码模板自动生成。",
+    "pronounce_text": "它不是手工排版，而是代码模板自动生成。",
+    "time_begin": 251784,
+    "time_end": 255097.33333333334,
+    "text_begin": 1615,
+    "text_end": 1634,
+    "pronounce_text_begin": 1533,
+    "pronounce_text_end": 1552
+  },
+  {
+    "text": "里面包含好友今日游玩统计、完美平台统计，以及完整的历史战绩排行榜。",
+    "pronounce_text": "里面包含好友今日游玩统计、完美平台统计，以及完整的历史战绩排行榜。",
+    "time_begin": 255240,
+    "time_end": 260503.80952380953,
+    "text_begin": 1634,
+    "text_end": 1667,
+    "pronounce_text_begin": 1552,
+    "pronounce_text_end": 1585
+  },
+  {
+    "text": "关键点是：",
+    "pronounce_text": "关键点是：",
+    "time_begin": 261180,
+    "time_end": 262357.09750566893,
+    "text_begin": 1667,
+    "text_end": 1672,
+    "pronounce_text_begin": 1585,
+    "pronounce_text_end": 1590
+  },
+  {
+    "text": "SteamAuto 自己不直接操作微信。",
+    "pronounce_text": "SteamAuto自己不直接操作微信。",
+    "time_begin": 262512,
+    "time_end": 264826.8752834467,
+    "text_begin": 1672,
+    "text_end": 1692,
+    "pronounce_text_begin": 1590,
+    "pronounce_text_end": 1609
+  },
+  {
+    "text": "它只负责发现状态变化，然后调用发送消息函数。",
+    "pronounce_text": "它只负责发现状态变化，然后调用发送消息函数。",
+    "time_begin": 264996,
+    "time_end": 268587.9727891156,
+    "text_begin": 1692,
+    "text_end": 1714,
+    "pronounce_text_begin": 1609,
+    "pronounce_text_end": 1631
+  },
+  {
+    "text": "这个函数已经被主程序替换成“放入发送队列”。",
+    "pronounce_text": "这个函数已经被主程序替换成“放入发送队列”。",
+    "time_begin": 0,
+    "time_end": 3127.573696145125,
+    "text_begin": 0,
+    "text_end": 22,
+    "pronounce_text_begin": 0,
+    "pronounce_text_end": 22
+  },
+  {
+    "text": "所以真正发微信的动作，仍然回到主线程执行。",
+    "pronounce_text": "所以真正发微信的动作，仍然回到主线程执行。",
+    "time_begin": 3276,
+    "time_end": 7158.222222222223,
+    "text_begin": 22,
+    "text_end": 43,
+    "pronounce_text_begin": 22,
+    "pronounce_text_end": 43
+  },
+  {
+    "text": "微信 GUI 自动化最容易出问题的地方，是行为太像机器。",
+    "pronounce_text": "微信GUI自动化最容易出问题的地方，是行为太像机器。",
+    "time_begin": 8352,
+    "time_end": 11909.142857142857,
+    "text_begin": 43,
+    "text_end": 71,
+    "pronounce_text_begin": 43,
+    "pronounce_text_end": 69
+  },
+  {
+    "text": "比如鼠标每次都走直线，点击位置完全一样。",
+    "pronounce_text": "比如鼠标每次都走直线，点击位置完全一样。",
+    "time_begin": 12528,
+    "time_end": 16294.122448979591,
+    "text_begin": 71,
+    "text_end": 91,
+    "pronounce_text_begin": 69,
+    "pronounce_text_end": 89
+  },
+  {
+    "text": "键盘输入间隔固定，窗口一直保持前台。",
+    "pronounce_text": "键盘输入间隔固定，窗口一直保持前台。",
+    "time_begin": 16452,
+    "time_end": 19800.163265306124,
+    "text_begin": 91,
+    "text_end": 109,
+    "pronounce_text_begin": 89,
+    "pronounce_text_end": 107
+  },
+  {
+    "text": "这些都不是正常用户的操作习惯。",
+    "pronounce_text": "这些都不是正常用户的操作习惯。",
+    "time_begin": 19944,
+    "time_end": 22433.02494331066,
+    "text_begin": 109,
+    "text_end": 124,
+    "pronounce_text_begin": 107,
+    "pronounce_text_end": 122
+  },
+  {
+    "text": "所以项目在底层做了一组反检测 Patch。",
+    "pronounce_text": "所以项目在底层做了一组反检测Patch。",
+    "time_begin": 23112,
+    "time_end": 26169.913832199545,
+    "text_begin": 124,
+    "text_end": 145,
+    "pronounce_text_begin": 122,
+    "pronounce_text_end": 142
+  },
+  {
+    "text": "鼠标移动使用贝塞尔曲线路径，并加入高斯扰动。",
+    "pronounce_text": "鼠标移动使用贝塞尔曲线路径，并加入高斯扰动。",
+    "time_begin": 26784,
+    "time_end": 30770.71201814059,
+    "text_begin": 145,
+    "text_end": 167,
+    "pronounce_text_begin": 142,
+    "pronounce_text_end": 164
+  },
+  {
+    "text": "点击前后会有随机等待。",
+    "pronounce_text": "点击前后会有随机等待。",
+    "time_begin": 30924,
+    "time_end": 32983.45578231292,
+    "text_begin": 167,
+    "text_end": 178,
+    "pronounce_text_begin": 164,
+    "pronounce_text_end": 175
+  },
+  {
+    "text": "键盘输入会模拟按键之间的时间差。",
+    "pronounce_text": "键盘输入会模拟按键之间的时间差。",
+    "time_begin": 33120,
+    "time_end": 35783.1746031746,
+    "text_begin": 178,
+    "text_end": 194,
+    "pronounce_text_begin": 175,
+    "pronounce_text_end": 191
+  },
+  {
+    "text": "窗口显示会移除不自然的置顶状态。",
+    "pronounce_text": "窗口显示会移除不自然的置顶状态。",
+    "time_begin": 35928,
+    "time_end": 38707.274376417234,
+    "text_begin": 194,
+    "text_end": 210,
+    "pronounce_text_begin": 191,
+    "pronounce_text_end": 207
+  },
+  {
+    "text": "发送完成后，还会切回安全聊天并最小化微信。",
+    "pronounce_text": "发送完成后，还会切回安全聊天并最小化微信。",
+    "time_begin": 38844,
+    "time_end": 42366.31292517007,
+    "text_begin": 210,
+    "text_end": 231,
+    "pronounce_text_begin": 207,
+    "pronounce_text_end": 228
+  },
+  {
+    "text": "更重要的是，这些逻辑不需要每个实例或者 Agent 自己实现。",
+    "pronounce_text": "更重要的是，这些逻辑不需要每个实例或者Agent自己实现。",
+    "time_begin": 43056,
+    "time_end": 46822.12244897959,
+    "text_begin": 231,
+    "text_end": 262,
+    "pronounce_text_begin": 228,
+    "pronounce_text_end": 257
+  },
+  {
+    "text": "SteamAuto、ChatAuto、KouriChat 只关心业务。",
+    "pronounce_text": "SteamAuto、ChatAuto、KouriChat只关心业务。",
+    "time_begin": 46980,
+    "time_end": 51245.3514739229,
+    "text_begin": 262,
+    "text_end": 297,
+    "pronounce_text_begin": 257,
+    "pronounce_text_end": 291
+  },
+  {
+    "text": "外部 Agent 只需要调用 Bot API。",
+    "pronounce_text": "外部Agent只需要调用Bot API。",
+    "time_begin": 51408,
+    "time_end": 54106.00453514739,
+    "text_begin": 297,
+    "text_end": 320,
+    "pronounce_text_begin": 291,
+    "pronounce_text_end": 311
+  },
+  {
+    "text": "真正“像人一样操作微信”的细节，由 Core 层统一处理。",
+    "pronounce_text": "真正“像人一样操作微信”的细节，由Core层统一处理。",
+    "time_begin": 54252,
+    "time_end": 58343.20181405896,
+    "text_begin": 320,
+    "text_end": 349,
+    "pronounce_text_begin": 311,
+    "pronounce_text_end": 338
+  },
+  {
+    "text": "主循环可以理解成五步。",
+    "pronounce_text": "主循环可以理解成五步。",
+    "time_begin": 59544,
+    "time_end": 61324.816326530614,
+    "text_begin": 349,
+    "text_end": 360,
+    "pronounce_text_begin": 338,
+    "pronounce_text_end": 349
+  },
+  {
+    "text": "第一步，检查维护窗口。",
+    "pronounce_text": "第一步，检查维护窗口。",
+    "time_begin": 61956,
+    "time_end": 63876.13605442177,
+    "text_begin": 360,
+    "text_end": 371,
+    "pronounce_text_begin": 349,
+    "pronounce_text_end": 360
+  },
+  {
+    "text": "默认在维护时间段减少主动操作，降低异常和无效动作。",
+    "pronounce_text": "默认在维护时间段减少主动操作，降低异常和无效动作。",
+    "time_begin": 64044,
+    "time_end": 68738.92063492064,
+    "text_begin": 371,
+    "text_end": 396,
+    "pronounce_text_begin": 360,
+    "pronounce_text_end": 385
+  },
+  {
+    "text": "第二步，处理 Web 消息。",
+    "pronounce_text": "第二步，处理Web消息。",
+    "time_begin": 69300,
+    "time_end": 70755.73696145124,
+    "text_begin": 396,
+    "text_end": 410,
+    "pronounce_text_begin": 385,
+    "pronounce_text_end": 397
+  },
+  {
+    "text": "来自远程面板的指令会先进入队列，再走统一逻辑。",
+    "pronounce_text": "来自远程面板的指令会先进入队列，再走统一逻辑。",
+    "time_begin": 70920,
+    "time_end": 74837.05215419501,
+    "text_begin": 410,
+    "text_end": 433,
+    "pronounce_text_begin": 397,
+    "pronounce_text_end": 420
+  },
+  {
+    "text": "第三步，消费发送队列。",
+    "pronounce_text": "第三步，消费发送队列。",
+    "time_begin": 75384,
+    "time_end": 77408.62585034013,
+    "text_begin": 433,
+    "text_end": 444,
+    "pronounce_text_begin": 420,
+    "pronounce_text_end": 431
+  },
+  {
+    "text": "后台实例产生的所有待发送消息，都会在这里由主线程统一发送。",
+    "pronounce_text": "后台实例产生的所有待发送消息，都会在这里由主线程统一发送。",
+    "time_begin": 77580,
+    "time_end": 82100.77097505669,
+    "text_begin": 444,
+    "text_end": 473,
+    "pronounce_text_begin": 431,
+    "pronounce_text_end": 460
+  },
+  {
+    "text": "第四步，接收和分发新消息。",
+    "pronounce_text": "第四步，接收和分发新消息。",
+    "time_begin": 82656,
+    "time_end": 85354.0045351474,
+    "text_begin": 473,
+    "text_end": 486,
+    "pronounce_text_begin": 460,
+    "pronounce_text_end": 473
+  },
+  {
+    "text": "程序检测微信新消息，再根据路由规则交给不同实例处理。",
+    "pronounce_text": "程序检测微信新消息，再根据路由规则交给不同实例处理。",
+    "time_begin": 85500,
+    "time_end": 90229.75056689343,
+    "text_begin": 486,
+    "text_end": 512,
+    "pronounce_text_begin": 473,
+    "pronounce_text_end": 499
+  },
+  {
+    "text": "第五步，空闲时最小化微信窗口。",
+    "pronounce_text": "第五步，空闲时最小化微信窗口。",
+    "time_begin": 90792,
+    "time_end": 93849.91383219954,
+    "text_begin": 512,
+    "text_end": 527,
+    "pronounce_text_begin": 499,
+    "pronounce_text_end": 514
+  },
+  {
+    "text": "主循环的顺序很重要。",
+    "pronounce_text": "主循环的顺序很重要。",
+    "time_begin": 94536,
+    "time_end": 96316.8163265306,
+    "text_begin": 527,
+    "text_end": 537,
+    "pronounce_text_begin": 514,
+    "pronounce_text_end": 524
+  },
+  {
+    "text": "项目优先处理待发送消息，再去读取新消息。",
+    "pronounce_text": "项目优先处理待发送消息，再去读取新消息。",
+    "time_begin": 96480,
+    "time_end": 99967.48299319728,
+    "text_begin": 537,
+    "text_end": 557,
+    "pronounce_text_begin": 524,
+    "pronounce_text_end": 544
+  },
+  {
+    "text": "这样可以减少切换聊天窗口时，未读状态被清掉的竞态问题。",
+    "pronounce_text": "这样可以减少切换聊天窗口时，未读状态被清掉的竞态问题。",
+    "time_begin": 100116,
+    "time_end": 105019.90022675737,
+    "text_begin": 557,
+    "text_end": 584,
+    "pronounce_text_begin": 544,
+    "pronounce_text_end": 571
+  },
+  {
+    "text": "消息进入系统后，会分成两种路由方式。",
+    "pronounce_text": "消息进入系统后，会分成两种路由方式。",
+    "time_begin": 106200,
+    "time_end": 108863.1746031746,
+    "text_begin": 584,
+    "text_end": 602,
+    "pronounce_text_begin": 571,
+    "pronounce_text_end": 589
+  },
+  {
+    "text": "第一种是独占实例。",
+    "pronounce_text": "第一种是独占实例。",
+    "time_begin": 109476,
+    "time_end": 111152.32653061225,
+    "text_begin": 602,
+    "text_end": 611,
+    "pronounce_text_begin": 589,
+    "pronounce_text_end": 598
+  },
+  {
+    "text": "比如 ChatAuto 只处理带固定前缀的消息。",
+    "pronounce_text": "比如ChatAuto只处理带固定前缀的消息。",
+    "time_begin": 111312,
+    "time_end": 114439.57369614512,
+    "text_begin": 611,
+    "text_end": 635,
+    "pronounce_text_begin": 598,
+    "pronounce_text_end": 620
+  },
+  {
+    "text": "只要前缀匹配，这条消息就交给它，不再广播给其他实例。",
+    "pronounce_text": "只要前缀匹配，这条消息就交给它，不再广播给其他实例。",
+    "time_begin": 114588,
+    "time_end": 118923.01133786848,
+    "text_begin": 635,
+    "text_end": 661,
+    "pronounce_text_begin": 620,
+    "pronounce_text_end": 646
+  },
+  {
+    "text": "后续它可以直接调用大语言模型回复。",
+    "pronounce_text": "后续它可以直接调用大语言模型回复。",
+    "time_begin": 119088,
+    "time_end": 121832.44444444444,
+    "text_begin": 661,
+    "text_end": 678,
+    "pronounce_text_begin": 646,
+    "pronounce_text_end": 663
+  },
+  {
+    "text": "也可以把任务交给 AI Agent，再由 Agent 通过 Bot API 发回结果。",
+    "pronounce_text": "也可以把任务交给AI Agent，再由Agent通过Bot API发回结果。",
+    "time_begin": 122004,
+    "time_end": 126768.58049886621,
+    "text_begin": 678,
+    "text_end": 721,
+    "pronounce_text_begin": 663,
+    "pronounce_text_end": 701
+  },
+  {
+    "text": "如果用户发出明确命令。",
+    "pronounce_text": "如果用户发出明确命令。",
+    "time_begin": 127476,
+    "time_end": 129396.13605442178,
+    "text_begin": 721,
+    "text_end": 732,
+    "pronounce_text_begin": 701,
+    "pronounce_text_end": 712
+  },
+  {
+    "text": "这条消息就应该直接交给 ChatAuto。",
+    "pronounce_text": "这条消息就应该直接交给ChatAuto。",
+    "time_begin": 129564,
+    "time_end": 132192.3446712018,
+    "text_begin": 732,
+    "text_end": 753,
+    "pronounce_text_begin": 712,
+    "pronounce_text_end": 732
+  },
+  {
+    "text": "如果用户只是普通聊天，消息才会继续广播给 KouriChat 这类上下文监听模块。",
+    "pronounce_text": "如果用户只是普通聊天，消息才会继续广播给KouriChat这类上下文监听模块。",
+    "time_begin": 132336,
+    "time_end": 138064.20861678006,
+    "text_begin": 753,
+    "text_end": 794,
+    "pronounce_text_begin": 732,
+    "pronounce_text_end": 771
+  },
+  {
+    "text": "第二种是广播实例。",
+    "pronounce_text": "第二种是广播实例。",
+    "time_begin": 138744,
+    "time_end": 140594.47619047618,
+    "text_begin": 794,
+    "text_end": 803,
+    "pronounce_text_begin": 771,
+    "pronounce_text_end": 780
+  },
+  {
+    "text": "普通群聊消息会分发给需要全量监听的模块，比如 KouriChat。",
+    "pronounce_text": "普通群聊消息会分发给需要全量监听的模块，比如KouriChat。",
+    "time_begin": 140760,
+    "time_end": 145698.73015873015,
+    "text_begin": 803,
+    "text_end": 836,
+    "pronounce_text_begin": 780,
+    "pronounce_text_end": 812
+  },
+  {
+    "text": "这样它可以观察上下文，再决定是否参与对话。",
+    "pronounce_text": "这样它可以观察上下文，再决定是否参与对话。",
+    "time_begin": 145836,
+    "time_end": 149393.14285714287,
+    "text_begin": 836,
+    "text_end": 857,
+    "pronounce_text_begin": 812,
+    "pronounce_text_end": 833
+  },
+  {
+    "text": "这个设计解决的是：",
+    "pronounce_text": "这个设计解决的是：",
+    "time_begin": 150084,
+    "time_end": 151969.306122449,
+    "text_begin": 857,
+    "text_end": 866,
+    "pronounce_text_begin": 833,
+    "pronounce_text_end": 842
+  },
+  {
+    "text": "多个功能同时监听一个群聊时，谁应该处理消息的问题。",
+    "pronounce_text": "多个功能同时监听一个群聊时，谁应该处理消息的问题。",
+    "time_begin": 152136,
+    "time_end": 156331.69160997734,
+    "text_begin": 866,
+    "text_end": 891,
+    "pronounce_text_begin": 842,
+    "pronounce_text_end": 867
+  },
+  {
+    "text": "命令式功能和自然对话式功能可以共存，而且不会互相抢消息。",
+    "pronounce_text": "命令式功能和自然对话式功能可以共存，而且不会互相抢消息。",
+    "time_begin": 156492,
+    "time_end": 161395.90022675737,
+    "text_begin": 891,
+    "text_end": 919,
+    "pronounce_text_begin": 867,
+    "pronounce_text_end": 895
+  },
+  {
+    "text": "远程管理这部分，核心是 Agent 主动连出。",
+    "pronounce_text": "远程管理这部分，核心是Agent主动连出。",
+    "time_begin": 162576,
+    "time_end": 166063.48299319728,
+    "text_begin": 919,
+    "text_end": 942,
+    "pronounce_text_begin": 895,
+    "pronounce_text_end": 916
+  },
+  {
+    "text": "Bot 所在机器通常在内网，没有公网 IP。",
+    "pronounce_text": "Bot所在机器通常在内网，没有公网IP。",
+    "time_begin": 166680,
+    "time_end": 170028.16326530612,
+    "text_begin": 942,
+    "text_end": 964,
+    "pronounce_text_begin": 916,
+    "pronounce_text_end": 936
+  },
+  {
+    "text": "如果要求用户做端口映射或者内网穿透，部署会很麻烦，也会增加安全风险。",
+    "pronounce_text": "如果要求用户做端口映射或者内网穿透，部署会很麻烦，也会增加安全风险。",
+    "time_begin": 170172,
+    "time_end": 175540.2993197279,
+    "text_begin": 964,
+    "text_end": 998,
+    "pronounce_text_begin": 936,
+    "pronounce_text_end": 970
+  },
+  {
+    "text": "这个项目的做法是：",
+    "pronounce_text": "这个项目的做法是：",
+    "time_begin": 176220,
+    "time_end": 177640.90702947846,
+    "text_begin": 998,
+    "text_end": 1007,
+    "pronounce_text_begin": 970,
+    "pronounce_text_end": 979
+  },
+  {
+    "text": "Agent 跑在内网 Windows 上，主动通过 WebSocket 连接公网 Server。",
+    "pronounce_text": "Agent跑在内网Windows上，主动通过WebSocket连接公网Server。",
+    "time_begin": 177804,
+    "time_end": 182498.92063492062,
+    "text_begin": 1007,
+    "text_end": 1055,
+    "pronounce_text_begin": 979,
+    "pronounce_text_end": 1021
+  },
+  {
+    "text": "浏览器只需要访问 Server。",
+    "pronounce_text": "浏览器只需要访问Server。",
+    "time_begin": 182664,
+    "time_end": 184409.9863945578,
+    "text_begin": 1055,
+    "text_end": 1071,
+    "pronounce_text_begin": 1021,
+    "pronounce_text_end": 1036
+  },
+  {
+    "text": "Server 再把请求转发给 Agent。",
+    "pronounce_text": "Server再把请求转发给Agent。",
+    "time_begin": 184572,
+    "time_end": 187130.68480725624,
+    "text_begin": 1071,
+    "text_end": 1092,
+    "pronounce_text_begin": 1036,
+    "pronounce_text_end": 1055
+  },
+  {
+    "text": "所以在 Web 面板里，我们可以看到 Bot 状态、运行时间、实例状态和实时日志。",
+    "pronounce_text": "所以在Web面板里，我们可以看到Bot状态、运行时间、实例状态和实时日志。",
+    "time_begin": 187812,
+    "time_end": 193749.18820861678,
+    "text_begin": 1092,
+    "text_end": 1133,
+    "pronounce_text_begin": 1055,
+    "pronounce_text_end": 1092
+  },
+  {
+    "text": "也可以修改配置、上传文件、执行启动、停止和重启。",
+    "pronounce_text": "也可以修改配置、上传文件、执行启动、停止和重启。",
+    "time_begin": 193896,
+    "time_end": 198416.7709750567,
+    "text_begin": 1133,
+    "text_end": 1157,
+    "pronounce_text_begin": 1092,
+    "pronounce_text_end": 1116
+  },
+  {
+    "text": "这说明 Bot 不是只能在本机控制。",
+    "pronounce_text": "这说明Bot不是只能在本机控制。",
+    "time_begin": 199116,
+    "time_end": 201779.17460317462,
+    "text_begin": 1157,
+    "text_end": 1175,
+    "pronounce_text_begin": 1116,
+    "pronounce_text_end": 1132
+  },
+  {
+    "text": "而是可以远程观测、远程配置、远程运维。",
+    "pronounce_text": "而是可以远程观测、远程配置、远程运维。",
+    "time_begin": 201924,
+    "time_end": 205585.6326530612,
+    "text_begin": 1175,
+    "text_end": 1194,
+    "pronounce_text_begin": 1132,
+    "pronounce_text_end": 1151
+  },
+  {
+    "text": "Web 面板把运维能力集中在一起。",
+    "pronounce_text": "Web面板把运维能力集中在一起。",
+    "time_begin": 206784,
+    "time_end": 209412.3446712018,
+    "text_begin": 1194,
+    "text_end": 1211,
+    "pronounce_text_begin": 1151,
+    "pronounce_text_end": 1167
+  },
+  {
+    "text": "Dashboard 用来看 Agent 和 Bot 是否在线。",
+    "pronounce_text": "Dashboard用来看Agent和Bot是否在线。",
+    "time_begin": 210024,
+    "time_end": 212872.9342403628,
+    "text_begin": 1211,
+    "text_end": 1242,
+    "pronounce_text_begin": 1167,
+    "pronounce_text_end": 1193
+  },
+  {
+    "text": "Config 用来编辑 JSON 配置，并支持备份恢复。",
+    "pronounce_text": "Config用来编辑JSON配置，并支持备份恢复。",
+    "time_begin": 213012,
+    "time_end": 216998.7120181406,
+    "text_begin": 1242,
+    "text_end": 1270,
+    "pronounce_text_begin": 1193,
+    "pronounce_text_end": 1218
+  },
+  {
+    "text": "Control 用来执行启动、停止和重启。",
+    "pronounce_text": "Control用来执行启动、停止和重启。",
+    "time_begin": 217152,
+    "time_end": 220000.9342403628,
+    "text_begin": 1270,
+    "text_end": 1291,
+    "pronounce_text_begin": 1218,
+    "pronounce_text_end": 1238
+  },
+  {
+    "text": "Logs 用来查看实时日志和历史日志。",
+    "pronounce_text": "Logs用来查看实时日志和历史日志。",
+    "time_begin": 220140,
+    "time_end": 223197.91383219956,
+    "text_begin": 1291,
+    "text_end": 1310,
+    "pronounce_text_begin": 1238,
+    "pronounce_text_end": 1256
+  },
+  {
+    "text": "Files 用来管理 Web 端或 Agent 端上传文件。",
+    "pronounce_text": "Files用来管理Web端或Agent端上传文件。",
+    "time_begin": 223344,
+    "time_end": 226436.74376417234,
+    "text_begin": 1310,
+    "text_end": 1340,
+    "pronounce_text_begin": 1256,
+    "pronounce_text_end": 1281
+  },
+  {
+    "text": "Chat 用来把网页消息转发给 Bot 实例，并可选择同步到微信，或仅在网页显示。",
+    "pronounce_text": "Chat用来把网页消息转发给Bot实例，并可选择同步到微信，或仅在网页显示。",
+    "time_begin": 226584,
+    "time_end": 232416.6984126984,
+    "text_begin": 1340,
+    "text_end": 1381,
+    "pronounce_text_begin": 1281,
+    "pronounce_text_end": 1319
+  },
+  {
+    "text": "如果从网页 Chat 发出一条消息。",
+    "pronounce_text": "如果从网页Chat发出一条消息。",
+    "time_begin": 233208,
+    "time_end": 235627.3650793651,
+    "text_begin": 1381,
+    "text_end": 1399,
+    "pronounce_text_begin": 1319,
+    "pronounce_text_end": 1335
+  },
+  {
+    "text": "后面会依次经过 Web 请求、Agent 转发、Bot 发送队列。",
+    "pronounce_text": "后面会依次经过Web请求、Agent转发、Bot发送队列。",
+    "time_begin": 235764,
+    "time_end": 240215.11111111112,
+    "text_begin": 1399,
+    "text_end": 1432,
+    "pronounce_text_begin": 1335,
+    "pronounce_text_end": 1364
+  },
+  {
+    "text": "最后由微信窗口完成发送。",
+    "pronounce_text": "最后由微信窗口完成发送。",
+    "time_begin": 240372,
+    "time_end": 242582.38548752834,
+    "text_begin": 1432,
+    "text_end": 1444,
+    "pronounce_text_begin": 1364,
+    "pronounce_text_end": 1376
+  },
+  {
+    "text": "这样网页控制不是一个独立面板，而是真的接到了 Bot 的发送通道上。",
+    "pronounce_text": "这样网页控制不是一个独立面板，而是真的接到了Bot的发送通道上。",
+    "time_begin": 242748,
+    "time_end": 247942.14965986394,
+    "text_begin": 1444,
+    "text_end": 1478,
+    "pronounce_text_begin": 1376,
+    "pronounce_text_end": 1408
+  },
+  {
+    "text": "对一个长期运行的机器人来说，功能本身很重要。",
+    "pronounce_text": "对一个长期运行的机器人来说，功能本身很重要。",
+    "time_begin": 248760,
+    "time_end": 252177.8231292517,
+    "text_begin": 1478,
+    "text_end": 1500,
+    "pronounce_text_begin": 1408,
+    "pronounce_text_end": 1430
+  },
+  {
+    "text": "但可观测和可维护同样重要。",
+    "pronounce_text": "但可观测和可维护同样重要。",
+    "time_begin": 252324,
+    "time_end": 254813.02494331065,
+    "text_begin": 1500,
+    "text_end": 1513,
+    "pronounce_text_begin": 1430,
+    "pronounce_text_end": 1443
+  },
+  {
+    "text": "否则一旦 Bot 跑在另一台电脑上，出问题就只能远程桌面，或者手动查日志。",
+    "pronounce_text": "否则一旦Bot跑在另一台电脑上，出问题就只能远程桌面，或者手动查日志。",
+    "time_begin": 254952,
+    "time_end": 261109.77777777778,
+    "text_begin": 1513,
+    "text_end": 1550,
+    "pronounce_text_begin": 1443,
+    "pronounce_text_end": 1478
+  },
+  {
+    "text": "维护成本会很高。",
+    "pronounce_text": "维护成本会很高。",
+    "time_begin": 261252,
+    "time_end": 262812.2267573696,
+    "text_begin": 1550,
+    "text_end": 1558,
+    "pronounce_text_begin": 1478,
+    "pronounce_text_end": 1486
+  },
+  {
+    "text": "总结一下。",
+    "pronounce_text": "总结一下。",
+    "time_begin": 264024,
+    "time_end": 265015.3378684807,
+    "text_begin": 1558,
+    "text_end": 1563,
+    "pronounce_text_begin": 1486,
+    "pronounce_text_end": 1491
+  },
+  {
+    "text": "cs-Solidarity 表面上是一个微信机器人。",
+    "pronounce_text": "cs-Solidarity表面上是一个微信机器人。",
+    "time_begin": 265644,
+    "time_end": 268771.57369614515,
+    "text_begin": 1563,
+    "text_end": 1589,
+    "pronounce_text_begin": 1491,
+    "pronounce_text_end": 1516
+  },
+  {
+    "text": "但它真正的工程价值，是把微信 GUI 自动化做成了一套框架。",
+    "pronounce_text": "但它真正的工程价值，是把微信GUI自动化做成了一套框架。",
+    "time_begin": 268920,
+    "time_end": 273440.7709750567,
+    "text_begin": 1589,
+    "text_end": 1619,
+    "pronounce_text_begin": 1516,
+    "pronounce_text_end": 1544
+  },
+  {
+    "text": "第一，线程安全。",
+    "pronounce_text": "第一，线程安全。",
+    "time_begin": 274140,
+    "time_end": 275885.9863945578,
+    "text_begin": 1619,
+    "text_end": 1627,
+    "pronounce_text_begin": 1544,
+    "pronounce_text_end": 1552
+  },
+  {
+    "text": "后台实例只负责业务逻辑和消息入队。",
+    "pronounce_text": "后台实例只负责业务逻辑和消息入队。",
+    "time_begin": 276048,
+    "time_end": 278896.93424036284,
+    "text_begin": 1627,
+    "text_end": 1644,
+    "pronounce_text_begin": 1552,
+    "pronounce_text_end": 1569
+  },
+  {
+    "text": "真正操作微信的动作，统一回到主线程。",
+    "pronounce_text": "真正操作微信的动作，统一回到主线程。",
+    "time_begin": 279036,
+    "time_end": 281989.4240362812,
+    "text_begin": 1644,
+    "text_end": 1662,
+    "pronounce_text_begin": 1569,
+    "pronounce_text_end": 1587
+  },
+  {
+    "text": "第二，模块化扩展。",
+    "pronounce_text": "第二，模块化扩展。",
+    "time_begin": 282600,
+    "time_end": 284345.9863945578,
+    "text_begin": 1662,
+    "text_end": 1671,
+    "pronounce_text_begin": 1587,
+    "pronounce_text_end": 1596
+  },
+  {
+    "text": "Steam、AI、信息推送、灾害预警，都可以作为独立实例接入。",
+    "pronounce_text": "Steam、AI、信息推送、灾害预警，都可以作为独立实例接入。",
+    "time_begin": 0,
+    "time_end": 4625.260770975056,
+    "text_begin": 0,
+    "text_end": 31,
+    "pronounce_text_begin": 0,
+    "pronounce_text_end": 31
+  },
+  {
+    "text": "不需要破坏主循环。",
+    "pronounce_text": "不需要破坏主循环。",
+    "time_begin": 4788,
+    "time_end": 6429.496598639455,
+    "text_begin": 31,
+    "text_end": 40,
+    "pronounce_text_begin": 31,
+    "pronounce_text_end": 40
+  },
+  {
+    "text": "第三，远程可运维。",
+    "pronounce_text": "第三，远程可运维。",
+    "time_begin": 7056,
+    "time_end": 8906.47619047619,
+    "text_begin": 40,
+    "text_end": 49,
+    "pronounce_text_begin": 40,
+    "pronounce_text_end": 49
+  },
+  {
+    "text": "Agent 主动连接 Server。",
+    "pronounce_text": "Agent主动连接Server。",
+    "time_begin": 9072,
+    "time_end": 11096.625850340137,
+    "text_begin": 49,
+    "text_end": 67,
+    "pronounce_text_begin": 49,
+    "pronounce_text_end": 65
+  },
+  {
+    "text": "让内网 Windows 上的 Bot，也可以通过公网 Web 面板管理。",
+    "pronounce_text": "让内网Windows上的Bot，也可以通过公网Web面板管理。",
+    "time_begin": 11268,
+    "time_end": 14964.462585034013,
+    "text_begin": 67,
+    "text_end": 103,
+    "pronounce_text_begin": 65,
+    "pronounce_text_end": 96
+  },
+  {
+    "text": "如果你关注微信自动化、游戏数据推送、AI 群聊机器人。",
+    "pronounce_text": "如果你关注微信自动化、游戏数据推送、AI群聊机器人。",
+    "time_begin": 15660,
+    "time_end": 19820.861678004534,
+    "text_begin": 103,
+    "text_end": 130,
+    "pronounce_text_begin": 96,
+    "pronounce_text_end": 122
+  },
+  {
+    "text": "或者想看一个 GUI 自动化项目，怎么做成可维护的系统。",
+    "pronounce_text": "或者想看一个GUI自动化项目，怎么做成可维护的系统。",
+    "time_begin": 19980,
+    "time_end": 24071.201814058957,
+    "text_begin": 130,
+    "text_end": 158,
+    "pronounce_text_begin": 122,
+    "pronounce_text_end": 148
+  },
+  {
+    "text": "这个项目会是一个很好的参考。",
+    "pronounce_text": "这个项目会是一个很好的参考。",
+    "time_begin": 24228,
+    "time_end": 26217.79591836735,
+    "text_begin": 158,
+    "text_end": 172,
+    "pronounce_text_begin": 148,
+    "pronounce_text_end": 162
+  },
+  {
+    "text": "以上就是 cs-Solidarity 的项目介绍。",
+    "pronounce_text": "以上就是cs-Solidarity的项目介绍。",
+    "time_begin": 27252,
+    "time_end": 30066.104308390022,
+    "text_begin": 172,
+    "text_end": 197,
+    "pronounce_text_begin": 162,
+    "pronounce_text_end": 185
+  }
+]

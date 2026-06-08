@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cs-Solidarity 视频逐页预览</title>
+    <style>
+      :root{
+        --bg:#f6f4ee;
+        --paper:#fffdf8;
+        --ink:#0b1020;
+        --muted:#5f6678;
+        --blue:#0b3d91;
+        --blue-2:#1d56d8;
+        --green:#95ec69;
+        --line:rgba(11,16,32,.14);
+        --shadow:24px 24px 0 rgba(11,61,145,.16);
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        color: var(--ink);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      body {
+        min-height: 100vh;
+        padding: 20px;
+        background:
+          radial-gradient(circle at 20% 20%, rgba(29,86,216,.12), transparent 30%),
+          radial-gradient(circle at 85% 12%, rgba(11,61,145,.12), transparent 24%),
+          linear-gradient(180deg, #fbfaf6, var(--bg));
+      }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        padding: 18px 22px;
+        margin-bottom: 18px;
+        background: rgba(255,255,255,.72);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        backdrop-filter: blur(12px);
+      }
+      .toolbar-title {
+        margin-right: 16px;
+        font: 700 13px/1.2 Consolas, monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .nav-btn {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.72);
+        color: var(--ink);
+        padding: 10px 12px;
+        border-radius: 999px;
+        font: 600 12px/1 Consolas, monospace;
+        cursor: pointer;
+      }
+      .nav-btn.active {
+        background: var(--blue);
+        color: #ffffff;
+        border-color: var(--blue);
+      }
+      .canvas {
+        width: 1920px;
+        height: 1080px;
+        margin: 0 auto;
+        position: relative;
+        overflow: hidden;
+        border: 2px solid rgba(11,16,32,.14);
+        background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.76));
+        box-shadow: var(--shadow);
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        color: var(--ink);
+        display: none;
+      }
+      .scene.active { display: block; }
+      .scene.blue {
+        background: var(--blue);
+        color: #ffffff;
+      }
+      .scene.split {
+        background: linear-gradient(90deg, var(--blue) 0 47%, rgba(255,255,255,.78) 47% 100%);
+        color: var(--ink);
+      }
+      .grid-bg {
+        position: absolute;
+        inset: 0;
+        opacity: 0.55;
+        background-image:
+          linear-gradient(90deg, rgba(10,10,10,0.08) 1px, rgba(10,10,10,0) 1px),
+          linear-gradient(rgba(10,10,10,0.08) 1px, rgba(10,10,10,0) 1px);
+        background-size: 64px 64px;
+      }
+      .blue .grid-bg {
+        opacity: 0.36;
+        background-image:
+          linear-gradient(90deg, rgba(255,255,255,0.16) 1px, rgba(255,255,255,0) 1px),
+          linear-gradient(rgba(255,255,255,0.16) 1px, rgba(255,255,255,0) 1px);
+      }
+      .dot-block {
+        position: absolute;
+        width: 420px;
+        height: 260px;
+        background-image: radial-gradient(currentColor 1.4px, rgba(0,0,0,0) 1.4px);
+        background-size: 16px 16px;
+        opacity: 0.18;
+      }
+      .dot-a { right: 84px; top: 86px; color: var(--blue); }
+      .dot-b { left: 84px; bottom: 92px; color: var(--ink); opacity: 0.09; }
+      .blue .dot-a, .blue .dot-b { color: #ffffff; opacity: 0.2; }
+      .scene-content {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        padding: 54px 74px 124px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .chrome {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        font-family: Consolas, monospace;
+        font-size: 18px;
+        font-weight: 500;
+        line-height: 1.3;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-bottom: 1px solid rgba(11,16,32,.22);
+        padding-bottom: 18px;
+      }
+      .blue .chrome {
+        color: rgba(255,255,255,0.72);
+        border-bottom-color: rgba(255,255,255,0.28);
+      }
+      .two-col {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 0.88fr 1.12fr;
+        gap: 54px;
+        align-items: center;
+      }
+      .hero-col { grid-template-columns: 0.76fr 1.24fr; }
+      .copy-block {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        min-width: 0;
+      }
+      .top-copy { max-width: 1280px; }
+      .kicker {
+        font: 700 13px/1.2 Consolas, monospace;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      .blue .kicker, .blue .cover-meta { color: rgba(255,255,255,0.78); }
+      h1 {
+        margin: 14px 0 18px;
+        font-size: 86px;
+        font-weight: 700;
+        line-height: .95;
+        letter-spacing: -.03em;
+        max-width: 1200px;
+      }
+      .cover-layout h1, .summary-layout h1 {
+        font-size: 150px;
+        max-width: 1700px;
+      }
+      p {
+        margin: 0;
+        font: 400 21px/1.55 Arial, Helvetica, sans-serif;
+        color: var(--muted);
+        max-width: 980px;
+      }
+      .blue p { color: rgba(255,255,255,0.84); }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .tag-row span, .github {
+        display: inline-flex;
+        align-items: center;
+        border: 2px solid var(--blue);
+        background: var(--blue);
+        color: #ffffff;
+        padding: 10px 14px;
+        font-family: Consolas, monospace;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .github {
+        width: max-content;
+        margin-top: 12px;
+        background: #0a0a0a;
+        border-color: #0a0a0a;
+      }
+      .wechat-window {
+        height: 780px;
+        background: #f4f4f2;
+        border: 3px solid #0a0a0a;
+        box-shadow: 24px 24px 0 var(--blue);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .wechat-title {
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 2px solid #0a0a0a;
+        font-family: Consolas, monospace;
+        font-size: 18px;
+        color: #525252;
+      }
+      .chat-stream {
+        flex: 1;
+        min-height: 0;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .wx-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0;
+      }
+      .wx-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .wx-right .wx-stack {
+        align-items: flex-end;
+      }
+      .wx-left { justify-content: flex-start; }
+      .wx-right { justify-content: flex-end; }
+      .wx-bubble {
+        max-width: 700px;
+        background: #ffffff;
+        border: 2px solid var(--ink);
+        padding: 14px 16px;
+        border-radius: 12px;
+        color: var(--ink);
+        font: 400 18px/1.35 Arial, Helvetica, sans-serif;
+        box-shadow: 8px 8px 0 rgba(11,61,145,.12);
+      }
+      .wx-bubble.compact {
+        font-size: 15px;
+        line-height: 1.38;
+      }
+      .wx-bubble.me {
+        background: var(--green);
+        box-shadow: 8px 8px 0 rgba(11,16,32,.10);
+      }
+      .wx-bubble.weather {
+        max-width: 760px;
+        background: #eef4ff;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      .sender {
+        margin: 0 4px;
+        font: 700 12px/1.2 Arial, Helvetica, sans-serif;
+        color: var(--muted);
+      }
+      .accent-bubble { background: #eef4ff; }
+      .wx-bubble b { color: var(--blue); }
+      .cap-grid {
+        display: grid;
+        gap: 12px;
+      }
+      .cap {
+        background: rgba(255,255,255,.78);
+        border: 2px solid rgba(11,16,32,.12);
+        border-radius: 16px;
+        padding: 16px 18px;
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+      .cap-key {
+        font: 700 34px/1 Georgia, "Times New Roman", serif;
+        color: var(--blue);
+        letter-spacing: -0.04em;
+      }
+      .cap-copy {
+        display: grid;
+        gap: 6px;
+      }
+      .cap-copy b {
+        display: block;
+        font: 700 12px/1.2 Consolas, monospace;
+        color: var(--blue);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .cap-copy span {
+        display: block;
+        font: 400 18px/1.36 Arial, Helvetica, sans-serif;
+        color: var(--muted);
+      }
+      .screen-layout {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 0.75fr 1.25fr;
+        gap: 44px;
+        align-items: stretch;
+      }
+      .shot-grid {
+        display: grid;
+        grid-template-columns: 1.12fr 1fr 1fr;
+        grid-auto-rows: 238px;
+        gap: 16px;
+        min-height: 0;
+      }
+      .shot {
+        margin: 0;
+        background: #ffffff;
+        border: 2px solid #0a0a0a;
+        padding: 12px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .shot.tall { grid-row: span 3; }
+      .shot img, .diagram img, .mini-shots img {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+      }
+      .daily-shot img {
+        display: block;
+        width: auto;
+        height: 660px;
+        max-width: 100%;
+        max-height: none;
+        object-fit: contain;
+      }
+      .diagram {
+        margin: 0;
+        height: 700px;
+        background: #ffffff;
+        border: 3px solid #0a0a0a;
+        padding: 22px;
+        box-shadow: 22px 22px 0 rgba(0,47,167,0.88);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .blue .diagram { box-shadow: 22px 22px 0 rgba(255,255,255,0.26); }
+      .cover-layout, .summary-layout {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 28px;
+      }
+      .cover-layout h1, .summary-layout h1 {
+        align-self: center;
+        color: #ffffff;
+      }
+      .cover-meta {
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 20px;
+        text-transform: uppercase;
+      }
+      .cover-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.28);
+        padding-top: 24px;
+        gap: 36px;
+      }
+      .cover-bottom span {
+        color: rgba(255,255,255,0.62);
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 18px;
+        white-space: nowrap;
+      }
+      .principle-layout {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 47% 1fr;
+        gap: 54px;
+        align-items: stretch;
+      }
+      .blue-panel {
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 24px;
+        padding-right: 24px;
+      }
+      .blue-panel p { color: rgba(255,255,255,0.84); }
+      .principle-list {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .principle-list article {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 20px;
+        padding: 34px 0;
+        border-top: 2px solid #0a0a0a;
+      }
+      .principle-list b {
+        color: #002fa7;
+        font-size: 64px;
+        font-weight: 200;
+        line-height: 1;
+      }
+      .principle-list strong, .principle-list span { grid-column: 2; }
+      .principle-list strong {
+        display: block;
+        font-size: 42px;
+        font-weight: 300;
+      }
+      .principle-list span {
+        display: block;
+        margin-top: 10px;
+        font-size: 26px;
+        line-height: 1.35;
+        color: #525252;
+      }
+      .card-grid {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        gap: 18px;
+      }
+      .card-grid.four { grid-template-columns: repeat(4, 1fr); }
+      .card-grid.six { grid-template-columns: repeat(3, 1fr); }
+      .card-grid.compact {
+        grid-template-columns: repeat(2, 1fr);
+        flex: none;
+      }
+      .card-grid article, .summary-row article, .step-row article {
+        border: 2px solid #0a0a0a;
+        background: #ffffff;
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 180px;
+      }
+      .card-grid article:nth-child(1), .step-row article:nth-child(3) {
+        background: #002fa7;
+        color: #ffffff;
+      }
+      .card-grid article:nth-child(1) span, .step-row article:nth-child(3) span {
+        color: rgba(255,255,255,0.82);
+      }
+      .card-grid b, .summary-row b {
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 18px;
+        color: #002fa7;
+        font-weight: 600;
+      }
+      .card-grid article:nth-child(1) b { color: #ffffff; }
+      .card-grid strong, .summary-row strong {
+        display: block;
+        margin: 22px 0 18px;
+        font-size: 34px;
+        font-weight: 300;
+        line-height: 1.12;
+      }
+      .card-grid span, .summary-row span {
+        font-size: 24px;
+        line-height: 1.35;
+        color: #525252;
+      }
+      .mini-shots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .mini-shots figure {
+        height: 160px;
+        margin: 0;
+        border: 2px solid #0a0a0a;
+        background: #ffffff;
+        padding: 10px;
+      }
+      .step-row {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 16px;
+        align-items: stretch;
+      }
+      .step-row article { min-height: 380px; }
+      .step-row b {
+        font-size: 86px;
+        font-weight: 200;
+        line-height: 1;
+        color: #002fa7;
+      }
+      .step-row article:nth-child(3) b { color: #ffffff; }
+      .step-row span {
+        font-size: 32px;
+        line-height: 1.2;
+        font-weight: 300;
+        color: #0a0a0a;
+      }
+      .summary-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .summary-row article {
+        background: rgba(255,255,255,0.95);
+        min-height: 230px;
+      }
+      .summary-row strong { color: #0a0a0a; }
+      .summary-row span { color: #525252; }
+      #s01 .scene-content,
+      #s02 .scene-content {
+        padding-bottom: 72px;
+      }
+      #s01 .two-col,
+      #s02 .two-col {
+        align-items: stretch;
+      }
+      #s01 .wechat-window,
+      #s02 .wechat-window {
+        height: 860px;
+      }
+      #s01 .chat-stream,
+      #s02 .chat-stream {
+        padding: 16px 18px;
+        gap: 10px;
+      }
+      #s01 .sender,
+      #s02 .sender {
+        margin: 0 2px 4px;
+        font-size: 11px;
+      }
+      #s01 .wx-bubble,
+      #s02 .wx-bubble {
+        font-size: 18px;
+        line-height: 1.22;
+        padding: 12px 14px;
+      }
+      #s01 .wx-bubble.compact,
+      #s02 .wx-bubble.compact {
+        font-size: 15px;
+        line-height: 1.2;
+      }
+      #s01 .wx-bubble.weather,
+      #s02 .wx-bubble.weather {
+        font-size: 14px;
+        line-height: 1.18;
+      }
+      #s01 h1,
+      #s02 h1 {
+        font-size: 74px;
+        max-width: 920px;
+      }
+      #s01 p,
+      #s02 p {
+        font-size: 24px;
+        line-height: 1.38;
+      }
+      #s01 .cap-copy span,
+      #s02 .cap-copy span {
+        font-size: 18px;
+        line-height: 1.36;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <div class="toolbar-title">Static Preview From Final Video Layout</div>
+      <button class="nav-btn active" data-target="s01">01</button>
+      <button class="nav-btn" data-target="s02">02</button>
+      <button class="nav-btn" data-target="s03">03</button>
+      <button class="nav-btn" data-target="s04">04</button>
+      <button class="nav-btn" data-target="s05">05</button>
+      <button class="nav-btn" data-target="s06">06</button>
+      <button class="nav-btn" data-target="s07">07</button>
+      <button class="nav-btn" data-target="s08">08</button>
+      <button class="nav-btn" data-target="s09">09</button>
+      <button class="nav-btn" data-target="s10">10</button>
+      <button class="nav-btn" data-target="s11">11</button>
+      <button class="nav-btn" data-target="s12">12</button>
+      <button class="nav-btn" data-target="s13">13</button>
+      <button class="nav-btn" data-target="s14">14</button>
+      <button class="nav-btn" data-target="s15">15</button>
+      <button class="nav-btn" data-target="s16">16</button>
+    </div>
+
+    <div class="canvas">
+      <section id="s01" class="scene active paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>00 / LIVE MESSAGE WALL</span></header>
+          <div class="two-col hero-col">
+            <div class="copy-block">
+              <div class="kicker">SHOW THE RESULT FIRST</div>
+              <h1>它发的不是一句回复，<br />而是一整条自动化消息流。</h1>
+              <p>按脚本和代码，消息来源可以分成三组：实时播报、智能对话、远程运维。重点不是“会回话”，而是能把外部状态、AI 任务和网页操作都整理成适合群聊阅读的消息。</p>
+              <div class="cap-grid">
+                <div class="cap">
+                  <div class="cap-key">01</div>
+                  <div class="cap-copy">
+                    <b>实时播报</b>
+                    <span>SteamAuto 会发好友开始/离开游戏、CS2 新闻、完美战绩、每日榜单和历史记录刷新。</span>
+                  </div>
+                </div>
+                <div class="cap">
+                  <div class="cap-key">02</div>
+                  <div class="cap-copy">
+                    <b>智能对话</b>
+                    <span>KouriChat 负责自然群聊；ChatAuto 负责前缀触发的 Agent 任务，结果还能通过 Bot API 再回到微信。</span>
+                  </div>
+                </div>
+                <div class="cap">
+                  <div class="cap-key">03</div>
+                  <div class="cap-copy">
+                    <b>定时信息与运维</b>
+                    <span>InfoPush、DailyAuto、DisasterWarning 和 Web Panel 会把新闻、提醒、灾害预警、网页消息和文件管理也接进同一条发送通道。</span>
+                  </div>
+                </div>
+              </div>
+              <div class="github">https://github.com/xufezyq/cs-Solidarity</div>
+            </div>
+            <div class="wechat-window">
+              <div class="wechat-title"><span>微信群聊 · 项目演示</span><span>09:41</span></div>
+              <div class="chat-stream steam-stream">
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble">🎮 player1, player2, player3  Counter-Strike 2</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">👋 player1(47分钟4秒), player2(36分钟57秒), player3(36分钟57秒) 离开Counter-Strike 2<br/>炙热沙城Ⅱ  11:13 (半场 5:7/6:6) | 36分钟<br/><br/>👑 MVP: player1<br/>&nbsp;&nbsp;&nbsp;&nbsp;好兄弟：击杀数是某位组队队友的2倍以上<br/>&nbsp;&nbsp;&nbsp;&nbsp;铁哥们：击杀数在组队队友中最高，但队友助攻数更高<br/>&nbsp;&nbsp;&nbsp;&nbsp;善战者无赫赫之功：本场表现超越同段位79%的玩家<br/><br/>🟢 player1 MVP<br/>&nbsp;&nbsp;26/16/2 | pwRT:1.35 | WE:12.0<br/>&nbsp;&nbsp;分数:1793 (+32)<br/>🟢 player2 🔥四杀<br/>&nbsp;&nbsp;24/17/6 | pwRT:1.42 | WE:11.9<br/>&nbsp;&nbsp;分数:1946 (+27)<br/>🟢 player3<br/>&nbsp;&nbsp;17/17/8 | pwRT:1.06 | WE:8.0<br/>&nbsp;&nbsp;分数:1959 (+20)<br/><br/>🏆 记录刷新！<br/>📊 RT 之神刷新！player5: 1.87  2.01<br/>⚡ PW RT 之神刷新！player5: 1.74  1.87</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble weather accent-bubble">🌨🧊[气象预警]<br/><br/>📋北京市朝阳区发布冰雹黄色预警🟡<br/><br/>🏷副标题：朝阳区气象台发布冰雹黄色预警[III/较重]<br/>📝朝阳区气象台08日18时40分发布冰雹黄色预警，预计当前至前半夜，受雷雨云团影响，朝阳区将出现分散冰雹天气，可能造成一定的损失，请注意防范。<br/>⏰生效时间：2026年06月08日 18时36分15秒 (UTC+8)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s02" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>01 / CHAT + ALERT</span></header>
+          <div class="two-col hero-col">
+            <div class="copy-block">
+              <div class="kicker">WECHAT BOT AS INTERFACE</div>
+              <h1>同一个群聊窗口里，<br />既能自然聊天，也能接住 Agent 和预警。</h1>
+              <p>这页不再把功能拆开讲，而是直接把它们放回同一个微信群上下文里。你看到的不是 demo 卡片，而是最终会被群友读到的消息形态。</p>
+              <div class="cap-grid">
+                <div class="cap">
+                  <div class="cap-key">A</div>
+                  <div class="cap-copy">
+                    <b>KouriChat</b>
+                    <span>常驻群友式回复，能保留多气泡连续应答的感觉，而不是一次性吐完整段答案。</span>
+                  </div>
+                </div>
+                <div class="cap">
+                  <div class="cap-key">B</div>
+                  <div class="cap-copy">
+                    <b>ChatAuto + Agent</b>
+                    <span>带前缀的任务消息会走 Agent 编排，生成结果后再通过 Bot API 回到这个群聊窗口。</span>
+                  </div>
+                </div>
+                <div class="cap">
+                  <div class="cap-key">C</div>
+                  <div class="cap-copy">
+                    <b>DisasterWarning / Web</b>
+                    <span>预警推送和网页端同步消息不需要换一套 UI，最后都进入同一条微信发送链路。</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wechat-window">
+              <div class="wechat-title"><span>微信群聊 · AI / 预警 / Web</span><span>09:42</span></div>
+              <div class="chat-stream ai-stream">
+                <div class="wx-row wx-right">
+                  <div class="wx-stack">
+                    <div class="sender">operator</div>
+                    <div class="wx-bubble me">@ATRI 你是MONO还是ATRI</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">@陆上行舟 莫诺</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">Kourichat副运行者</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">那个仿生人跟我不是同个型号</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-right">
+                  <div class="wx-stack">
+                    <div class="sender">operator</div>
+                    <div class="wx-bubble me">你好</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">主人，您终于来啦！今天过得怎么样？</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-right">
+                  <div class="wx-stack">
+                    <div class="sender">operator</div>
+                    <div class="wx-bubble me">MONO你和ATRI有什么区别</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">她是海平面上的阳光</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">我是数据里的雪花  都是代码</div>
+                  </div>
+                </div>
+                <div class="wx-row wx-left">
+                  <div class="wx-stack">
+                    <div class="sender">MONO</div>
+                    <div class="wx-bubble compact">但构成方式不同</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s03" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>02 / FEATURE PROOF</span></header>
+          <div class="screen-layout">
+            <div class="copy-block">
+              <div class="kicker">FUNCTION SCREENSHOTS</div>
+              <h1>先停在结果，<br />再往回解释机制。</h1>
+              <p>这一页对应口播里的“功能速览”。Steam 状态、完美战绩、KouriChat、灾害预警和 Web 面板先给观众看最终产出，再告诉他它们最后都回到统一发送链路。</p>
+            </div>
+            <div class="shot-grid">
+              <figure class="shot tall daily-shot"><img src="hyperframes-video/assets/steam-daily.png" alt="Steam 日报"/></figure>
+              <figure class="shot"><img src="hyperframes-video/assets/steam-status.png" alt="Steam 状态播报"/></figure>
+              <figure class="shot"><img src="hyperframes-video/assets/perfect-record.png" alt="完美战绩播报"/></figure>
+              <figure class="shot"><img src="hyperframes-video/assets/kourichat-group.png" alt="KouriChat 群聊截图"/></figure>
+              <figure class="shot"><img src="hyperframes-video/assets/web-dashboard.png" alt="Web 管理面板"/></figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s04" class="scene blue">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>03 / COVER</span></header>
+          <div class="cover-layout">
+            <div class="cover-meta">WECHAT BOT · OPEN SOURCE</div>
+            <h1>cs-Solidarity</h1>
+            <div class="cover-bottom">
+              <p>基于 wxauto 的多功能微信机器人。Steam 监控 / AI 对话 / 灾害预警 / Web 管理。</p>
+              <span>Python 3.9+ · Vue 3 · FastAPI · MIT License</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s05" class="scene split">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>04 / FOUNDATION</span></header>
+          <div class="principle-layout">
+            <div class="blue-panel">
+              <div class="kicker">THREE PRINCIPLES</div>
+              <h1>先抓住三个词：<br />线程安全、反检测、远程管理。</h1>
+              <p>后面所有功能，其实都围绕这三个设计点展开。它们不是配角，而是这个项目能长期跑下去的前提。</p>
+            </div>
+            <div class="principle-list">
+              <article><b>01</b><strong>线程安全</strong><span>发送请求先入队，主线程统一操作微信 GUI。</span></article>
+              <article><b>02</b><strong>反检测</strong><span>鼠标、键盘和窗口行为加入真人化扰动。</span></article>
+              <article><b>03</b><strong>远程管理</strong><span>Agent 主动连出，公网 Web 面板远程维护。</span></article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s06" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>05 / CAPABILITIES</span></header>
+            <div class="copy-block top-copy">
+              <div class="kicker">WHAT IT DOES</div>
+              <h1>能力不是堆出来的，<br />而是四条稳定的输出链路。</h1>
+              <p>游戏状态监控、智能对话与 Agent、信息与预警推送、Web 远程管理，都是“采集 → 处理 → 回到微信”的同一种结构。</p>
+          </div>
+          <div class="card-grid four">
+            <article><b>01 / STEAM</b><strong>游戏状态监控</strong><span>好友在线追踪 · CS2 新闻 · 完美世界战绩 · 每日报告</span></article>
+            <article><b>02 / AI</b><strong>智能对话与 Agent</strong><span>命令式任务入口 + 自然群聊人格回复</span></article>
+            <article><b>03 / PUSH</b><strong>信息与预警推送</strong><span>财经、新闻、地震、气象、海啸等多源信息</span></article>
+            <article><b>04 / OPS</b><strong>远程管理面板</strong><span>状态、日志、配置、文件、实例和控制能力</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="s07" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>06 / SYSTEM OVERVIEW</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">WHO TALKS TO WHOM</div>
+              <h1>这些功能看起来很散，<br />但最后共用一个微信自动化核心。</h1>
+              <p>外部数据源、业务实例、Bot API 和 Web 管理请求都不是各自为战，最终真正操作微信的动作，仍然统一回到主线程。</p>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/system-overview.png" alt="系统总览"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s08" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>07 / ARCHITECTURE</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">CORE / INSTANCES / EXTERNAL</div>
+              <h1>它不是把功能硬塞进主循环，<br />而是拆成三层去接。</h1>
+              <p>Core 层负责收发和调度，Instances 层负责业务，External 层负责外部接入。新功能只要写成 BaseInstance 子类就能挂进来。</p>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/architecture.png" alt="三层系统架构"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s09" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>08 / INSTANCES</span></header>
+          <div class="copy-block top-copy">
+              <div class="kicker">SIX INSTANCE MODULES</div>
+              <h1>功能不同，<br />接入方式却故意做成一致。</h1>
+              <p>SteamAuto、ChatAuto、KouriChat、InfoPush、DailyAuto、DisasterWarning 都只负责业务处理；真正发送时，要么自己入队，要么经 Agent 调用 Bot API 入队。</p>
+          </div>
+          <div class="card-grid six">
+            <article><b>01</b><strong>SteamAuto</strong><span>状态、新闻、战绩、日报</span></article>
+            <article><b>02</b><strong>ChatAuto</strong><span>命令触发 Agent 任务</span></article>
+            <article><b>03</b><strong>KouriChat</strong><span>人设、记忆、上下文回复</span></article>
+            <article><b>04</b><strong>InfoPush</strong><span>新闻、金价、股票</span></article>
+            <article><b>05</b><strong>DailyAuto</strong><span>固定时间提醒</span></article>
+            <article><b>06</b><strong>DisasterWarning</strong><span>灾害预警定向推送</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="s10" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>09 / STEAMAUTO</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">STATUS DIFF TO GROUP PUSH</div>
+              <h1>SteamAuto 的核心不是抓数据，<br />而是把状态差异翻译成群聊消息。</h1>
+              <p>开始游戏、离开游戏、完美世界战绩、每日统计图，这些都不是手工写死的文案，而是由状态 diff 和模板拼出来的结果。</p>
+              <div class="mini-shots">
+                <figure><img src="hyperframes-video/assets/steam-status.png" alt="Steam 状态"/></figure>
+                <figure><img src="hyperframes-video/assets/perfect-record.png" alt="完美战绩"/></figure>
+              </div>
+            </div>
+            <figure class="diagram daily-shot"><img src="hyperframes-video/assets/steam-daily.png" alt="Steam 日报"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s11" class="scene split">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>10 / ANTI-DETECT</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">HUMAN-LIKE GUI AUTOMATION</div>
+              <h1>真正像人一样操作微信的细节，<br />不应该散在每个功能里。</h1>
+              <p>鼠标路径、点击等待、键盘节奏、窗口切换和最小化策略统一放进 Core 层。实例只关心业务，不关心怎么点微信。</p>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/monkey-patch.png" alt="反检测处理"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s12" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>11 / MAIN LOOP</span></header>
+          <div class="copy-block top-copy">
+              <div class="kicker">FIVE STEPS</div>
+              <h1>主循环不是不停轮询，<br />而是有明确优先级的五步流程。</h1>
+              <p>它先检查维护窗口，再处理 Web 消息，再消费发送队列，最后才去读新消息和分发，用顺序降低聊天窗口切换带来的竞态。</p>
+          </div>
+          <div class="step-row">
+            <article><b>01</b><span>检查维护窗口</span></article>
+            <article><b>02</b><span>处理 Web 消息</span></article>
+            <article><b>03</b><span>消费发送队列</span></article>
+            <article><b>04</b><span>接收和分发新消息</span></article>
+            <article><b>05</b><span>空闲时最小化微信窗口</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="s13" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>12 / ROUTING</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">EXCLUSIVE + BROADCAST</div>
+              <h1>命令式功能和自然聊天能共存，<br />靠的是消息路由，不是侥幸。</h1>
+              <p>前缀命令交给独占实例，普通聊天广播给上下文监听模块。这样 ChatAuto 和 KouriChat 不会互相抢消息。</p>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/message-routing.png" alt="消息路由"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s14" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>13 / REMOTE OPS</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">AGENT CONNECTS OUT</div>
+              <h1>内网 Windows Bot 不需要开公网端口，<br />也能被远程维护。</h1>
+              <p>Agent 主动连接公网 Server，浏览器只访问 Server，再由 Server 用 WebSocket 把操作转回 Bot。这就是整套远程运维的内核。</p>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/sequence-agent.png" alt="远程运维链路"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s15" class="scene paper">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>14 / WEB PANEL</span></header>
+          <div class="two-col">
+            <div class="copy-block">
+              <div class="kicker">OBSERVABILITY MATTERS</div>
+              <h1>Web 面板不是旁路工具，<br />而是把运维能力真正接进 Bot。</h1>
+              <p>Dashboard、Config、Control、Logs、Files、Chat 不只是“能看”，而是会实际走到 Agent 转发、发送队列和微信窗口这一整条链路上。</p>
+              <div class="card-grid compact">
+                <article><b>Dashboard</b><span>在线状态</span></article>
+                <article><b>Logs</b><span>实时日志</span></article>
+                <article><b>Control</b><span>启动停止</span></article>
+                <article><b>Chat</b><span>同步微信</span></article>
+              </div>
+            </div>
+            <figure class="diagram"><img src="hyperframes-video/assets/web-dashboard.png" alt="Web 面板"/></figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="s16" class="scene blue">
+        <div class="grid-bg"></div>
+        <div class="dot-block dot-a"></div>
+        <div class="dot-block dot-b"></div>
+        <div class="scene-content">
+          <header class="chrome"><span>cs-Solidarity · Project Video</span><span>15 / FINAL TAKEAWAY</span></header>
+          <div class="summary-layout">
+            <div>
+              <div class="kicker">SUMMARY</div>
+              <h1>它不是一个自动发消息的小脚本，<br />而是一套微信自动化框架。</h1>
+              <p>线程安全、模块化扩展、远程可运维，是这个项目真正值得被保留下来的工程内核。</p>
+            </div>
+            <div class="summary-row">
+              <article><b>01 / THREAD</b><strong>线程安全</strong><span>后台实例只入队，主线程统一操作微信 GUI。</span></article>
+              <article><b>02 / EXTEND</b><strong>模块化扩展</strong><span>Steam、AI、推送、预警都能作为独立实例接入。</span></article>
+              <article><b>03 / OPS</b><strong>远程可运维</strong><span>Agent 主动连接 Server，内网 Bot 也能公网管理。</span></article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const buttons = [...document.querySelectorAll(".nav-btn")];
+      const scenes = [...document.querySelectorAll(".scene")];
+      function showScene(id) {
+        scenes.forEach((scene) => scene.classList.toggle("active", scene.id === id));
+        buttons.forEach((button) => button.classList.toggle("active", button.dataset.target === id));
+      }
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => showScene(button.dataset.target));
+      });
+      document.addEventListener("keydown", (event) => {
+        const activeIndex = buttons.findIndex((button) => button.classList.contains("active"));
+        if (event.key === "ArrowRight" && activeIndex < buttons.length - 1) {
+          showScene(buttons[activeIndex + 1].dataset.target);
+        }
+        if (event.key === "ArrowLeft" && activeIndex > 0) {
+          showScene(buttons[activeIndex - 1].dataset.target);
+        }
+      });
+    </script>
+  </body>
+</html>
