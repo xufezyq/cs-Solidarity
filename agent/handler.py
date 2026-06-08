@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 
-from instances.steam_auto import archive_pw_season_data
+from utils.steam_archive import archive_pw_season_data
 
 log = logging.getLogger(__name__)
 

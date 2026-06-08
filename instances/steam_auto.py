@@ -6,7 +6,6 @@ import asyncio
 import re
 import threading
 import html
-from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict
 from pathlib import Path
@@ -14,6 +13,7 @@ from core import wechat_instance
 from cs2_pw.pw_reporter import PwStatsReporter
 from core.base_instance import BaseInstance
 from cs2_pw.request import PerfectWorldApi
+from utils.steam_archive import archive_pw_season_data
 from utils.steam_timeline import SteamTimelineRecorder
 import logging
 from dotenv import load_dotenv
@@ -33,37 +33,6 @@ except ImportError:
 
 # 配置文件读写锁，防止后台线程和 Web 面板同时写入导致损坏
 _config_lock = threading.Lock()
-
-
-def archive_pw_season_data(data_path: str) -> str:
-    """将 steam_data.json 中的赛季数据快照到独立归档文件，返回归档文件路径。
-
-    归档内容：friend_pw_history_stats、friend_pw_leaderboard，外加 archived_at 时间戳。
-    归档文件位于 <data_path 同级>/steam_data_archives/season_<时间戳>.json。
-    """
-    data_file = Path(data_path)
-    archive_dir = data_file.parent / 'steam_data_archives'
-    archive_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    archive_path = archive_dir / f'season_{timestamp}.json'
-
-    config = {}
-    if data_file.exists():
-        with open(data_file, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-
-    archive_data = {
-        'archived_at': datetime.now().isoformat(),
-        'friend_pw_history_stats': config.get('friend_pw_history_stats', {}),
-        'friend_pw_leaderboard': config.get('friend_pw_leaderboard', {}),
-    }
-
-    with open(archive_path, 'w', encoding='utf-8') as f:
-        json.dump(archive_data, f, ensure_ascii=False, indent=2)
-
-    return str(archive_path)
-
 
 class SteamAuto(BaseInstance):
     # 排行榜类别：(key, 显示名, emoji, data_field, is_max)
@@ -98,8 +67,6 @@ class SteamAuto(BaseInstance):
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         # 时间轴记录器（历史极值变化 + 好友对局记录）
         self.timeline_recorder = SteamTimelineRecorder(self.data_path)
-        # 上一轮 fetch 时的历史极值快照，用于 diff 出变化
-        self._last_history_snapshot = deepcopy(self.friend_pw_history_stats)
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_lines = code_update_lines or []
@@ -589,9 +556,6 @@ class SteamAuto(BaseInstance):
         if not self.pw_api:
             return []
 
-        # 抓取前快照当前历史极值，用于后续 diff 出"新纪录"事件
-        prev_history_snapshot = deepcopy(self.friend_pw_history_stats)
-
         reporter = PwStatsReporter(
             pw_api=self.pw_api,
             friend_pw_nickname_map=self.friend_pw_nickname_map,
@@ -602,13 +566,7 @@ class SteamAuto(BaseInstance):
 
         messages, processed_matches = await reporter.fetch_and_report(steam_ids)
 
-        # 1. 记录历史极值变化
-        try:
-            self._record_extreme_changes(prev_history_snapshot)
-        except Exception as e:
-            log.info(f"[{datetime.now()}] 记录历史极值变化失败: {e}")
-
-        # 2. 记录好友对局
+        # 记录好友对局
         try:
             self._record_play_records(processed_matches)
         except Exception as e:
@@ -642,37 +600,6 @@ class SteamAuto(BaseInstance):
             messages.append(record_msg)
 
         return messages
-
-    def _record_extreme_changes(self, prev_snapshot: dict) -> None:
-        """对比抓取前后的历史极值，把变化的指标写入时间轴。"""
-        categories = {field: (label, emoji, is_max) for _, label, emoji, field, is_max in SteamAuto.LEADERBOARD_CATEGORIES}
-        for steam_id, current in self.friend_pw_history_stats.items():
-            if not isinstance(current, dict):
-                continue
-            prev = prev_snapshot.get(steam_id, {}) if isinstance(prev_snapshot.get(steam_id), dict) else {}
-            nickname = current.get('pw_nickname') or self.friend_pw_nickname_map.get(steam_id, '未知好友')
-            for field, (label, emoji, is_max) in categories.items():
-                old_val = prev.get(field)
-                new_val = current.get(field)
-                # 0 是 max_* 的初始值（无数据），跳过；999/9999 是 min_* 的初始值
-                if old_val is None or new_val is None:
-                    continue
-                if old_val == new_val:
-                    continue
-                is_improvement = (new_val > old_val) if is_max else (new_val < old_val)
-                try:
-                    self.timeline_recorder.record_extreme_change(
-                        steamid=steam_id,
-                        pw_nickname=nickname,
-                        metric=field,
-                        metric_label=label,
-                        metric_emoji=emoji,
-                        old_value=old_val,
-                        new_value=new_val,
-                        is_improvement=is_improvement,
-                    )
-                except Exception as e:
-                    log.info(f"[{datetime.now()}] 记录极值变化失败 ({steam_id}/{field}): {e}")
 
     def _record_play_records(self, processed_matches: list) -> None:
         """把 reporter 处理过的对局写入时间轴：按 match_id 分桶，多人同场合并到一条 match 事件。"""
@@ -1183,15 +1110,33 @@ class SteamAuto(BaseInstance):
 
             if not old or old.get('steamid') != best_sid or old.get('value') != best_val:
                 # 记录刷新了
+                old_nick = old.get('pw_nickname', '未知') if old else None
+                old_val = old.get('value') if old else None
                 if old and old.get('steamid') != best_sid:
-                    old_nick = old.get('pw_nickname', '未知')
-                    old_val = old.get('value', 0)
                     notifications.append(f"{emoji} {cat_name}易主！{old_nick}({old_val}) → {best_nick}({best_val})")
                 elif old and old.get('value') != best_val:
-                    old_val = old.get('value', 0)
                     notifications.append(f"{emoji} {cat_name}刷新！{best_nick}: {old_val} → {best_val}")
                 elif not old:
                     notifications.append(f"{emoji} {cat_name}诞生！{best_nick} ({best_val})")
+
+                try:
+                    is_improvement = True
+                    if isinstance(old_val, (int, float)) and isinstance(best_val, (int, float)):
+                        is_improvement = (best_val > old_val) if is_max else (best_val < old_val)
+                    event_old_val = old_val if old else '-'
+                    self.timeline_recorder.record_extreme_change(
+                        steamid=best_sid,
+                        pw_nickname=best_nick,
+                        metric=cat_key,
+                        metric_label=cat_name,
+                        metric_emoji=emoji,
+                        old_value=event_old_val,
+                        new_value=best_val,
+                        is_improvement=is_improvement,
+                        previous_holder=old_nick if old and old.get('steamid') != best_sid else None,
+                    )
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 记录排行榜时间轴失败 ({cat_key}): {e}")
 
                 self.friend_pw_leaderboard[cat_key] = {
                     'steamid': best_sid,
