@@ -70,12 +70,20 @@
 - 聊天页面支持上传文件到 Agent 设备（供 OpenClaw 使用）
 - 聊天页面可按 `chat` 实例的触发前缀选择 Claw/Hermes 等 Agent，并支持“同步到微信/仅网页”两种回复模式
 - 文件管理支持 Web/Agent 双存储模式
+- Steam 数据页支持好友状态、游玩记录、排行榜和时间轴展示
 - Vue 3 前端 + FastAPI 后端，响应式布局
 
-![Web登录界面](docs/images/Web登录界面.png)
-![Web仪表盘界面](docs/images/Web仪表盘界面.png)
-![Web Steam数据界面](docs/images/WebSteam数据界面1.png)
-![Web Stream数据界面](docs/images/WebStream数据界面2.png)
+| 登录 | 仪表盘 | Steam 数据 |
+|------|--------|------------|
+| ![Web登录界面](docs/images/Web登录界面.png) | ![Web仪表盘界面](docs/images/Web仪表盘界面.png) | ![WebSteam数据界面1](docs/images/WebSteam数据界面1.png) |
+| Steam 时间轴 | Steam 排行榜 | 聊天 |
+| ![WebSteam数据界面2](docs/images/WebSteam数据界面2.png) | ![WebSteam数据界面3](docs/images/WebSteam数据界面3.png) | ![Web聊天界面](docs/images/Web聊天界面.png) |
+| 实例管理 | 文件管理 | 配置编辑 |
+| ![Web实例管理界面](docs/images/Web实例管理界面.png) | ![Web文件管理界面](docs/images/Web文件管理界面.png) | ![Web配置编辑界面](docs/images/Web配置编辑界面.png) |
+| 日志 | 控制 | 用户管理 |
+| ![Web日志界面](docs/images/Web日志界面.png) | ![Web控制界面](docs/images/Web控制界面.png) | ![Web用户管理界面](docs/images/Web用户管理界面.png) |
+| 修改密码 |  |  |
+| ![Web修改密码界面](docs/images/Web修改密码界面.png) |  |  |
 
 > 📖 **详细文档**：[Web 控制面板使用指南](./web/README.md)
 

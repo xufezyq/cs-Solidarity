@@ -65,12 +65,26 @@ python -m agent.client --server ws://B_IP:11029/ws/agent --token your-agent-toke
 | 仪表盘（状态/实例/日志） | ✅ | ✅ |
 | 实例管理（查看详情） | ✅ | ✅ |
 | 配置编辑（JSON编辑器） | ✅ | ❌ |
-| Steam 数据（好友/排行榜） | ✅ | ✅ |
+| Steam 数据（好友/排行榜/时间轴） | ✅ | ✅ |
 | 聊天页面（转发到 Bot 实例） | ✅ | ✅ |
 | 文件管理（Web/Agent 存储模式） | ✅ | ✅（只能删除自己上传的文件） |
 | 日志查看（筛选/搜索） | ✅ | ✅ |
 | 控制（启动/停止/重启 Bot） | ✅ | ❌ |
 | 用户管理（注册审核/创建/删除/改角色） | ✅ | ❌ |
+
+## 界面预览
+
+| 登录 | 仪表盘 | Steam 数据 |
+|------|--------|------------|
+| ![Web登录界面](../docs/images/Web登录界面.png) | ![Web仪表盘界面](../docs/images/Web仪表盘界面.png) | ![WebSteam数据界面1](../docs/images/WebSteam数据界面1.png) |
+| Steam 时间轴 | Steam 排行榜 | 聊天 |
+| ![WebSteam数据界面2](../docs/images/WebSteam数据界面2.png) | ![WebSteam数据界面3](../docs/images/WebSteam数据界面3.png) | ![Web聊天界面](../docs/images/Web聊天界面.png) |
+| 实例管理 | 文件管理 | 配置编辑 |
+| ![Web实例管理界面](../docs/images/Web实例管理界面.png) | ![Web文件管理界面](../docs/images/Web文件管理界面.png) | ![Web配置编辑界面](../docs/images/Web配置编辑界面.png) |
+| 日志 | 控制 | 用户管理 |
+| ![Web日志界面](../docs/images/Web日志界面.png) | ![Web控制界面](../docs/images/Web控制界面.png) | ![Web用户管理界面](../docs/images/Web用户管理界面.png) |
+| 修改密码 |  |  |
+| ![Web修改密码界面](../docs/images/Web修改密码界面.png) |  |  |
 
 ## API 文档
 
