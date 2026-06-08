@@ -120,12 +120,13 @@ class SteamTimelineRecorder:
         old_value,
         new_value,
         is_improvement: bool,
+        previous_holder: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """记录一次历史极值变化（如击杀王由 20 升到 30）。
+        """记录一次排行榜极值变化（如击杀王由 A 的 20 变为 B 的 30）。
 
-        返回写入的事件 dict；若 new_value 与 old_value 相等则返回 None。
+        返回写入的事件 dict；若值和持有者都未变化则返回 None。
         """
-        if old_value == new_value:
+        if old_value == new_value and not previous_holder:
             return None
 
         event = {
@@ -144,12 +145,6 @@ class SteamTimelineRecorder:
 
         with _timeline_lock:
             state = _load_state(self.data_path)
-            # 前任持有者：最近一条同 metric 且 new_value == 本次 old_value 的事件
-            previous_holder = None
-            for prev_event in reversed(state.get("extreme_changes", [])):
-                if prev_event.get("metric") == metric and prev_event.get("new_value") == old_value:
-                    previous_holder = prev_event.get("pw_nickname")
-                    break
             event["previous_holder"] = previous_holder
             _push_with_cap(state, "extreme_changes", event, MAX_EXTREME_CHANGES)
             _save_state(self.data_path, state)
