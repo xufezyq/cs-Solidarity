@@ -2,6 +2,7 @@
 完美平台战绩播报模块
 将 _fetch_pw_stats_async 的核心逻辑抽取为独立类，提高可维护性
 """
+import asyncio
 import re
 from datetime import datetime
 
@@ -180,8 +181,10 @@ class PwStatsReporter:
                     match_mvp_info[match_id] = {}
                     continue
 
-                # 2. 构建监控好友的 playerId 集合
-                monitored_player_ids = {str(data.get('playerId', '')) for _, data in match_groups[match_id] if data.get('playerId')}
+                # 2. 构建已知好友的 steam_id 集合（playerId 即为 steam_id）
+                all_known_friends = set(self.friend_pw_history_stats.keys())
+                group_steam_ids = {sid for sid, _ in match_groups[match_id]}
+                newly_discovered = set()
 
                 # 3. 提取全场基础信息（所有玩家共享）
                 base = detail.get('base', {})
@@ -198,7 +201,55 @@ class PwStatsReporter:
                     'greenMatch': base.get('greenMatch', False),
                 }
 
-                # 4. 提取好友相关数据（仅监控好友）
+                # 4. 跨匹配：将对局内所有玩家与好友列表比对，发现不在 group 中的好友
+                #    注意：playerId 即为 steam_id
+                for player in detail.get('players', []):
+                    pid = str(player.get('playerId', ''))
+                    if not pid:
+                        continue
+                    if pid in group_steam_ids:
+                        continue
+                    if pid not in all_known_friends:
+                        continue
+                    # 新发现的好友：先以默认值加入 group，后续获取 prev 数据
+                    last_match = {
+                        'matchId': match_id,
+                        'mapName': match_groups[match_id][0][1].get('mapName', ''),
+                        'score1': match_groups[match_id][0][1].get('score1'),
+                        'score2': match_groups[match_id][0][1].get('score2'),
+                        'winTeam': match_groups[match_id][0][1].get('winTeam'),
+                        'playerId': pid,
+                    }
+                    match_groups[match_id].append((pid, last_match))
+                    newly_discovered.add(pid)
+                    self.log(f"[{datetime.now()}] 对局 {match_id} 中发现好友 {pid}，一并加入播报")
+
+                # 为新发现的好友获取上一局数据（用于计算分数/星星变化）
+                if newly_discovered:
+                    async def _fetch_prev(sid):
+                        try:
+                            md = await self.pw_api.get_csgopfmatch(sid, csgoSeasonId=3, type=-1)
+                            if isinstance(md, int) or not md.get('data'):
+                                return sid, None
+                            ml = md['data'].get('matchList', [])
+                            if len(ml) >= 2:
+                                return sid, ml[1]
+                            return sid, None
+                        except Exception:
+                            return sid, None
+
+                    prev_results = await asyncio.gather(*[_fetch_prev(sid) for sid in newly_discovered])
+                    for sid, prev_match in prev_results:
+                        for i, (gsid, gdata) in enumerate(match_groups[match_id]):
+                            if gsid == sid and gdata.get('matchId') == match_id:
+                                gdata['_prev_pvpStars'] = prev_match.get('pvpStars', 0) if prev_match else 0
+                                gdata['_prev_pvpScore'] = prev_match.get('pvpScore', 0) if prev_match else 0
+                                break
+
+                # 5. 重新构建监控好友的 playerId 集合（包含新发现的好友）
+                monitored_player_ids = {str(data.get('playerId', '')) for _, data in match_groups[match_id] if data.get('playerId')}
+
+                # 6. 提取好友相关数据（仅监控好友）
                 nick_map = {}
                 player_detail_map = {}
                 for player in detail['players']:
@@ -221,10 +272,10 @@ class PwStatsReporter:
                 match_pw_nicknames[match_id] = nick_map
                 match_player_details[match_id] = player_detail_map
 
-                # 5. 按需获取额外数据（仅当好友需要时）
+                # 7. 按需获取额外数据（仅当好友需要时）
                 match_mvp_info[match_id] = {}
 
-                # 5.1 MVP 称号（仅当好友是MVP时才获取）
+                # 7.1 MVP 称号（仅当好友是MVP时才获取）
                 friend_is_mvp = any(
                     player.get('mvp', False) and str(player.get('playerId', '')) in monitored_player_ids
                     for player in detail['players']
@@ -242,7 +293,7 @@ class PwStatsReporter:
                     except Exception as e:
                         self.log(f"[{datetime.now()}] 获取MVP信息失败 ({match_id}): {e}")
 
-                # 5.2 高级数据（预留接口，暂未使用）
+                # 7.2 高级数据（预留接口，暂未使用）
                 # try:
                 #     advance_data = await self.pw_api.get_match_advance(match_id)
                 #     if not isinstance(advance_data, int) and advance_data:
