@@ -3,6 +3,12 @@
   "check_interval": 30,
   "enable_news_check": true,
   "check_news_interval": 600,
+  "game_event_mute": {
+    "enabled": true,
+    "window_minutes": 30,
+    "threshold": 4,
+    "mute_minutes": 60
+  },
   "code_update_lines": [
     "【cs-Solidarity】已经成功启动，当前版本：v{version}",
     "",

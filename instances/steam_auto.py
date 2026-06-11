@@ -35,6 +35,13 @@ except ImportError:
 _config_lock = threading.Lock()
 
 class SteamAuto(BaseInstance):
+    DEFAULT_GAME_EVENT_MUTE_CONFIG = {
+        'enabled': True,
+        'window_minutes': 30,
+        'threshold': 4,
+        'mute_minutes': 60,
+    }
+
     # 排行榜类别：(key, 显示名, emoji, data_field, is_max)
     # 单一来源：时间轴历史极值变化与排行榜播报共用此定义
     LEADERBOARD_CATEGORIES = [
@@ -52,7 +59,7 @@ class SteamAuto(BaseInstance):
         ('min_score', '吊车尾', '📉', 'min_score', False),
     ]
 
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, config_path='config.json', data_path=None, debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, game_event_mute_config=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
@@ -71,6 +78,17 @@ class SteamAuto(BaseInstance):
         self.cached_friend_list = None # 缓存好友列表，避免频繁调用 API
         self.code_update_lines = code_update_lines or []
         self.check_interval = check_interval
+
+        # 好友进入/离开游戏防刷静音（仅内存状态，重启后清空）
+        self.game_event_mute_config = self._normalize_game_event_mute_config(game_event_mute_config)
+        self.game_event_mute_enabled = self.game_event_mute_config['enabled']
+        self.game_event_mute_window_minutes = self.game_event_mute_config['window_minutes']
+        self.game_event_mute_threshold = self.game_event_mute_config['threshold']
+        self.game_event_mute_duration_minutes = self.game_event_mute_config['mute_minutes']
+        self.game_event_mute_window_seconds = self.game_event_mute_window_minutes * 60
+        self.game_event_mute_duration_seconds = self.game_event_mute_duration_minutes * 60
+        self.friend_game_event_history = {}  # steamid -> [timestamp, ...]
+        self.friend_game_event_muted_until = {}  # steamid -> timestamp
         
         # 新闻检查相关
         self.enable_news_check = enable_news_check
@@ -155,6 +173,27 @@ class SteamAuto(BaseInstance):
                 return future.result()
         else:
             return asyncio.run(coro)
+
+    @classmethod
+    def _normalize_game_event_mute_config(cls, config):
+        """归一化进入/离开游戏防刷配置，保持缺省配置可直接生效。"""
+        normalized = dict(cls.DEFAULT_GAME_EVENT_MUTE_CONFIG)
+        if isinstance(config, dict):
+            for key in normalized:
+                if key in config:
+                    normalized[key] = config[key]
+
+        normalized['enabled'] = bool(normalized.get('enabled', True))
+
+        for key in ('window_minutes', 'threshold', 'mute_minutes'):
+            default_value = cls.DEFAULT_GAME_EVENT_MUTE_CONFIG[key]
+            try:
+                value = int(float(normalized.get(key, default_value)))
+            except (TypeError, ValueError):
+                value = default_value
+            normalized[key] = max(1, value)
+
+        return normalized
 
     def get_cached_friend_list(self, force_refresh=False):
         """返回缓存的好友列表；若无缓存或 force_refresh=True 则从 API 拉取并缓存"""
@@ -302,6 +341,7 @@ class SteamAuto(BaseInstance):
             perfect_world_config=perfect_world_config,
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
+            game_event_mute_config=config.get('game_event_mute', {}),
             config_path=config_path,
             data_path=data_path,
         )
@@ -353,6 +393,7 @@ class SteamAuto(BaseInstance):
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
             cached_news_gids=config.get('cached_news_gids'),
+            game_event_mute_config=config.get('game_event_mute', {}),
             config_path=config_path,
             data_path=data_path,
             debug=debug_mode
@@ -432,6 +473,48 @@ class SteamAuto(BaseInstance):
             return f"{minutes}分钟{secs}秒"
         else:
             return f"{secs}秒"
+
+    def _check_game_event_mute(self, steam_id, nickname, now_ts):
+        """判断某个好友的进入/离开播报是否需要静音。
+
+        返回 (should_mute, notification)，notification 仅在刚触发新静音时有值。
+        """
+        if not self.game_event_mute_enabled or not steam_id:
+            return False, None
+
+        muted_until = self.friend_game_event_muted_until.get(steam_id, 0)
+        if muted_until > now_ts:
+            return True, None
+
+        if muted_until:
+            self.friend_game_event_muted_until.pop(steam_id, None)
+            self.friend_game_event_history.pop(steam_id, None)
+
+        cutoff = now_ts - self.game_event_mute_window_seconds
+        history = [
+            ts for ts in self.friend_game_event_history.get(steam_id, [])
+            if ts >= cutoff
+        ]
+        history.append(now_ts)
+
+        if len(history) > self.game_event_mute_threshold:
+            muted_until = now_ts + self.game_event_mute_duration_seconds
+            self.friend_game_event_muted_until[steam_id] = muted_until
+            self.friend_game_event_history[steam_id] = []
+            notification = (
+                f"🔇 {nickname} "
+                f"{self.game_event_mute_window_minutes}分钟内频繁进入/离开游戏，"
+                f"已静音{self.game_event_mute_duration_minutes}分钟。"
+                "期间将不再播报该好友的进入/离开游戏消息。"
+            )
+            log.info(
+                f"[{datetime.now()}] 好友 {nickname}({steam_id}) 触发进入/离开防刷，"
+                f"静音到 {datetime.fromtimestamp(muted_until).strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            return True, notification
+
+        self.friend_game_event_history[steam_id] = history
+        return False, None
 
     def get_steam_friend_status(self):
         """获取Steam好友列表及其游戏状态"""
@@ -653,6 +736,7 @@ class SteamAuto(BaseInstance):
         # 收集本次检查产生的所有通知，按游戏名称分组
         game_start_messages = {}  # game_name -> [nickname1, nickname2, ...]
         game_stop_messages = {}  # game_name -> [(nickname, duration_str), ...]
+        game_mute_messages = []
         
         # 收集刚结束CS2的好友，用于查询完美战绩
         stopped_cs2_friends = []
@@ -675,10 +759,14 @@ class SteamAuto(BaseInstance):
 
             # 检查游戏状态变化：从无游戏变为有游戏
             if game_id and game_id != '0' and prev_game_id != game_id:
-                # 按游戏名称分组收集
-                if game_name not in game_start_messages:
-                    game_start_messages[game_name] = []
-                game_start_messages[game_name].append(nickname)
+                muted, mute_notice = self._check_game_event_mute(steam_id, nickname, current_time)
+                if mute_notice:
+                    game_mute_messages.append(mute_notice)
+                if not muted:
+                    # 按游戏名称分组收集
+                    if game_name not in game_start_messages:
+                        game_start_messages[game_name] = []
+                    game_start_messages[game_name].append(nickname)
 
                 # 保存当前状态及开始时间
                 self.friend_game_status[steam_id] = {
@@ -706,10 +794,14 @@ class SteamAuto(BaseInstance):
                 duration = current_time - prev_start_time if prev_start_time else 0
                 duration_str = self.format_duration(duration)
 
-                # 按游戏名称分组收集
-                if prev_game_name not in game_stop_messages:
-                    game_stop_messages[prev_game_name] = []
-                game_stop_messages[prev_game_name].append((nickname, duration_str))
+                muted, mute_notice = self._check_game_event_mute(steam_id, nickname, current_time)
+                if mute_notice:
+                    game_mute_messages.append(mute_notice)
+                if not muted:
+                    # 按游戏名称分组收集
+                    if prev_game_name not in game_stop_messages:
+                        game_stop_messages[prev_game_name] = []
+                    game_stop_messages[prev_game_name].append((nickname, duration_str))
 
                 # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
                 if prev_game_id == '730' and self.pw_api:
@@ -773,6 +865,8 @@ class SteamAuto(BaseInstance):
         for game_name, stop_info in game_stop_messages.items():
             parts = [f"{nick}({dur})" for nick, dur in stop_info]
             messages.append(f"👋 {', '.join(parts)} 离开{game_name}")
+
+        messages.extend(game_mute_messages)
 
         # 查询完美战绩
         if stopped_cs2_friends:
