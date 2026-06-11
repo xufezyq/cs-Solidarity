@@ -1699,8 +1699,8 @@ class SteamAuto(BaseInstance):
         log.info(f"[{datetime.now()}] [cs-Solidarity v{APP_VERSION}] 程序启动")
         log.info(f"[{datetime.now()}] 将每 {check_interval} 秒检查一次好友游戏状态")
         log.info(f"[{datetime.now()}] 目标 Steam ID: {self.steam_id}")
-        log.info(f"[{datetime.now()}] 每天 00:05 将发送好友游玩统计（避开维护时段）")
-        log.info(f"[{datetime.now()}] 每天 00:05 将发送日报+完整排行榜")
+        log.info(f"[{datetime.now()}] 每天 23:55 将发送好友游玩统计")
+        log.info(f"[{datetime.now()}] 每天 23:55 将发送日报+完整排行榜")
         
         # 初始化一次，获取当前状态
         self.check_status_changes()
@@ -1708,8 +1708,8 @@ class SteamAuto(BaseInstance):
         # 设置定时任务：每 check_interval 秒检查一次好友游戏状态变化
         schedule.every(check_interval).seconds.do(self.check_status_changes)
         
-        # 设置每日定时任务：每天 00:05 执行每日更新任务（维护时段 00:10 开始，有 5 分钟窗口）
-        schedule.every().day.at("00:05").do(self.daily_update_tasks)  
+        # 设置每日定时任务：每天 23:55 执行每日更新任务
+        schedule.every().day.at("23:55").do(self.daily_update_tasks)  
         
         # 设置定时任务：定期检查 CS2 新闻（如果启用）
         if self.enable_news_check:
