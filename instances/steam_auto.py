@@ -10,9 +10,11 @@ from datetime import datetime
 from typing import Any, Dict
 from pathlib import Path
 from core import wechat_instance
-from cs2_pw.pw_reporter import PwStatsReporter
+from cs2_platforms.cs2_pw.pw_reporter import PwStatsReporter
+from cs2_platforms.cs2_5e.request import FiveEApi
+from cs2_platforms.cs2_5e.reporter import FiveEStatsReporter
 from core.base_instance import BaseInstance
-from cs2_pw.request import PerfectWorldApi
+from cs2_platforms.cs2_pw.request import PerfectWorldApi
 from utils.steam_archive import archive_pw_season_data
 from utils.steam_timeline import SteamTimelineRecorder
 import logging
@@ -59,7 +61,7 @@ class SteamAuto(BaseInstance):
         ('min_score', '吊车尾', '📉', 'min_score', False),
     ]
 
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, cached_news_gids=None, game_event_mute_config=None, config_path='config.json', data_path=None, debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, friend_5e_history_stats=None, cached_news_gids=None, game_event_mute_config=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
@@ -72,6 +74,8 @@ class SteamAuto(BaseInstance):
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_stars_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
+        self.friend_5e_daily_stats = {}
+        self.friend_5e_history_stats = friend_5e_history_stats or {}
         # 时间轴记录器（历史极值变化 + 好友对局记录）
         self.timeline_recorder = SteamTimelineRecorder(self.data_path)
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
@@ -106,6 +110,7 @@ class SteamAuto(BaseInstance):
         self.pw_api = None
         if self.pw_uid and self.pw_token:
             self.pw_api = PerfectWorldApi(uid=self.pw_uid, token=self.pw_token)
+        self.fivee_api = FiveEApi()
 
         # 配置接收消息的微信群/个人
         self.wechat_groups = []
@@ -278,7 +283,14 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 自动填充好友信息失败: {e}")
     
     # 数据文件中的字段（运行时数据，与用户配置分离）
-    _DATA_FIELDS = ['monitored_friends', 'friend_pw_history_stats', 'friend_pw_leaderboard', 'cached_news_gids', 'last_update']
+    _DATA_FIELDS = [
+        'monitored_friends',
+        'friend_pw_history_stats',
+        'friend_pw_leaderboard',
+        'friend_5e_history_stats',
+        'cached_news_gids',
+        'last_update',
+    ]
 
     @staticmethod
     def create_from_config(config_path='config.json'):
@@ -392,6 +404,7 @@ class SteamAuto(BaseInstance):
             check_news_interval=config.get('check_news_interval', 3600),
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
+            friend_5e_history_stats=config.get('friend_5e_history_stats'),
             cached_news_gids=config.get('cached_news_gids'),
             game_event_mute_config=config.get('game_event_mute', {}),
             config_path=config_path,
@@ -651,7 +664,7 @@ class SteamAuto(BaseInstance):
 
         # 记录好友对局
         try:
-            self._record_play_records(processed_matches)
+            self._record_play_records(processed_matches, platform='pw', platform_label='完美')
         except Exception as e:
             log.info(f"[{datetime.now()}] 记录好友对局失败: {e}")
 
@@ -684,7 +697,51 @@ class SteamAuto(BaseInstance):
 
         return messages
 
-    def _record_play_records(self, processed_matches: list) -> None:
+    async def _fetch_5e_stats_async(self, steam_ids):
+        """异步获取 5E 战绩。"""
+        if not self.fivee_api:
+            return []
+
+        reporter = FiveEStatsReporter(
+            fivee_api=self.fivee_api,
+            monitored_friends=list(self.monitored_friends_detail()),
+            friend_5e_history_stats=self.friend_5e_history_stats,
+            friend_5e_daily_stats=self.friend_5e_daily_stats,
+            log=log.info,
+        )
+
+        messages, processed_matches = await reporter.fetch_and_report(steam_ids)
+
+        try:
+            self._record_play_records(processed_matches, platform='5e', platform_label='5E')
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 记录 5E 好友对局失败: {e}")
+
+        try:
+            if reporter.resolved_friend_updates:
+                self.save_5e_profiles(reporter.resolved_friend_updates)
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存 5E 用户信息失败: {e}")
+
+        try:
+            self.save_5e_history_stats()
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存 5E 历史战绩统计失败: {e}")
+
+        return messages
+
+    def monitored_friends_detail(self):
+        """Return monitored friends with metadata from the data file."""
+        try:
+            data = self.load_config(self.data_path)
+            friends = data.get('monitored_friends', [])
+            if isinstance(friends, list):
+                return friends
+        except Exception:
+            pass
+        return [{'steamid': sid, 'pw_nickname': self.friend_pw_nickname_map.get(sid, sid)} for sid in self.monitored_friends]
+
+    def _record_play_records(self, processed_matches: list, platform: str = 'pw', platform_label: str = '完美') -> None:
         """把 reporter 处理过的对局写入时间轴：按 match_id 分桶，多人同场合并到一条 match 事件。"""
         matches_by_id: Dict[str, Dict[str, Any]] = {}
         for entry in processed_matches or []:
@@ -703,11 +760,15 @@ class SteamAuto(BaseInstance):
             bucket = matches_by_id.setdefault(match_id, {
                 'map_name': map_name,
                 'score': f"{score1}:{score2}" if score1 is not None and score2 is not None else "-:-",
+                'platform': platform,
+                'platform_label': platform_label,
                 'players': [],
             })
             bucket['players'].append({
                 'steamid': steam_id,
                 'pw_nickname': nickname,
+                'platform': platform,
+                'platform_label': platform_label,
                 'kda': f"{kills}/{deaths}/{assists}",
                 'rating': float(data.get('rating', 0.0) or 0.0),
                 'result': result,
@@ -722,6 +783,8 @@ class SteamAuto(BaseInstance):
                     map_name=info['map_name'],
                     score=info['score'],
                     players=info['players'],
+                    platform=info.get('platform', platform),
+                    platform_label=info.get('platform_label', platform_label),
                 )
             except Exception as e:
                 log.info(f"[{datetime.now()}] 记录对局失败 ({match_id}): {e}")
@@ -803,8 +866,8 @@ class SteamAuto(BaseInstance):
                         game_stop_messages[prev_game_name] = []
                     game_stop_messages[prev_game_name].append((nickname, duration_str))
 
-                # 如果是 CS2 (AppID 730) 且配置了完美API，则加入查询列表
-                if prev_game_id == '730' and self.pw_api:
+                # 如果是 CS2 (AppID 730)，离开后查询平台战绩
+                if prev_game_id == '730':
                     stopped_cs2_friends.append(steam_id)
 
                 # 累计今日游玩时长
@@ -868,15 +931,24 @@ class SteamAuto(BaseInstance):
 
         messages.extend(game_mute_messages)
 
-        # 查询完美战绩
+        # 查询完美 / 5E 战绩
         if stopped_cs2_friends:
-            log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
+            if self.pw_api:
+                log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
+                try:
+                    pw_messages = self._run_async_safe(self._fetch_pw_stats_async(stopped_cs2_friends))
+                    if pw_messages:
+                        messages.extend(pw_messages)
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 查询完美战绩失败: {e}")
+
+            log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的 5E 战绩...")
             try:
-                pw_messages = self._run_async_safe(self._fetch_pw_stats_async(stopped_cs2_friends))
-                if pw_messages:
-                    messages.extend(pw_messages)
+                fivee_messages = self._run_async_safe(self._fetch_5e_stats_async(stopped_cs2_friends))
+                if fivee_messages:
+                    messages.extend(fivee_messages)
             except Exception as e:
-                log.info(f"[{datetime.now()}] 查询完美战绩失败: {e}")
+                log.info(f"[{datetime.now()}] 查询 5E 战绩失败: {e}")
 
         # 合并所有消息，限制单条长度避免微信截断
         if messages:
@@ -1046,6 +1118,18 @@ class SteamAuto(BaseInstance):
         if not self.friend_pw_history_stats:
             return {}
         return self.friend_pw_history_stats
+
+    def get_friend_5e_stats(self):
+        """获取好友今天的 5E 战绩统计信息"""
+        if not self.friend_5e_daily_stats:
+            return None
+        return self.friend_5e_daily_stats
+
+    def get_friend_5e_history_stats(self):
+        """获取好友的 5E 历史最佳战绩"""
+        if not self.friend_5e_history_stats:
+            return {}
+        return self.friend_5e_history_stats
     
     def save_pw_nicknames(self):
         """将获取到的完美平台昵称保存到数据文件的 monitored_friends 中"""
@@ -1071,6 +1155,38 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存完美平台昵称失败: {e}")
 
+    def save_5e_profiles(self, resolved_updates: dict):
+        """将解析到的 5E 用户信息保存到 monitored_friends。"""
+        if not resolved_updates:
+            return
+        try:
+            data = self.load_config(self.data_path)
+            monitored_friends = data.get('monitored_friends', [])
+            changed = False
+            for friend in monitored_friends:
+                if not isinstance(friend, dict):
+                    continue
+                steamid = str(friend.get('steamid', ''))
+                resolved = resolved_updates.get(steamid)
+                if not resolved:
+                    continue
+                mapping = {
+                    'fivee_nickname': resolved.get('username', ''),
+                    'fivee_domain': resolved.get('domain', ''),
+                    'fivee_uuid': resolved.get('uuid', ''),
+                    'fivee_avatar': resolved.get('avatar', ''),
+                }
+                for key, value in mapping.items():
+                    if value and friend.get(key) != value:
+                        friend[key] = value
+                        changed = True
+            if changed:
+                self._update_last_save_time(data)
+                self.save_config(data, self.data_path)
+                log.info(f"[{datetime.now()}] 5E 用户信息已保存到 {self.data_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存 5E 用户信息失败: {e}")
+
     def save_history_stats(self):
         """保存历史战绩统计到数据文件"""
         try:
@@ -1081,6 +1197,17 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 历史战绩统计已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存历史战绩统计失败: {e}")
+
+    def save_5e_history_stats(self):
+        """保存 5E 历史战绩统计到数据文件"""
+        try:
+            config = self.load_config(self.data_path)
+            config['friend_5e_history_stats'] = self.friend_5e_history_stats
+            self._update_last_save_time(config)
+            self.save_config(config, self.data_path)
+            log.info(f"[{datetime.now()}] 5E 历史战绩统计已保存到 {self.data_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存 5E 历史战绩统计失败: {e}")
 
     def _clean_news_cache(self):
         """清理超过 30 天的缓存"""
@@ -1171,19 +1298,62 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 清空完美赛季统计失败: {e}")
             raise
 
+    def reset_5e_season_records(self):
+        """归档并清空 5E 赛季历史极值。"""
+        cleared_history_players = len(self.friend_5e_history_stats or {})
+
+        try:
+            archive_path = archive_pw_season_data(self.data_path)
+            log.info(f"[{datetime.now()}] 5E 赛季数据已归档至 {archive_path}")
+
+            with _config_lock:
+                config = {}
+                if Path(self.data_path).exists():
+                    with open(self.data_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                config['friend_5e_history_stats'] = {}
+                self._update_last_save_time(config)
+                with open(self.data_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+
+            self.friend_5e_history_stats = {}
+            log.info(
+                f"[{datetime.now()}] 5E 赛季统计已清空: "
+                f"history={cleared_history_players}, "
+                f"archive={archive_path}"
+            )
+            return {
+                "cleared_history_players": cleared_history_players,
+                "archived_to": archive_path,
+                "message": f"5E 赛季统计已清空，已归档至 {archive_path}"
+            }
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 清空 5E 赛季统计失败: {e}")
+            raise
+
     def check_and_report_records(self):
         """检查排行榜变化，返回刷新记录的通知消息列表"""
-        if not self.friend_pw_history_stats:
+        return self._check_and_report_records(
+            history_stats=self.friend_pw_history_stats,
+            leaderboard=self.friend_pw_leaderboard,
+            categories=SteamAuto.LEADERBOARD_CATEGORIES,
+            nickname_field='pw_nickname',
+            save_func=self.save_leaderboard,
+            platform_label='',
+        )
+
+    def _check_and_report_records(self, history_stats, leaderboard, categories, nickname_field, save_func, platform_label=''):
+        """检查排行榜变化，返回刷新记录的通知消息列表。"""
+        if not history_stats:
             return []
 
         notifications = []
-        valid_players = {sid: d for sid, d in self.friend_pw_history_stats.items()
-                        if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0 or d.get('max_we', 0) > 0}
+        valid_players = {
+            sid: d for sid, d in history_stats.items()
+            if d.get('max_kills', 0) > 0 or d.get('max_rating', 0) > 0
+        }
         if not valid_players:
             return []
-
-        # 定义所有排行榜类别：(key_name, display_name, emoji, data_field, is_max)
-        categories = SteamAuto.LEADERBOARD_CATEGORIES
 
         for cat_key, cat_name, emoji, field, is_max in categories:
             # 找出当前该类别的最佳/最差玩家
@@ -1198,20 +1368,20 @@ class SteamAuto(BaseInstance):
                     continue
                 best_sid, best_val = min(candidates, key=lambda x: x[1])
 
-            best_nick = valid_players[best_sid].get('pw_nickname', '未知')
+            best_nick = valid_players[best_sid].get(nickname_field, '未知')
             best_avatar = valid_players[best_sid].get('avatar', '')
-            old = self.friend_pw_leaderboard.get(cat_key)
+            old = leaderboard.get(cat_key)
 
             if not old or old.get('steamid') != best_sid or old.get('value') != best_val:
                 # 记录刷新了
-                old_nick = old.get('pw_nickname', '未知') if old else None
+                old_nick = old.get('pw_nickname') or old.get('fivee_nickname') or '未知' if old else None
                 old_val = old.get('value') if old else None
                 if old and old.get('steamid') != best_sid:
-                    notifications.append(f"{emoji} {cat_name}易主！{old_nick}({old_val}) → {best_nick}({best_val})")
+                    notifications.append(f"{emoji} {platform_label}{cat_name}易主！{old_nick}({old_val}) → {best_nick}({best_val})")
                 elif old and old.get('value') != best_val:
-                    notifications.append(f"{emoji} {cat_name}刷新！{best_nick}: {old_val} → {best_val}")
+                    notifications.append(f"{emoji} {platform_label}{cat_name}刷新！{best_nick}: {old_val} → {best_val}")
                 elif not old:
-                    notifications.append(f"{emoji} {cat_name}诞生！{best_nick} ({best_val})")
+                    notifications.append(f"{emoji} {platform_label}{cat_name}诞生！{best_nick} ({best_val})")
 
                 try:
                     is_improvement = True
@@ -1222,7 +1392,7 @@ class SteamAuto(BaseInstance):
                         steamid=best_sid,
                         pw_nickname=best_nick,
                         metric=cat_key,
-                        metric_label=cat_name,
+                        metric_label=f"{platform_label}{cat_name}",
                         metric_emoji=emoji,
                         old_value=event_old_val,
                         new_value=best_val,
@@ -1232,15 +1402,18 @@ class SteamAuto(BaseInstance):
                 except Exception as e:
                     log.info(f"[{datetime.now()}] 记录排行榜时间轴失败 ({cat_key}): {e}")
 
-                self.friend_pw_leaderboard[cat_key] = {
+                entry = {
                     'steamid': best_sid,
-                    'pw_nickname': best_nick,
                     'avatar': best_avatar,
                     'value': best_val
                 }
+                entry[nickname_field] = best_nick
+                # Web 时间轴和旧组件默认读 pw_nickname，保留展示兼容。
+                entry['pw_nickname'] = best_nick
+                leaderboard[cat_key] = entry
 
         if notifications:
-            self.save_leaderboard()
+            save_func()
 
         return notifications
 
@@ -1507,6 +1680,109 @@ class SteamAuto(BaseInstance):
 
         return '<div class="pw-grid">' + ''.join(cards) + '</div>'
 
+    def format_5e_daily_stats_message(self, fivee_stats_data):
+        """格式化今日 5E 战绩统计信息"""
+        if not fivee_stats_data:
+            return None
+
+        today = datetime.now().strftime("%m月%d日")
+        lines = [f"⚔️ 5E 平台统计 {today}", ""]
+        sorted_friends = sorted(fivee_stats_data.items(), key=lambda x: x[1].get('match_count', 0), reverse=True)
+
+        for _, stats in sorted_friends:
+            match_count = stats.get('match_count', 0)
+            if match_count == 0:
+                continue
+            nickname = stats.get('fivee_nickname', '未知好友')
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
+            total_elo_change = stats.get('total_elo_change', 0.0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_rws = stats.get('total_rws', 0.0)
+            total_adr = stats.get('total_adr', 0.0)
+
+            avg_rating = total_rating / match_count if match_count else 0
+            avg_rws = total_rws / match_count if match_count else 0
+            avg_adr = total_adr / match_count if match_count else 0
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+            win_rate = wins / match_count * 100 if match_count else 0
+            wr_emoji = '🟢' if win_rate >= 60 else ('🟡' if win_rate >= 40 else '🔴')
+            elo_sign = '+' if total_elo_change >= 0 else ''
+
+            lines.append(f"👤 {nickname}  {match_count}场")
+            if draws > 0:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)  ELO {elo_sign}{total_elo_change:.2f}")
+            else:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)  ELO {elo_sign}{total_elo_change:.2f}")
+            lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  RWS: {avg_rws:.2f}  ADR: {avg_adr:.1f}")
+            lines.append("")
+
+        if len(lines) <= 2:
+            return None
+        return "\n".join(lines)
+
+    def build_5e_daily_stats_html(self, fivee_stats_data):
+        """生成今日 5E 战绩 HTML。"""
+        if not fivee_stats_data:
+            return None
+
+        cards = []
+        sorted_friends = sorted(
+            fivee_stats_data.items(),
+            key=lambda x: (x[1].get('match_count', 0), x[1].get('wins', 0)),
+            reverse=True,
+        )
+
+        for _, stats in sorted_friends:
+            match_count = stats.get('match_count', 0)
+            if match_count == 0:
+                continue
+
+            nickname = html.escape(stats.get('fivee_nickname', '未知好友'))
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
+            total_elo_change = stats.get('total_elo_change', 0.0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_rws = stats.get('total_rws', 0.0)
+            total_adr = stats.get('total_adr', 0.0)
+
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+            avg_rating = total_rating / match_count if match_count else 0
+            avg_rws = total_rws / match_count if match_count else 0
+            avg_adr = total_adr / match_count if match_count else 0
+            win_rate = wins / match_count * 100 if match_count else 0
+            elo_sign = '+' if total_elo_change >= 0 else ''
+            tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
+            record = f"{wins}胜{losses}负"
+            if draws > 0:
+                record += f"{draws}平"
+
+            cards.append(f"""<article class="pw-player">
+  <div class="pw-top">
+    <div>
+      <div class="player-name">{nickname}</div>
+      <div class="player-sub">{match_count} 场对局</div>
+    </div>
+    <div class="win-pill {tone}">{win_rate:.0f}%</div>
+  </div>
+  <div class="record-line">{record}<span>ELO {elo_sign}{total_elo_change:.2f}</span><span>RWS {avg_rws:.2f}</span></div>
+  <div class="stat-strip">
+    <div><span>K/D</span><strong>{kd:.1f}</strong></div>
+    <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
+    <div><span>ADR</span><strong>{avg_adr:.1f}</strong></div>
+  </div>
+</article>""")
+
+        if not cards:
+            return None
+        return '<div class="pw-grid">' + ''.join(cards) + '</div>'
+
     def build_pw_leaderboard_html(self, history_stats_data):
         """生成完美平台历史战绩排行榜 HTML。"""
         rows = self._get_pw_leaderboard_rows(history_stats_data)
@@ -1664,6 +1940,7 @@ class SteamAuto(BaseInstance):
         log.info(f"[{datetime.now()}] 重置每日游玩统计")
         self.friend_daily_stats = {}
         self.friend_pw_daily_stats = {}
+        self.friend_5e_daily_stats = {}
 
     def send_daily_stats(self):
         """发送每日游玩统计（日报 + 排行榜，分条发送）"""
@@ -1735,6 +2012,25 @@ class SteamAuto(BaseInstance):
                     })
         except Exception as e:
             log.info(f"[{datetime.now()}] 排行榜生成失败：{e}")
+
+        # 4. 5E 平台今日战绩
+        try:
+            fivee_stats_data = self.get_friend_5e_stats()
+            if fivee_stats_data:
+                msg = self.format_5e_daily_stats_message(fivee_stats_data)
+                if msg:
+                    lines = msg.strip("\n").splitlines()
+                    fivee_html = self.build_5e_daily_stats_html(fivee_stats_data)
+                    sections.append({
+                        'title': '5E 平台统计',
+                        'body': "\n".join(lines[1:]).strip("\n"),
+                        'body_html': fivee_html,
+                        'badge': '5E',
+                        'accent': '#7c3aed',
+                        'class_name': 'section-full section-fivee',
+                    })
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 5E 平台统计失败：{e}")
 
         if sections:
             self.send_daily_stats_image(sections, "daily_report")

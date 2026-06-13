@@ -212,6 +212,8 @@ class SteamTimelineRecorder:
         map_name: str,
         score: str,
         players: List[Dict[str, Any]],
+        platform: str = "pw",
+        platform_label: str = "完美",
         timestamp: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """记录一场多人对局。match_id 已存在则跳过（去重）。players 是 dict 列表。"""
@@ -226,6 +228,8 @@ class SteamTimelineRecorder:
                 "id": uuid.uuid4().hex,
                 "kind": "match",
                 "match_id": match_id,
+                "platform": platform,
+                "platform_label": platform_label,
                 "map_name": map_name,
                 "score": score,
                 "players": players,

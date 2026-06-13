@@ -83,6 +83,15 @@ async def reset_steam_pw_season_records(current_user: User = Depends(require_adm
     return {"success": True, "data": result.get("data", {})}
 
 
+@router.post("/steam/5e-season/reset")
+async def reset_steam_5e_season_records(current_user: User = Depends(require_admin)):
+    """管理员手动清空 5E 赛季历史统计和排行榜。"""
+    result = await bridge.send_request("steam.reset_5e_season_records", timeout=30)
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Agent 请求失败"))
+    return {"success": True, "data": result.get("data", {})}
+
+
 @router.get("/steam/timeline")
 async def get_steam_timeline(
     type: str = "all",

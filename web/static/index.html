@@ -437,6 +437,9 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 .tl-map-score { font-size:12px; color:var(--text); font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; }
 .tl-map-score .tl-map { color:var(--text2); font-weight:500; font-size:11px; }
 .tl-map-score b { font-size:14px; letter-spacing:0.5px; }
+.tl-platform { display:inline-flex; align-items:center; justify-content:center; min-width:34px; padding:2px 7px; border-radius:999px; font-size:10px; font-weight:700; color:#fff; background:rgba(124,108,255,0.8); border:1px solid rgba(255,255,255,0.16); }
+.tl-platform-5e { background:rgba(124,58,237,0.85); }
+.tl-platform-pw { background:rgba(37,99,235,0.85); }
 .tl-kda { font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:0.3px; }
 
 /* 多人对局组数徽章 */
@@ -1034,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <button class="btn-sm" @click="loadSteamTimelinePlay" title="刷新"><i class="mdi mdi-refresh"></i></button>
           </div>
         </div>
-        <div v-if="!steamTimelinePlay.length" class="tl-empty">暂无好友对局记录（CS2 完美对局结束后会出现）</div>
+        <div v-if="!steamTimelinePlay.length" class="tl-empty">暂无好友对局记录（CS2 完美或 5E 对局结束后会出现）</div>
         <div v-else class="tl-scroll" ref="playScrollEl">
           <div class="tl-track">
             <div class="tl-line"></div>
@@ -1055,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </template>
                 <template v-else-if="ev.players && ev.players.length">
                   <div class="tl-map-score">
+                    <span class="tl-platform" :class="platformClass(ev)">{{ ev.platform_label || platformLabel(ev) }}</span>
                     <span class="tl-map">{{ ev.map_name }}</span>
                     <b>{{ ev.score }}</b>
                   </div>
@@ -1069,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </template>
                 <template v-else>
                   <div class="tl-map-score">
+                    <span class="tl-platform" :class="platformClass(ev)">{{ ev.platform_label || platformLabel(ev) }}</span>
                     <span class="tl-map">{{ ev.map_name }}</span>
                     <b>{{ ev.score }}</b>
                   </div>
@@ -1135,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
         </div>
       </div>
-      <!-- 排行榜 -->
+      <!-- 完美排行榜 -->
       <div class="card card-enter" v-if="steamDetail.friend_pw_leaderboard" style="animation-delay:.16s">
         <h2><i class="mdi mdi-trophy" style="margin-right:8px;"></i>完美世界排行榜</h2>
         <!-- 每个类别的 Top 3 -->
@@ -1185,9 +1190,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         </div>
       </div>
-      <!-- 历史极值 -->
+      <!-- 完美历史极值 -->
       <div class="card card-enter" v-if="steamDetail.friend_pw_history_stats" style="animation-delay:.20s">
-        <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>历史极值</h2>
+        <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>完美世界历史极值</h2>
         <div style="overflow-x:auto;">
         <table>
           <tr>
@@ -1221,6 +1226,42 @@ document.addEventListener('DOMContentLoaded', function() {
         </table>
         </div>
       </div>
+      <!-- 5E 历史极值 -->
+      <div class="card card-enter" v-if="steamDetail.friend_5e_history_stats" style="animation-delay:.23s">
+        <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>5E 历史极值</h2>
+        <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>玩家</th>
+            <th>最高击杀</th><th>最低击杀</th>
+            <th>最多死亡</th><th>最少死亡</th>
+            <th>最高 Rating</th><th>最低 Rating</th>
+            <th>最高 RWS</th><th>最低 RWS</th>
+            <th>最高 ADR</th><th>最低 ADR</th>
+            <th>最高 ELO</th><th>最低 ELO</th>
+          </tr>
+          <tr v-for="(val,sid) in steamDetail.friend_5e_history_stats" :key="'5e_'+sid">
+            <td style="white-space:nowrap;">
+              <img v-if="val.avatar && !failedAvatars.has('5e_tb_'+sid)" :src="val.avatar" class="table-avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, '5e_tb_'+sid)">
+              <i v-else class="mdi mdi-account" style="font-size:18px;vertical-align:middle;margin-right:6px;color:var(--text2);"></i>
+              {{ val.fivee_nickname || val.nickname }}
+            </td>
+            <td>{{ val.max_kills || '-' }}</td>
+            <td>{{ val.min_kills < 999 ? val.min_kills : '-' }}</td>
+            <td>{{ val.max_deaths || '-' }}</td>
+            <td>{{ val.min_deaths < 999 ? val.min_deaths : '-' }}</td>
+            <td>{{ val.max_rating || '-' }}</td>
+            <td>{{ val.min_rating < 999 ? val.min_rating : '-' }}</td>
+            <td>{{ val.max_rws || '-' }}</td>
+            <td>{{ val.min_rws < 999 ? val.min_rws : '-' }}</td>
+            <td>{{ val.max_adr || '-' }}</td>
+            <td>{{ val.min_adr < 999 ? val.min_adr : '-' }}</td>
+            <td>{{ val.max_elo || '-' }}</td>
+            <td>{{ val.min_elo < 9999 ? val.min_elo : '-' }}</td>
+          </tr>
+        </table>
+        </div>
+      </div>
       <!-- 好友列表 -->
       <div class="card card-enter" style="animation-delay:.24s">
         <h2><i class="mdi mdi-account-multiple" style="margin-right:8px;"></i>监控好友 ({{ (steamDetail.monitored_friends || []).length }})</h2>
@@ -1232,9 +1273,12 @@ document.addEventListener('DOMContentLoaded', function() {
           </tr>
         </table>
       </div>
-      <div v-if="user.role === 'admin'" style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <div v-if="user.role === 'admin'" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
         <button class="btn-sm danger" @click="resetPwSeasonRecords">
-          <i class="mdi mdi-broom"></i> 清空赛季统计
+          <i class="mdi mdi-broom"></i> 清空完美赛季统计
+        </button>
+        <button class="btn-sm danger" @click="resetFiveeSeasonRecords">
+          <i class="mdi mdi-broom"></i> 清空 5E 赛季统计
         </button>
       </div>
     </template>
@@ -1727,6 +1771,13 @@ createApp({
     });
     function getTop3(key) { return allTop3.value[key] || []; }
 
+    function platformLabel(ev) {
+      return ev?.platform === '5e' ? '5E' : '完美';
+    }
+    function platformClass(ev) {
+      return ev?.platform === '5e' ? 'tl-platform-5e' : 'tl-platform-pw';
+    }
+
     // ── 导航菜单 ──
     const allNav = [
       { key:'dashboard', icon:'mdi-view-dashboard', label:'仪表盘', roles:['admin','user'] },
@@ -2083,6 +2134,18 @@ createApp({
       }
     }
 
+    async function resetFiveeSeasonRecords() {
+      if (!confirm('确认清空 5E 历史极值？清空前会自动归档当前赛季数据到 instconfig/steam_data_archives/，此操作用于赛季刷新。')) return;
+      try {
+        const data = await api('/api/status/steam/5e-season/reset', { method: 'POST' });
+        const d = data.data || {};
+        showToast(d.message || '5E 赛季统计已清空');
+        await loadInstances();
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
     async function loadFiles() {
       try {
         const data = await api('/api/files');
@@ -2425,7 +2488,7 @@ createApp({
       visibleNav, currentNavItem, globalLoading, lastRefreshAt, lastRefreshText, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
-      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords,
+      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords, resetFiveeSeasonRecords,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,
@@ -2433,7 +2496,7 @@ createApp({
       steamTimelineExtreme, steamTimelinePlay, extremeLimit, playLimit,
       extremeScrollEl, playScrollEl,
       loadSteamTimelineExtreme, loadSteamTimelinePlay,
-      playEventsWithShare, matchCardFlex, formatRelTime,
+      playEventsWithShare, matchCardFlex, formatRelTime, platformLabel, platformClass,
     };
     window.__vueApp = appExports;
     return appExports;

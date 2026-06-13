@@ -23,6 +23,7 @@ def archive_pw_season_data(data_path: str) -> str:
         "archived_at": datetime.now().isoformat(),
         "friend_pw_history_stats": config.get("friend_pw_history_stats", {}),
         "friend_pw_leaderboard": config.get("friend_pw_leaderboard", {}),
+        "friend_5e_history_stats": config.get("friend_5e_history_stats", {}),
     }
 
     with open(archive_path, "w", encoding="utf-8") as f:

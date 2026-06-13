@@ -117,6 +117,8 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             return self._handle_chat_send(msg.get("params", {}))
         if action == "steam.reset_pw_season_records":
             return self._handle_steam_reset_pw_season_records()
+        if action == "steam.reset_5e_season_records":
+            return self._handle_steam_reset_5e_season_records()
         # chat.history 由 Agent handler 直接处理（内存），不走 TCP
         return {"success": False, "error": f"未知操作: {action}"}
 
@@ -128,6 +130,21 @@ class ChatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         with self._steam_reset_lock:
             for name, inst in self._instances_ref:
                 reset_fn = getattr(inst, "reset_pw_season_records", None)
+                if callable(reset_fn):
+                    data = reset_fn()
+                    data["instance"] = name
+                    return {"success": True, "data": data}
+
+        return {"success": False, "error": "未找到 Steam 实例"}
+
+    def _handle_steam_reset_5e_season_records(self):
+        """清空运行中 Steam 实例的 5E 赛季历史统计。"""
+        if not self._instances_ref:
+            return {"success": False, "error": "Bot 尚未初始化实例"}
+
+        with self._steam_reset_lock:
+            for name, inst in self._instances_ref:
+                reset_fn = getattr(inst, "reset_5e_season_records", None)
                 if callable(reset_fn):
                     data = reset_fn()
                     data["instance"] = name
