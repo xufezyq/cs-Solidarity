@@ -1262,6 +1262,42 @@ document.addEventListener('DOMContentLoaded', function() {
         </table>
         </div>
       </div>
+      <!-- 官匹历史极值 -->
+      <div class="card card-enter" v-if="steamDetail.friend_official_history_stats" style="animation-delay:.235s">
+        <h2><i class="mdi mdi-chart-line" style="margin-right:8px;"></i>官匹历史极值</h2>
+        <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>玩家</th>
+            <th>最高击杀</th><th>最低击杀</th>
+            <th>最多死亡</th><th>最少死亡</th>
+            <th>最高 Rating</th><th>最低 Rating</th>
+            <th>最高 pwRT</th><th>最低 pwRT</th>
+            <th>最高 WE</th><th>最低 WE</th>
+            <th>最高分数</th><th>最低分数</th>
+          </tr>
+          <tr v-for="(val,sid) in steamDetail.friend_official_history_stats" :key="'official_'+sid">
+            <td style="white-space:nowrap;">
+              <img v-if="val.avatar && !failedAvatars.has('official_tb_'+sid)" :src="val.avatar" class="table-avatar" referrerpolicy="no-referrer" @error="onAvatarError($event, 'official_tb_'+sid)">
+              <i v-else class="mdi mdi-account" style="font-size:18px;vertical-align:middle;margin-right:6px;color:var(--text2);"></i>
+              {{ val.official_nickname || val.nickname }}
+            </td>
+            <td>{{ val.max_kills || '-' }}</td>
+            <td>{{ val.min_kills < 999 ? val.min_kills : '-' }}</td>
+            <td>{{ val.max_deaths || '-' }}</td>
+            <td>{{ val.min_deaths < 999 ? val.min_deaths : '-' }}</td>
+            <td>{{ val.max_rating || '-' }}</td>
+            <td>{{ val.min_rating < 999 ? val.min_rating : '-' }}</td>
+            <td>{{ val.max_pw_rating || '-' }}</td>
+            <td>{{ val.min_pw_rating < 999 ? val.min_pw_rating : '-' }}</td>
+            <td>{{ val.max_we || '-' }}</td>
+            <td>{{ val.min_we < 999 ? val.min_we : '-' }}</td>
+            <td>{{ val.max_score || '-' }}</td>
+            <td>{{ val.min_score < 9999 ? val.min_score : '-' }}</td>
+          </tr>
+        </table>
+        </div>
+      </div>
       <!-- 好友列表 -->
       <div class="card card-enter" style="animation-delay:.24s">
         <h2><i class="mdi mdi-account-multiple" style="margin-right:8px;"></i>监控好友 ({{ (steamDetail.monitored_friends || []).length }})</h2>
@@ -1279,6 +1315,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </button>
         <button class="btn-sm danger" @click="resetFiveeSeasonRecords">
           <i class="mdi mdi-broom"></i> 清空 5E 赛季统计
+        </button>
+        <button class="btn-sm danger" @click="resetOfficialSeasonRecords">
+          <i class="mdi mdi-broom"></i> 清空官匹赛季统计
         </button>
       </div>
     </template>
@@ -2146,6 +2185,18 @@ createApp({
       }
     }
 
+    async function resetOfficialSeasonRecords() {
+      if (!confirm('确认清空官匹历史极值？清空前会自动归档当前赛季数据到 instconfig/steam_data_archives/，此操作用于赛季刷新。')) return;
+      try {
+        const data = await api('/api/status/steam/official-season/reset', { method: 'POST' });
+        const d = data.data || {};
+        showToast(d.message || '官匹赛季统计已清空');
+        await loadInstances();
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
     async function loadFiles() {
       try {
         const data = await api('/api/files');
@@ -2488,7 +2539,7 @@ createApp({
       visibleNav, currentNavItem, globalLoading, lastRefreshAt, lastRefreshText, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
-      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords, resetFiveeSeasonRecords,
+      pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords, resetFiveeSeasonRecords, resetOfficialSeasonRecords,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,

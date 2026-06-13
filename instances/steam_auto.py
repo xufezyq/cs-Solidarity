@@ -11,6 +11,7 @@ from typing import Any, Dict
 from pathlib import Path
 from core import wechat_instance
 from cs2_platforms.cs2_pw.pw_reporter import PwStatsReporter
+from cs2_platforms.cs2_official.official_reporter import OfficialStatsReporter
 from cs2_platforms.cs2_5e.request import FiveEApi
 from cs2_platforms.cs2_5e.reporter import FiveEStatsReporter
 from core.base_instance import BaseInstance
@@ -61,7 +62,7 @@ class SteamAuto(BaseInstance):
         ('min_score', '吊车尾', '📉', 'min_score', False),
     ]
 
-    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, friend_5e_history_stats=None, cached_news_gids=None, game_event_mute_config=None, config_path='config.json', data_path=None, debug=False):
+    def __init__(self, steam_api_key=None, steam_id=None, wechat_groups=None, monitored_friends=None, enable_all_friends=True, code_update_lines=None, check_interval=60, perfect_world_config=None, check_news_interval=3600, enable_news_check=True, friend_pw_history_stats=None, friend_5e_history_stats=None, friend_official_history_stats=None, cached_news_gids=None, game_event_mute_config=None, config_path='config.json', data_path=None, debug=False):
         # 优先从环境变量读取配置
         self.steam_api_key = steam_api_key or os.getenv('STEAM_API_KEY')
         self.steam_id = steam_id or os.getenv('STEAM_ID')
@@ -76,6 +77,9 @@ class SteamAuto(BaseInstance):
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
         self.friend_5e_daily_stats = {}
         self.friend_5e_history_stats = friend_5e_history_stats or {}
+        self.friend_official_daily_stats = {}
+        self.friend_official_history_stats = friend_official_history_stats or {}
+        self.friend_official_nickname_map = {}
         # 时间轴记录器（历史极值变化 + 好友对局记录）
         self.timeline_recorder = SteamTimelineRecorder(self.data_path)
         self.friend_pw_leaderboard = {}  # 当前排行榜持有者 {"category": {"steamid": ..., "pw_nickname": ..., "value": ...}}
@@ -288,6 +292,7 @@ class SteamAuto(BaseInstance):
         'friend_pw_history_stats',
         'friend_pw_leaderboard',
         'friend_5e_history_stats',
+        'friend_official_history_stats',
         'cached_news_gids',
         'last_update',
     ]
@@ -405,6 +410,7 @@ class SteamAuto(BaseInstance):
             enable_news_check=config.get('enable_news_check', True),
             friend_pw_history_stats=config.get('friend_pw_history_stats'),
             friend_5e_history_stats=config.get('friend_5e_history_stats'),
+            friend_official_history_stats=config.get('friend_official_history_stats'),
             cached_news_gids=config.get('cached_news_gids'),
             game_event_mute_config=config.get('game_event_mute', {}),
             config_path=config_path,
@@ -730,6 +736,33 @@ class SteamAuto(BaseInstance):
 
         return messages
 
+    async def _fetch_official_stats_async(self, steam_ids):
+        """异步获取官匹战绩（复用完美世界 API，dataSource=1）"""
+        if not self.pw_api:
+            return []
+
+        reporter = OfficialStatsReporter(
+            pw_api=self.pw_api,
+            friend_official_nickname_map=self.friend_official_nickname_map,
+            friend_official_history_stats=self.friend_official_history_stats,
+            friend_official_daily_stats=self.friend_official_daily_stats,
+            log=log.info,
+        )
+
+        messages, processed_matches = await reporter.fetch_and_report(steam_ids)
+
+        try:
+            self._record_play_records(processed_matches, platform='official', platform_label='官匹')
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 记录官匹好友对局失败: {e}")
+
+        try:
+            self.save_official_history_stats()
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存官匹历史战绩统计失败: {e}")
+
+        return messages
+
     def monitored_friends_detail(self):
         """Return monitored friends with metadata from the data file."""
         try:
@@ -931,7 +964,7 @@ class SteamAuto(BaseInstance):
 
         messages.extend(game_mute_messages)
 
-        # 查询完美 / 5E 战绩
+        # 查询完美 / 5E / 官匹战绩
         if stopped_cs2_friends:
             if self.pw_api:
                 log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的完美平台战绩...")
@@ -941,6 +974,14 @@ class SteamAuto(BaseInstance):
                         messages.extend(pw_messages)
                 except Exception as e:
                     log.info(f"[{datetime.now()}] 查询完美战绩失败: {e}")
+
+                log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的官匹战绩...")
+                try:
+                    official_messages = self._run_async_safe(self._fetch_official_stats_async(stopped_cs2_friends))
+                    if official_messages:
+                        messages.extend(official_messages)
+                except Exception as e:
+                    log.info(f"[{datetime.now()}] 查询官匹战绩失败: {e}")
 
             log.info(f"[{datetime.now()}] 正在查询 {len(stopped_cs2_friends)} 位好友的 5E 战绩...")
             try:
@@ -1130,6 +1171,18 @@ class SteamAuto(BaseInstance):
         if not self.friend_5e_history_stats:
             return {}
         return self.friend_5e_history_stats
+
+    def get_friend_official_stats(self):
+        """获取好友今天的官匹战绩统计信息"""
+        if not self.friend_official_daily_stats:
+            return None
+        return self.friend_official_daily_stats
+
+    def get_friend_official_history_stats(self):
+        """获取好友的官匹历史最佳战绩"""
+        if not self.friend_official_history_stats:
+            return {}
+        return self.friend_official_history_stats
     
     def save_pw_nicknames(self):
         """将获取到的完美平台昵称保存到数据文件的 monitored_friends 中"""
@@ -1208,6 +1261,17 @@ class SteamAuto(BaseInstance):
             log.info(f"[{datetime.now()}] 5E 历史战绩统计已保存到 {self.data_path}")
         except Exception as e:
             log.info(f"[{datetime.now()}] 保存 5E 历史战绩统计失败: {e}")
+
+    def save_official_history_stats(self):
+        """保存官匹历史战绩统计到数据文件"""
+        try:
+            config = self.load_config(self.data_path)
+            config['friend_official_history_stats'] = self.friend_official_history_stats
+            self._update_last_save_time(config)
+            self.save_config(config, self.data_path)
+            log.info(f"[{datetime.now()}] 官匹历史战绩统计已保存到 {self.data_path}")
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 保存官匹历史战绩统计失败: {e}")
 
     def _clean_news_cache(self):
         """清理超过 30 天的缓存"""
@@ -1329,6 +1393,39 @@ class SteamAuto(BaseInstance):
             }
         except Exception as e:
             log.info(f"[{datetime.now()}] 清空 5E 赛季统计失败: {e}")
+            raise
+
+    def reset_official_season_records(self):
+        """归档并清空官匹赛季历史极值。"""
+        cleared_history_players = len(self.friend_official_history_stats or {})
+
+        try:
+            archive_path = archive_pw_season_data(self.data_path)
+            log.info(f"[{datetime.now()}] 官匹赛季数据已归档至 {archive_path}")
+
+            with _config_lock:
+                config = {}
+                if Path(self.data_path).exists():
+                    with open(self.data_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                config['friend_official_history_stats'] = {}
+                self._update_last_save_time(config)
+                with open(self.data_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+
+            self.friend_official_history_stats = {}
+            log.info(
+                f"[{datetime.now()}] 官匹赛季统计已清空: "
+                f"history={cleared_history_players}, "
+                f"archive={archive_path}"
+            )
+            return {
+                "cleared_history_players": cleared_history_players,
+                "archived_to": archive_path,
+                "message": f"官匹赛季统计已清空，已归档至 {archive_path}"
+            }
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 清空官匹赛季统计失败: {e}")
             raise
 
     def check_and_report_records(self):
@@ -1783,6 +1880,106 @@ class SteamAuto(BaseInstance):
             return None
         return '<div class="pw-grid">' + ''.join(cards) + '</div>'
 
+    def format_official_daily_stats_message(self, official_stats_data):
+        """格式化今日官匹战绩统计信息"""
+        if not official_stats_data:
+            return None
+
+        today = datetime.now().strftime("%m月%d日")
+        lines = [f"⚔️ 官匹平台统计 {today}", ""]
+        sorted_friends = sorted(official_stats_data.items(), key=lambda x: x[1].get('match_count', 0), reverse=True)
+
+        for _, stats in sorted_friends:
+            match_count = stats.get('match_count', 0)
+            if match_count == 0:
+                continue
+            nickname = stats.get('official_nickname', '未知好友')
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_pw_rating = stats.get('total_pw_rating', 0.0)
+            total_we = stats.get('total_we', 0)
+
+            avg_rating = total_rating / match_count if match_count else 0
+            avg_pw_rating = total_pw_rating / match_count if match_count else 0
+            avg_we = total_we / match_count if match_count else 0
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+            win_rate = wins / match_count * 100 if match_count else 0
+            wr_emoji = '🟢' if win_rate >= 60 else ('🟡' if win_rate >= 40 else '🔴')
+
+            lines.append(f"👤 {nickname}  {match_count}场")
+            if draws > 0:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)")
+            else:
+                lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)")
+            lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  pwRT: {avg_pw_rating:.2f}  WE: {avg_we:.1f}")
+            lines.append("")
+
+        if len(lines) <= 2:
+            return None
+        return "\n".join(lines)
+
+    def build_official_daily_stats_html(self, official_stats_data):
+        """生成今日官匹战绩 HTML。"""
+        if not official_stats_data:
+            return None
+
+        cards = []
+        sorted_friends = sorted(
+            official_stats_data.items(),
+            key=lambda x: (x[1].get('match_count', 0), x[1].get('wins', 0)),
+            reverse=True,
+        )
+
+        for _, stats in sorted_friends:
+            match_count = stats.get('match_count', 0)
+            if match_count == 0:
+                continue
+
+            nickname = html.escape(stats.get('official_nickname', '未知好友'))
+            wins = stats.get('wins', 0)
+            losses = stats.get('losses', 0)
+            draws = stats.get('draws', 0)
+            total_kills = stats.get('total_kills', 0)
+            total_deaths = stats.get('total_deaths', 0)
+            total_rating = stats.get('total_rating', 0.0)
+            total_pw_rating = stats.get('total_pw_rating', 0.0)
+            total_we = stats.get('total_we', 0)
+
+            kd = total_kills / total_deaths if total_deaths > 0 else total_kills
+            avg_rating = total_rating / match_count if match_count else 0
+            avg_pw_rating = total_pw_rating / match_count if match_count else 0
+            avg_we = total_we / match_count if match_count else 0
+            win_rate = wins / match_count * 100 if match_count else 0
+            tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
+            record = f"{wins}胜{losses}负"
+            if draws > 0:
+                record += f"{draws}平"
+
+            cards.append(f"""<article class="pw-player">
+  <div class="pw-top">
+    <div>
+      <div class="player-name">{nickname}</div>
+      <div class="player-sub">{match_count} 场对局</div>
+    </div>
+    <div class="win-pill {tone}">{win_rate:.0f}%</div>
+  </div>
+  <div class="record-line">{record}</div>
+  <div class="stat-strip">
+    <div><span>K/D</span><strong>{kd:.1f}</strong></div>
+    <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
+    <div><span>pwRT</span><strong>{avg_pw_rating:.2f}</strong></div>
+    <div><span>WE</span><strong>{avg_we:.1f}</strong></div>
+  </div>
+</article>""")
+
+        if not cards:
+            return None
+        return '<div class="pw-grid">' + ''.join(cards) + '</div>'
+
     def build_pw_leaderboard_html(self, history_stats_data):
         """生成完美平台历史战绩排行榜 HTML。"""
         rows = self._get_pw_leaderboard_rows(history_stats_data)
@@ -1941,6 +2138,7 @@ class SteamAuto(BaseInstance):
         self.friend_daily_stats = {}
         self.friend_pw_daily_stats = {}
         self.friend_5e_daily_stats = {}
+        self.friend_official_daily_stats = {}
 
     def send_daily_stats(self):
         """发送每日游玩统计（日报 + 排行榜，分条发送）"""
@@ -2031,6 +2229,25 @@ class SteamAuto(BaseInstance):
                     })
         except Exception as e:
             log.info(f"[{datetime.now()}] 5E 平台统计失败：{e}")
+
+        # 5. 官匹今日战绩
+        try:
+            official_stats_data = self.get_friend_official_stats()
+            if official_stats_data:
+                msg = self.format_official_daily_stats_message(official_stats_data)
+                if msg:
+                    lines = msg.strip("\n").splitlines()
+                    official_html = self.build_official_daily_stats_html(official_stats_data)
+                    sections.append({
+                        'title': '官匹平台统计',
+                        'body': "\n".join(lines[1:]).strip("\n"),
+                        'body_html': official_html,
+                        'badge': 'Official',
+                        'accent': '#ef4444',
+                        'class_name': 'section-full section-official',
+                    })
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 官匹平台统计失败：{e}")
 
         if sections:
             self.send_daily_stats_image(sections, "daily_report")

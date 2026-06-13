@@ -120,6 +120,7 @@ class AgentHandler:
             "steam.friends_status": self._steam_friends_status,
             "steam.reset_pw_season_records": self._steam_reset_pw_season_records,
             "steam.reset_5e_season_records": self._steam_reset_5e_season_records,
+            "steam.reset_official_season_records": self._steam_reset_official_season_records,
             "steam.get_timeline": self._steam_get_timeline,
             "files.list": self._files_list,
             "files.upload": self._files_upload,
@@ -830,6 +831,57 @@ class AgentHandler:
             return self._reset_5e_season_records_file()
         except Exception as e:
             return {"success": False, "error": f"清空 5E 赛季统计失败: {e}"}
+
+    def _reset_official_season_records_file(self) -> Dict[str, Any]:
+        """Bot 未运行时，归档 Steam 数据文件中的官匹赛季统计，然后清空。"""
+        data_file = self._steam_data_file()
+        data_file.parent.mkdir(parents=True, exist_ok=True)
+
+        archive_path = archive_pw_season_data(str(data_file))
+
+        config = {}
+        if data_file.exists():
+            with open(data_file, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+        history = config.get("friend_official_history_stats") or {}
+        config["friend_official_history_stats"] = {}
+        config["last_update"] = datetime.now().timestamp()
+
+        with open(data_file, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "data": {
+                "cleared_history_players": len(history),
+                "archived_to": archive_path,
+                "message": f"官匹赛季统计已清空，已归档至 {archive_path}",
+                "mode": "file",
+            }
+        }
+
+    def _steam_reset_official_season_records(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """清空官匹赛季历史极值。"""
+        try:
+            from bot.chat_server import send_action_to_bot
+            result = send_action_to_bot("steam.reset_official_season_records", {}, timeout=15)
+            if result.get("success"):
+                result.setdefault("data", {})["mode"] = "bot"
+                return result
+            if self._is_bot_process_running():
+                return {
+                    "success": False,
+                    "error": result.get("error", "Bot 控制通道不可用，未执行清空")
+                }
+        except Exception as e:
+            if self._is_bot_process_running():
+                return {"success": False, "error": f"Bot 控制通道不可用，未执行清空: {e}"}
+
+        try:
+            return self._reset_official_season_records_file()
+        except Exception as e:
+            return {"success": False, "error": f"清空官匹赛季统计失败: {e}"}
 
     def _steam_get_timeline(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """读取 Steam 时间轴事件（历史极值变化 / 好友对局记录）。
