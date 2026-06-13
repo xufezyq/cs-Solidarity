@@ -582,7 +582,7 @@ class PwStatsReporter:
                     title_line += f" | {mvp_data_desc}"
                 title_line += "\n\n"
 
-            msg = f"{result_emoji} {map_name}  {score_info}\n"
+            msg = f"{result_emoji} [完美] {map_name}  {score_info}\n"
             msg += f"{'─' * 14}\n"
             msg += title_line
 
