@@ -1847,12 +1847,10 @@ class SteamAuto(BaseInstance):
             total_deaths = stats.get('total_deaths', 0)
             total_rating = stats.get('total_rating', 0.0)
             total_rws = stats.get('total_rws', 0.0)
-            total_adr = stats.get('total_adr', 0.0)
 
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
             avg_rating = total_rating / match_count if match_count else 0
             avg_rws = total_rws / match_count if match_count else 0
-            avg_adr = total_adr / match_count if match_count else 0
             win_rate = wins / match_count * 100 if match_count else 0
             elo_sign = '+' if total_elo_change >= 0 else ''
             tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
@@ -1872,7 +1870,6 @@ class SteamAuto(BaseInstance):
   <div class="stat-strip">
     <div><span>K/D</span><strong>{kd:.1f}</strong></div>
     <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
-    <div><span>ADR</span><strong>{avg_adr:.1f}</strong></div>
   </div>
 </article>""")
 
@@ -1946,12 +1943,10 @@ class SteamAuto(BaseInstance):
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
             total_rating = stats.get('total_rating', 0.0)
-            total_pw_rating = stats.get('total_pw_rating', 0.0)
             total_we = stats.get('total_we', 0)
 
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
             avg_rating = total_rating / match_count if match_count else 0
-            avg_pw_rating = total_pw_rating / match_count if match_count else 0
             avg_we = total_we / match_count if match_count else 0
             win_rate = wins / match_count * 100 if match_count else 0
             tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
@@ -1971,7 +1966,6 @@ class SteamAuto(BaseInstance):
   <div class="stat-strip">
     <div><span>K/D</span><strong>{kd:.1f}</strong></div>
     <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
-    <div><span>pwRT</span><strong>{avg_pw_rating:.2f}</strong></div>
     <div><span>WE</span><strong>{avg_we:.1f}</strong></div>
   </div>
 </article>""")
@@ -2167,27 +2161,53 @@ class SteamAuto(BaseInstance):
         except Exception as e:
             log.info(f"[{datetime.now()}] Steam 统计失败：{e}")
         
-        # 2. 完美平台今日战绩
+        # 2. 平台今日战绩（完美 + 5E + 官匹，合并展示）
+        combined_parts = []
         try:
             pw_stats_data = self.get_friend_pw_stats()
             if pw_stats_data:
-                msg = self.format_pw_daily_stats_message(pw_stats_data)
-                if msg:
-                    # 旧版文字发送逻辑保留：
-                    # self.send_message(msg)
-                    # time.sleep(1)
-                    lines = msg.strip("\n").splitlines()
-                    pw_html = self.build_pw_daily_stats_html(pw_stats_data)
-                    sections.append({
-                        'title': '完美平台统计',
-                        'body': "\n".join(lines[1:]).strip("\n"),
-                        'body_html': pw_html,
-                        'badge': 'Perfect World',
-                        'accent': '#14b8a6',
-                        'class_name': 'section-full section-pw',
-                    })
+                pw_html = self.build_pw_daily_stats_html(pw_stats_data)
+                if pw_html:
+                    combined_parts.append(
+                        '<div class="platform-sub"><span style="background:#14b8a6"></span>完美平台</div>'
+                        + pw_html
+                    )
         except Exception as e:
             log.info(f"[{datetime.now()}] 完美平台统计失败：{e}")
+
+        try:
+            fivee_stats_data = self.get_friend_5e_stats()
+            if fivee_stats_data:
+                fivee_html = self.build_5e_daily_stats_html(fivee_stats_data)
+                if fivee_html:
+                    combined_parts.append(
+                        '<div class="platform-sub"><span style="background:#7c3aed"></span>5E 平台</div>'
+                        + fivee_html
+                    )
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 5E 平台统计失败：{e}")
+
+        try:
+            official_stats_data = self.get_friend_official_stats()
+            if official_stats_data:
+                official_html = self.build_official_daily_stats_html(official_stats_data)
+                if official_html:
+                    combined_parts.append(
+                        '<div class="platform-sub"><span style="background:#ef4444"></span>官匹</div>'
+                        + official_html
+                    )
+        except Exception as e:
+            log.info(f"[{datetime.now()}] 官匹统计失败：{e}")
+
+        if combined_parts:
+            sections.append({
+                'title': '平台战绩统计',
+                'body': '',
+                'body_html': ''.join(combined_parts),
+                'badge': 'Platforms',
+                'accent': '#14b8a6',
+                'class_name': 'section-full section-pw',
+            })
 
         # 3. 完整历史排行榜
         try:
@@ -2210,44 +2230,6 @@ class SteamAuto(BaseInstance):
                     })
         except Exception as e:
             log.info(f"[{datetime.now()}] 排行榜生成失败：{e}")
-
-        # 4. 5E 平台今日战绩
-        try:
-            fivee_stats_data = self.get_friend_5e_stats()
-            if fivee_stats_data:
-                msg = self.format_5e_daily_stats_message(fivee_stats_data)
-                if msg:
-                    lines = msg.strip("\n").splitlines()
-                    fivee_html = self.build_5e_daily_stats_html(fivee_stats_data)
-                    sections.append({
-                        'title': '5E 平台统计',
-                        'body': "\n".join(lines[1:]).strip("\n"),
-                        'body_html': fivee_html,
-                        'badge': '5E',
-                        'accent': '#7c3aed',
-                        'class_name': 'section-full section-fivee',
-                    })
-        except Exception as e:
-            log.info(f"[{datetime.now()}] 5E 平台统计失败：{e}")
-
-        # 5. 官匹今日战绩
-        try:
-            official_stats_data = self.get_friend_official_stats()
-            if official_stats_data:
-                msg = self.format_official_daily_stats_message(official_stats_data)
-                if msg:
-                    lines = msg.strip("\n").splitlines()
-                    official_html = self.build_official_daily_stats_html(official_stats_data)
-                    sections.append({
-                        'title': '官匹平台统计',
-                        'body': "\n".join(lines[1:]).strip("\n"),
-                        'body_html': official_html,
-                        'badge': 'Official',
-                        'accent': '#ef4444',
-                        'class_name': 'section-full section-official',
-                    })
-        except Exception as e:
-            log.info(f"[{datetime.now()}] 官匹平台统计失败：{e}")
 
         if sections:
             self.send_daily_stats_image(sections, "daily_report")
