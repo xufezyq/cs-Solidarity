@@ -13,8 +13,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 async def main():
     # 请在这里填入你的 完美平台 ID (Steam ID) 和 Token
     # 你可以通过抓包完美平台 App 获取 Token
-    uid = "76561199209601450"  # 例如: "76561198xxxxxxxxx"
-    token = "6cb373b9a2d2dcf371d9d938474deb7c484d72b8" # 例如: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    uid = ""  # 例如: "76561198xxxxxxxxx"
+    token = "" # 例如: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     # 如果环境变量中有配置，则优先使用环境变量
     if os.getenv("CS2_UID"):
         uid = os.getenv("CS2_UID")
