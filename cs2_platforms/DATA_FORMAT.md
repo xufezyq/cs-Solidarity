@@ -92,21 +92,20 @@
 
 ### 1.5 friend_official_history_stats（官匹历史极值）
 
-结构与完美相同，昵称 key 不同：
+官匹 API 不返回 pwRating/we/pvpScore，改用 rating/rws/kast：
 
 ```json
 {
   "76561199009839689": {
     "official_nickname": "皮张侠",
     "avatar": "https://avatars.steamstatic.com/xxxx_full.jpg",
-    "last_match_id": "PVP@2026061312400",
+    "last_match_id": "LOCAL@2026061312400",
 
     "max_kills": 30,     "min_kills": 7,
     "max_deaths": 19,    "min_deaths": 4,
     "max_rating": 1.38,  "min_rating": 0.68,
-    "max_pw_rating": 1.32, "min_pw_rating": 0.65,
-    "max_we": 88,        "min_we": 38,
-    "max_score": 1850,   "min_score": 1600
+    "max_rws": 35.5,     "min_rws": 12.3,
+    "max_kast": 92.0,    "min_kast": 55.0
   }
 }
 ```
@@ -141,10 +140,11 @@
 | `max/min_kills` | 有 | 有 | 有 | - |
 | `max/min_deaths` | 有 | 有 | 有 | - |
 | `max/min_rating` | 有 | 有 | 有 | - |
-| `max/min_pw_rating` | 有 | 无 | 有 | pwRT，完美/官匹独有 |
-| `max/min_we` | 有 | 无 | 有 | WE，完美/官匹独有 |
-| `max/min_score` | 有 | 无 | 有 | 完美分数，完美/官匹独有 |
-| `max/min_rws` | 无 | 有 | 无 | RWS，5E 独有 |
+| `max/min_pw_rating` | 有 | 无 | 无 | pwRT，完美独有（官匹始终为 0） |
+| `max/min_we` | 有 | 无 | 无 | WE，完美独有（官匹始终为 0） |
+| `max/min_score` | 有 | 无 | 无 | 完美分数，完美独有（官匹始终为 0） |
+| `max/min_rws` | 无 | 有 | 有 | RWS，5E/官匹 |
+| `max/min_kast` | 无 | 无 | 有 | KAST，官匹独有 |
 | `max/min_adr` | 无 | 有 | 无 | ADR，5E 独有 |
 | `max/min_elo` | 无 | 有 | 无 | ELO，5E 独有 |
 
@@ -291,7 +291,7 @@
 {
   "76561199009839689": {
     "official_nickname": "皮张侠",
-    "matches": ["PVP@yyy1", "PVP@yyy2"],
+    "matches": ["LOCAL@yyy1", "LOCAL@yyy2"],
     "wins": 1,
     "losses": 2,
     "draws": 0,
@@ -299,11 +299,11 @@
     "total_deaths": 51,
     "total_assists": 16,
     "total_rating": 3.15,
-    "total_pw_rating": 3.24,
-    "total_we": 174,
+    "total_rws": 45.2,
+    "total_kast": 210.0,
     "match_count": 3
   }
 }
 ```
 
-> 注意：官匹和完美没有 `total_score_change` / `total_stars_change` / `total_elo_change` 等字段。
+> 注意：官匹不返回 pwRating/we/pvpScore，改用 rws/kast。完美和官匹没有 `total_score_change` / `total_stars_change` / `total_elo_change` 等字段。

@@ -1897,12 +1897,12 @@ class SteamAuto(BaseInstance):
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
             total_rating = stats.get('total_rating', 0.0)
-            total_pw_rating = stats.get('total_pw_rating', 0.0)
-            total_we = stats.get('total_we', 0)
+            total_rws = stats.get('total_rws', 0.0)
+            total_kast = stats.get('total_kast', 0.0)
 
             avg_rating = total_rating / match_count if match_count else 0
-            avg_pw_rating = total_pw_rating / match_count if match_count else 0
-            avg_we = total_we / match_count if match_count else 0
+            avg_rws = total_rws / match_count if match_count else 0
+            avg_kast = total_kast / match_count if match_count else 0
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
             win_rate = wins / match_count * 100 if match_count else 0
             wr_emoji = '🟢' if win_rate >= 60 else ('🟡' if win_rate >= 40 else '🔴')
@@ -1912,7 +1912,7 @@ class SteamAuto(BaseInstance):
                 lines.append(f"  {wr_emoji} {wins}胜{losses}负{draws}平 ({win_rate:.0f}%)")
             else:
                 lines.append(f"  {wr_emoji} {wins}胜{losses}负 ({win_rate:.0f}%)")
-            lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  pwRT: {avg_pw_rating:.2f}  WE: {avg_we:.1f}")
+            lines.append(f"  K/D: {kd:.1f}  RT: {avg_rating:.2f}  RWS: {avg_rws:.1f}  KAST: {avg_kast:.0f}%")
             lines.append("")
 
         if len(lines) <= 2:
@@ -1943,11 +1943,13 @@ class SteamAuto(BaseInstance):
             total_kills = stats.get('total_kills', 0)
             total_deaths = stats.get('total_deaths', 0)
             total_rating = stats.get('total_rating', 0.0)
-            total_we = stats.get('total_we', 0)
+            total_rws = stats.get('total_rws', 0.0)
+            total_kast = stats.get('total_kast', 0.0)
 
             kd = total_kills / total_deaths if total_deaths > 0 else total_kills
             avg_rating = total_rating / match_count if match_count else 0
-            avg_we = total_we / match_count if match_count else 0
+            avg_rws = total_rws / match_count if match_count else 0
+            avg_kast = total_kast / match_count if match_count else 0
             win_rate = wins / match_count * 100 if match_count else 0
             tone = 'good' if win_rate >= 60 else ('mid' if win_rate >= 40 else 'bad')
             record = f"{wins}胜{losses}负"
@@ -1966,7 +1968,8 @@ class SteamAuto(BaseInstance):
   <div class="stat-strip">
     <div><span>K/D</span><strong>{kd:.1f}</strong></div>
     <div><span>RT</span><strong>{avg_rating:.2f}</strong></div>
-    <div><span>WE</span><strong>{avg_we:.1f}</strong></div>
+    <div><span>RWS</span><strong>{avg_rws:.1f}</strong></div>
+    <div><span>KAST</span><strong>{avg_kast:.0f}%</strong></div>
   </div>
 </article>""")
 

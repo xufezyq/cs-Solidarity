@@ -1,6 +1,12 @@
 """
 官匹战绩播报模块
 复用完美世界 API（dataSource=1），独立于完美平台战绩（dataSource=3）
+
+官匹 API 限制（经实测确认）：
+- pwRating / we / pvpScore / pvpScoreChange / pvpStars 始终为 0
+- get_match_mvp() 返回 null
+- get_match_advance() 返回 404
+- 可用字段：rating, rws, kast, headShotRatio, entryKill, entryDeath, threeKill 等
 """
 import asyncio
 import re
@@ -20,12 +26,10 @@ class OfficialStatsReporter:
         'min_deaths': 999,
         'max_rating': 0.0,
         'min_rating': 999.0,
-        'max_pw_rating': 0.0,
-        'min_pw_rating': 999.0,
-        'max_we': 0,
-        'min_we': 999,
-        'max_score': 0,
-        'min_score': 9999,
+        'max_rws': 0.0,
+        'min_rws': 999.0,
+        'max_kast': 0.0,
+        'min_kast': 999.0,
     }
 
     MAX_MATCH_AGE_SECONDS = 3600
@@ -65,7 +69,6 @@ class OfficialStatsReporter:
         match_nicknames = details['nicknames']
         match_player_details = details['player_details']
         match_base_info = details['base_info']
-        match_mvp_info = details['mvp_info']
         player_avatar_map = details['avatar_map']
 
         all_players = self._collect_player_data(match_groups, match_nicknames)
@@ -75,7 +78,7 @@ class OfficialStatsReporter:
 
         messages = self._generate_messages(
             match_groups, all_players, match_base_info,
-            match_mvp_info, match_player_details
+            match_player_details
         )
 
         return messages, all_players
@@ -116,8 +119,7 @@ class OfficialStatsReporter:
                         self.log(f"[{datetime.now()}] 解析官匹对局 {match_id} 结束时间失败: {end_time_str} ({e})")
 
                 prev_match = matches[1] if len(matches) > 1 else None
-                last_match['_prev_pvpStars'] = prev_match.get('pvpStars', 0) if prev_match else 0
-                last_match['_prev_pvpScore'] = prev_match.get('pvpScore', 0) if prev_match else 0
+                last_match['_prev_rating'] = prev_match.get('rating', 0.0) if prev_match else 0.0
 
                 self.log(f"[{datetime.now()}] {steam_id} 发现最近官匹比赛: {match_id}")
 
@@ -136,7 +138,6 @@ class OfficialStatsReporter:
         player_avatar_map = {}
         match_player_details = {}
         match_base_info = {}
-        match_mvp_info = {}
 
         for match_id in match_groups:
             try:
@@ -145,7 +146,6 @@ class OfficialStatsReporter:
                     match_nicknames[match_id] = {}
                     match_player_details[match_id] = {}
                     match_base_info[match_id] = {}
-                    match_mvp_info[match_id] = {}
                     continue
 
                 all_known_friends = set(self.friend_official_history_stats.keys())
@@ -164,6 +164,7 @@ class OfficialStatsReporter:
                     'extraScore2': base.get('extraScore2', 0),
                     'duration': base.get('duration', 0),
                     'greenMatch': base.get('greenMatch', False),
+                    'map': base.get('map', ''),
                 }
 
                 for player in detail.get('players', []):
@@ -203,8 +204,7 @@ class OfficialStatsReporter:
                     for sid, prev_match in prev_results:
                         for i, (gsid, gdata) in enumerate(match_groups[match_id]):
                             if gsid == sid and gdata.get('matchId') == match_id:
-                                gdata['_prev_pvpStars'] = prev_match.get('pvpStars', 0) if prev_match else 0
-                                gdata['_prev_pvpScore'] = prev_match.get('pvpScore', 0) if prev_match else 0
+                                gdata['_prev_rating'] = prev_match.get('rating', 0.0) if prev_match else 0.0
                                 break
 
                 monitored_player_ids = {str(data.get('playerId', '')) for _, data in match_groups[match_id] if data.get('playerId')}
@@ -222,33 +222,18 @@ class OfficialStatsReporter:
                     if avatar:
                         player_avatar_map[pid] = avatar
                     player_detail_map[pid] = {
+                        'threeKill': player.get('threeKill', 0),
                         'fourKill': player.get('fourKill', 0),
                         'fiveKill': player.get('fiveKill', 0),
+                        'vs3': player.get('vs3', 0),
                         'vs4': player.get('vs4', 0),
                         'vs5': player.get('vs5', 0),
+                        'entryKill': player.get('entryKill', 0),
+                        'entryDeath': player.get('entryDeath', 0),
                     }
 
                 match_nicknames[match_id] = nick_map
                 match_player_details[match_id] = player_detail_map
-
-                match_mvp_info[match_id] = {}
-
-                friend_is_mvp = any(
-                    player.get('mvp', False) and str(player.get('playerId', '')) in monitored_player_ids
-                    for player in detail['players']
-                )
-                if friend_is_mvp:
-                    try:
-                        mvp_info = await self.pw_api.get_match_mvp(match_id)
-                        if not isinstance(mvp_info, int) and mvp_info:
-                            match_mvp_info[match_id] = {
-                                'statsDesc': mvp_info.get('statsDesc', ''),
-                                'dataDesc': mvp_info.get('dataDesc', ''),
-                                'mvp_nickname': mvp_info.get('nickName', ''),
-                                'statsList': mvp_info.get('statsList', []),
-                            }
-                    except Exception as e:
-                        self.log(f"[{datetime.now()}] 获取官匹MVP信息失败 ({match_id}): {e}")
 
                 self.log(f"[{datetime.now()}] 官匹对局 {match_id} 获取到 {len(nick_map)} 个昵称")
 
@@ -257,13 +242,11 @@ class OfficialStatsReporter:
                 match_nicknames[match_id] = {}
                 match_player_details[match_id] = {}
                 match_base_info[match_id] = {}
-                match_mvp_info[match_id] = {}
 
         return {
             'nicknames': match_nicknames,
             'player_details': match_player_details,
             'base_info': match_base_info,
-            'mvp_info': match_mvp_info,
             'avatar_map': player_avatar_map,
         }
 
@@ -307,7 +290,7 @@ class OfficialStatsReporter:
             except Exception as e:
                 self.log(f"[{datetime.now()}] 处理官匹比赛数据出错 ({match_id}): {e}")
 
-        all_players.sort(key=lambda x: x[1].get('we', 0), reverse=True)
+        all_players.sort(key=lambda x: x[1].get('rating', 0), reverse=True)
         return all_players
 
     async def _update_daily_stats(self, all_players: list) -> None:
@@ -317,8 +300,8 @@ class OfficialStatsReporter:
             deaths = data.get('death', 0)
             assists = data.get('assist', 0)
             rating = data.get('rating', 0.0)
-            pwRating = data.get('pwRating', 0.0)
-            we = data.get('we', 0)
+            rws = data.get('rws', 0.0)
+            kast = data.get('kast', 0.0)
             match_id = data.get('matchId', '')
 
             if steam_id not in self.friend_official_daily_stats:
@@ -332,8 +315,8 @@ class OfficialStatsReporter:
                     'total_deaths': 0,
                     'total_assists': 0,
                     'total_rating': 0.0,
-                    'total_pw_rating': 0.0,
-                    'total_we': 0,
+                    'total_rws': 0.0,
+                    'total_kast': 0.0,
                     'match_count': 0
                 }
 
@@ -350,8 +333,8 @@ class OfficialStatsReporter:
             stats['total_deaths'] += deaths
             stats['total_assists'] += assists
             stats['total_rating'] += rating
-            stats['total_pw_rating'] += pwRating
-            stats['total_we'] += we
+            stats['total_rws'] += rws
+            stats['total_kast'] += kast
             stats['match_count'] += 1
 
     def _update_history_stats(self, all_players: list, player_avatar_map: dict) -> None:
@@ -360,9 +343,8 @@ class OfficialStatsReporter:
             kills = data.get('kill', 0)
             deaths = data.get('death', 0)
             rating = data.get('rating', 0.0)
-            pwRating = data.get('pwRating', 0.0)
-            we = data.get('we', 0)
-            pvpScore = data.get('pvpScore', 0)
+            rws = data.get('rws', 0.0)
+            kast = data.get('kast', 0.0)
             match_id = data.get('matchId', '')
             nick = data.get('nickName', '')
 
@@ -377,12 +359,10 @@ class OfficialStatsReporter:
                     'min_deaths': 999,
                     'max_rating': 0.0,
                     'min_rating': 999.0,
-                    'max_pw_rating': 0.0,
-                    'min_pw_rating': 999.0,
-                    'max_we': 0,
-                    'min_we': 999,
-                    'max_score': 0,
-                    'min_score': 9999,
+                    'max_rws': 0.0,
+                    'min_rws': 999.0,
+                    'max_kast': 0.0,
+                    'min_kast': 999.0,
                 }
 
             hist = self.friend_official_history_stats[steam_id]
@@ -409,21 +389,15 @@ class OfficialStatsReporter:
             if rating < hist['min_rating'] and rating > 0:
                 hist['min_rating'] = rating
 
-            if pwRating > hist['max_pw_rating']:
-                hist['max_pw_rating'] = pwRating
-            if pwRating < hist['min_pw_rating'] and pwRating > 0:
-                hist['min_pw_rating'] = pwRating
+            if rws > hist['max_rws']:
+                hist['max_rws'] = rws
+            if rws < hist['min_rws'] and rws > 0:
+                hist['min_rws'] = rws
 
-            if we > hist['max_we']:
-                hist['max_we'] = we
-            if we < hist['min_we'] and we > 0:
-                hist['min_we'] = we
-
-            if pvpScore > 0:
-                if pvpScore > hist['max_score']:
-                    hist['max_score'] = pvpScore
-                if pvpScore < hist['min_score']:
-                    hist['min_score'] = pvpScore
+            if kast > hist['max_kast']:
+                hist['max_kast'] = kast
+            if kast < hist['min_kast'] and kast > 0:
+                hist['min_kast'] = kast
 
             hist['official_nickname'] = nickname
             if nick:
@@ -431,7 +405,7 @@ class OfficialStatsReporter:
             hist['last_match_id'] = match_id
 
     def _generate_messages(self, match_groups: dict, all_players: list,
-                           match_base_info: dict, match_mvp_info: dict,
+                           match_base_info: dict,
                            match_player_details: dict) -> list[str]:
         """生成官匹战报消息"""
         messages = []
@@ -465,12 +439,9 @@ class OfficialStatsReporter:
             ex2 = base_info.get('extraScore2', 0)
             duration = base_info.get('duration', 0)
             green_match = base_info.get('greenMatch', False)
-
-            mvp_info = match_mvp_info.get(match_id, {})
-            mvp_title = mvp_info.get('statsDesc', '')
-            mvp_data_desc = mvp_info.get('dataDesc', '')
-            mvp_data_desc = re.sub(r'<[^>]+>', '', mvp_data_desc)
-            mvp_nick = mvp_info.get('mvp_nickname', '')
+            detail_map = base_info.get('map', '')
+            if not map_name or map_name == '未知地图':
+                map_name = detail_map or '未知地图'
 
             wins = sum(1 for _, _, _, r in players if r == '胜利')
             losses = sum(1 for _, _, _, r in players if r == '失败')
@@ -491,87 +462,56 @@ class OfficialStatsReporter:
             if green_match:
                 score_info += " | 🟢绿色对局"
 
-            title_line = ""
-            stats_list = mvp_info.get('statsList', [])
-            if stats_list:
-                title_line = f"👑 MVP: {mvp_nick}\n"
-                for stat in stats_list:
-                    stats_desc = stat.get('statsDesc', '')
-                    data_desc = re.sub(r'<[^>]+>', '', stat.get('dataDesc', ''))
-                    if stats_desc:
-                        if data_desc:
-                            title_line += f"   ◆ {stats_desc}：{data_desc}\n"
-                        else:
-                            title_line += f"   ◆ {stats_desc}\n"
-                title_line += "\n"
-            elif mvp_title and mvp_nick:
-                title_line = f"👑 MVP: {mvp_nick} | {mvp_title}"
-                if mvp_data_desc:
-                    title_line += f" | {mvp_data_desc}"
-                title_line += "\n\n"
-
             msg = f"{result_emoji} [官匹] {map_name}  {score_info}\n"
             msg += f"{'─' * 14}\n"
-            msg += title_line
 
-            players_sorted = sorted(players, key=lambda x: x[1].get('we', 0), reverse=True)
+            players_sorted = sorted(players, key=lambda x: x[1].get('rating', 0), reverse=True)
 
             for steam_id, data, nickname, result in players_sorted:
                 kills = data.get('kill', 0)
                 deaths = data.get('death', 0)
                 assists = data.get('assist', 0)
                 rating = data.get('rating', 0.0)
-                pwRating = data.get('pwRating', 0.0)
-                we = data.get('we', 0)
-                is_mvp = data.get('pvpMvp', False)
+                rws = data.get('rws', 0.0)
+                kast = data.get('kast', 0.0)
+                headshot = data.get('headShotRatio', 0.0)
+                is_mvp = data.get('mvp', False)
                 mvp_tag = ' ⭐MVP' if is_mvp else ''
 
                 tags = mvp_tag
                 player_detail = match_player_details.get(match_id, {}).get(steam_id, {})
-                four_kill = player_detail.get('fourKill', 0)
                 five_kill = player_detail.get('fiveKill', 0)
-                vs4 = player_detail.get('vs4', 0)
+                four_kill = player_detail.get('fourKill', 0)
+                three_kill = player_detail.get('threeKill', 0)
                 vs5 = player_detail.get('vs5', 0)
+                vs4 = player_detail.get('vs4', 0)
+                vs3 = player_detail.get('vs3', 0)
+                entry_kill = player_detail.get('entryKill', 0)
                 if five_kill > 0:
                     tags += ' 🔥五杀'
                 if four_kill > 0:
                     tags += ' 🔥四杀'
+                if three_kill > 0:
+                    tags += ' 💥三杀'
                 if vs5 > 0:
                     tags += ' 🎯1v5'
                 if vs4 > 0:
                     tags += ' 🎯1v4'
+                if vs3 > 0:
+                    tags += ' 🎯1v3'
 
                 r_emoji = '🟢' if result == '胜利' else ('🔴' if result == '失败' else '🟡')
 
                 msg += f"{r_emoji} {nickname}{tags}\n"
-                msg += f"  {kills}/{deaths}/{assists} | pwRT:{pwRating:.2f} | WE:{we:.1f}\n"
+                msg += f"  {kills}/{deaths}/{assists} | RT:{rating:.2f} | RWS:{rws:.1f} | KAST:{kast:.0f}%\n"
 
-                # 官匹可能没有 pvpScore/pvpStars，仅在有值时显示
-                pvpScore = data.get('pvpScore', 0)
-                score_change = data.get('pvpScoreChange', 0)
-                pvpStars = data.get('pvpStars', 0)
-                prev_pvpStars = data.get('_prev_pvpStars', 0)
-                stars_change = pvpStars - prev_pvpStars if pvpStars or prev_pvpStars else 0
-
-                stars_str = ''
-                if pvpStars > 0:
-                    stars_str = f"⭐×{pvpStars}"
-                    if stars_change > 0:
-                        stars_str += f" (+{stars_change})"
-                    elif stars_change < 0:
-                        stars_str += f" ({stars_change})"
-
-                score_parts = []
-                if pvpScore:
-                    score_sign = '+' if score_change >= 0 else ''
-                    if score_change != 0:
-                        score_parts.append(f"分数:{pvpScore} ({score_sign}{score_change})")
-                    else:
-                        score_parts.append(f"分数:{pvpScore}")
-                if stars_str:
-                    score_parts.append(stars_str)
-                if score_parts:
-                    msg += "  " + " | ".join(score_parts) + "\n"
+                stat_parts = []
+                if headshot > 0:
+                    stat_parts.append(f"HS:{headshot:.0f}%")
+                if entry_kill > 0:
+                    stat_parts.append(f"首杀:{entry_kill}")
+                if stat_parts:
+                    msg += "  " + " | ".join(stat_parts) + "\n"
 
             messages.append(msg)
 
