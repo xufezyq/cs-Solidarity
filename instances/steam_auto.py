@@ -979,7 +979,8 @@ class SteamAuto(BaseInstance):
         # 生成游戏停止消息（按游戏合并）
         for game_name, stop_info in game_stop_messages.items():
             parts = [f"{nick}({dur})" for nick, dur in stop_info]
-            messages.append(f"\n👋 {', '.join(parts)} 离开{game_name}")
+            sep = "\n" if messages else ""
+            messages.append(f"{sep}👋 {', '.join(parts)} 离开{game_name}")
 
         messages.extend(game_mute_messages)
 
