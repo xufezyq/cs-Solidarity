@@ -72,6 +72,7 @@ class SteamAuto(BaseInstance):
         self.data_path = data_path or str(Path(config_path).parent / 'steam_data.json')
         self.debug = debug  # 调试模式标志
         self.friend_game_status = {} # 用于追踪好友的游戏状态变化
+        self.game_cn_name_cache = {} # 缓存游戏中文名 {appid: cn_name}
         self.friend_daily_stats = {} # 用于统计好友今天的游玩时长 {"steamid": {"game_name": total_seconds, ...}}
         self.friend_pw_daily_stats = {} # 用于统计好友今天的完美平台战绩 {"steamid": {"matches": [], "wins": 0, "losses": 0, "draws": 0, "total_score_change": 0, "total_stars_change": 0, "total_kills": 0, "total_deaths": 0, "total_assists": 0, "total_rating": 0, "total_pw_rating": 0, "total_we": 0, "match_count": 0}}
         self.friend_pw_history_stats = friend_pw_history_stats or {} # 用于统计好友的历史最佳战绩 {"steamid": {"max_kills": 0, "min_kills": 999, ...}}
@@ -479,7 +480,24 @@ class SteamAuto(BaseInstance):
                 path_obj.unlink(missing_ok=True)
         except Exception as e:
             log.debug(f"[{datetime.now()}] 清理临时日报图片失败: {e}")
-    
+
+    def _get_cn_game_name(self, appid, fallback_name=''):
+        """获取游戏中文名，优先用缓存，失败回退到 gameextrainfo"""
+        if not appid or appid == '0':
+            return fallback_name
+        appid = str(appid)
+        if appid in self.game_cn_name_cache:
+            return self.game_cn_name_cache[appid]
+        try:
+            data = self.steam.get_app_details(appid)
+            if data and data.get('name'):
+                cn_name = data['name']
+                self.game_cn_name_cache[appid] = cn_name
+                return cn_name
+        except Exception as e:
+            log.debug(f"[{datetime.now()}] 获取游戏中文名失败 (appid={appid}): {e}")
+        return fallback_name
+
     def format_duration(self, seconds):
         """将秒数格式化为可读的时间格式"""
         hours = int(seconds // 3600)
@@ -842,7 +860,8 @@ class SteamAuto(BaseInstance):
             # 从config中的nickname_map获取昵称，如果没有则使用personaname
             nickname = friend.get('personaname', '未知昵称')
             game_id = friend.get('gameid', None)
-            game_name = friend.get('gameextrainfo', '未游玩游戏')
+            raw_game_name = friend.get('gameextrainfo', '')
+            game_name = self._get_cn_game_name(game_id, raw_game_name) if game_id and game_id != '0' else '未游玩游戏'
             personastate = friend.get('personastate', 0)  # 0: 离线, 1: 在线, 2: 忙碌, 3: 离开, 4: 暂离, 5: 求交易, 6: 求组队
             lastlogoff = friend.get('lastlogoff')  # 上次离线时间
 

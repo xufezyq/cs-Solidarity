@@ -91,7 +91,7 @@ class SteamAPI:
     def get_app_details(self, app_id):
         """获取单款游戏的详细信息"""
         url = f"https://store.steampowered.com/api/appdetails/"
-        params = {"appids": app_id, "cc": "cn", "l": "zh-CN"}
+        params = {"appids": app_id, "cc": "cn", "l": "schinese"}
         try:
             response = self.session.get(url, params=params, verify=False, timeout=self.timeout)
             response.raise_for_status()
