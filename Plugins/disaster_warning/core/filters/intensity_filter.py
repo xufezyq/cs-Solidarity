@@ -212,3 +212,13 @@ class KeywordFilter:
                 return True
 
         return False
+
+    def hits_whitelist(self, earthquake: EarthquakeData) -> bool:
+        """判断地震事件是否命中白名单关键词（白名单未启用时返回 False）"""
+        if not self.enabled or not self.whitelist:
+            return False
+        location = earthquake.place_name or ""
+        for keyword in self.whitelist:
+            if keyword and keyword in location:
+                return True
+        return False

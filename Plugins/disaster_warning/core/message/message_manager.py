@@ -516,6 +516,13 @@ class MessagePushManager:
                 f"[灾害预警] 事件被关键词过滤器过滤: {source_id}",
             )
 
+        # 白名单命中：跳过后续所有过滤器，直接推送
+        if runtime_components["keyword_filter"].hits_whitelist(earthquake):
+            logger.info(
+                f"[灾害预警] 事件命中白名单关键词，跳过后续过滤直接推送: {source_id}"
+            )
+            return True
+
         # 数据源专用过滤器
         if source_id == "global_quake":
             # Global Quake专用过滤器
