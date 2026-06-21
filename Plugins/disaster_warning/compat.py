@@ -3,8 +3,11 @@ AstrBot 兼容层
 提供与 AstrBot API 接口兼容的替代实现
 """
 
+import base64
 import logging
 import os
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -74,10 +77,69 @@ class Plain:
         return self.text
 
 
+class Image:
+    """简化的图片组件，支持 base64 和 URL 两种数据源"""
+
+    def __init__(self, b64_data: str = None, url: str = None, path: str = None):
+        self._b64_data = b64_data
+        self._url = url
+        self._path = path
+        self._created_temp = False
+
+    @classmethod
+    def fromBase64(cls, b64_data: str) -> "Image":
+        return cls(b64_data=b64_data)
+
+    @classmethod
+    def fromURL(cls, url: str) -> "Image":
+        return cls(url=url)
+
+    @classmethod
+    def fromFile(cls, path: str) -> "Image":
+        return cls(path=path)
+
+    def save_to_file(self, temp_dir: str) -> str | None:
+        """将图片保存到临时文件，返回文件路径。失败返回 None。"""
+        filepath = None
+        try:
+            if self._path:
+                self._created_temp = False
+                return self._path
+            ts = int(time.time() * 1000)
+            filepath = os.path.join(temp_dir, f"img_{ts}_{uuid.uuid4().hex[:8]}.png")
+            self._created_temp = True
+            if self._b64_data:
+                payload = self._b64_data.strip()
+                if payload.startswith("data:") and "," in payload:
+                    payload = payload.split(",", 1)[1]
+                payload = "".join(payload.split())
+                if not payload:
+                    return None
+                padding = (-len(payload)) % 4
+                if padding:
+                    payload += "=" * padding
+                with open(filepath, "wb") as f:
+                    f.write(base64.b64decode(payload))
+                return filepath
+            if self._url:
+                import urllib.request
+                urllib.request.urlretrieve(self._url, filepath)
+                return filepath
+        except Exception:
+            if filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except OSError:
+                    pass
+            return None
+        return None
+
+
 class Comp:
     """替代 astrbot.api.message_components"""
 
     Plain = Plain
+    Image = Image
 
 
 def get_message_chain(text: str) -> MessageChain:

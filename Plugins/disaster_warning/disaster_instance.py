@@ -25,6 +25,7 @@ if str(_project_root) not in sys.path:
 
 from core.base_instance import BaseInstance
 from core import wechat_instance
+from disaster_warning.compat import Image
 
 log = logging.getLogger(__name__)
 
@@ -399,10 +400,39 @@ class ContextAdapter:
             content = str(message_chain)
 
         log.info(f"[灾害预警] 发送告警到 {session}（不受维护时间拦截，即时推送）")
+
+        # 发送文本部分
+        if content:
+            try:
+                wechat_instance.send_message(content, session)
+            except Exception as e:
+                log.error(f"[灾害预警] 发送消息到 {session} 失败: {e}")
+
+        # 发送图片部分
+        components = getattr(message_chain, 'chain', None) or getattr(message_chain, '_components', [])
+        for comp in components:
+            if isinstance(comp, Image):
+                self._send_image(comp, session)
+
+    def _send_image(self, image: Image, session: str):
+        """将 Image 组件保存到临时文件并通过 send_file 发送"""
+        temp_dir = str(DATA_DIR / "temp")
+        os.makedirs(temp_dir, exist_ok=True)
+        filepath = image.save_to_file(temp_dir)
+        if not filepath:
+            log.warning(f"[灾害预警] 图片保存失败，跳过发送")
+            return
         try:
-            wechat_instance.send_message(content, session)
+            log.info(f"[灾害预警] 发送图片到 {session}: {os.path.basename(filepath)}")
+            wechat_instance.send_file(filepath, session)
         except Exception as e:
-            log.error(f"[灾害预警] 发送消息到 {session} 失败: {e}")
+            log.error(f"[灾害预警] 发送图片到 {session} 失败: {e}")
+        finally:
+            if getattr(image, "_created_temp", False) and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except OSError:
+                    pass
 
     def get_config(self):
         """返回配置对象（适配 AstrBot 的 get_config）"""
