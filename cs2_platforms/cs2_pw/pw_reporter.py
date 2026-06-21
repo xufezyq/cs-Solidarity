@@ -211,7 +211,7 @@ class PwStatsReporter:
                         continue
                     if pid not in all_known_friends:
                         continue
-                    # 新发现的好友：先以默认值加入 group，后续获取 prev 数据
+                    # 新发现的好友：从 match detail 中提取战绩数据
                     last_match = {
                         'matchId': match_id,
                         'mapName': match_groups[match_id][0][1].get('mapName', ''),
@@ -219,6 +219,17 @@ class PwStatsReporter:
                         'score2': match_groups[match_id][0][1].get('score2'),
                         'winTeam': match_groups[match_id][0][1].get('winTeam'),
                         'playerId': pid,
+                        'kill': player.get('kill', 0),
+                        'death': player.get('death', 0),
+                        'assist': player.get('assist', 0),
+                        'rating': player.get('rating', 0.0),
+                        'pwRating': player.get('pwRating', 0.0),
+                        'we': player.get('we', 0),
+                        'team': player.get('team'),
+                        'pvpScore': player.get('pvpScore', 0),
+                        'pvpScoreChange': player.get('pvpScoreChange', 0),
+                        'pvpStars': player.get('pvpStars', 0),
+                        'pvpMvp': player.get('mvp', player.get('pvpMvp', False)),
                     }
                     match_groups[match_id].append((pid, last_match))
                     newly_discovered.add(pid)
@@ -252,6 +263,18 @@ class PwStatsReporter:
                 # 6. 提取好友相关数据（仅监控好友）
                 nick_map = {}
                 player_detail_map = {}
+                # 6.1 用详情 API 数据回填列表 API 可能缺失的战绩字段
+                detail_by_pid = {
+                    str(p.get('playerId', '')): p
+                    for p in detail['players'] if p.get('playerId')
+                }
+                for steam_id, gdata in match_groups[match_id]:
+                    player = detail_by_pid.get(steam_id)
+                    if not player:
+                        continue
+                    for field in ('kill', 'death', 'assist', 'rating', 'pwRating', 'we'):
+                        if not gdata.get(field) and player.get(field):
+                            gdata[field] = player[field]
                 for player in detail['players']:
                     pid = str(player.get('playerId', ''))
                     if pid not in monitored_player_ids:
@@ -340,11 +363,14 @@ class PwStatsReporter:
                     else:
                         nickname = self.friend_pw_nickname_map.get(steam_id, '未知好友')
 
-                    # 跳过已播报
+                    # 跳过已播报（仅当上次数据有效时才跳过，防止 0/0/0 坏数据被永久跳过）
                     hist = self.friend_pw_history_stats.get(steam_id, {})
                     if hist.get('last_match_id') == match_id:
-                        self.log(f"[{datetime.now()}] {nickname} 的对局 {match_id} 已播报过，跳过")
-                        continue
+                        prev_valid = (hist.get('max_kills', 0) > 0 or hist.get('max_rating', 0) > 0)
+                        if prev_valid:
+                            self.log(f"[{datetime.now()}] {nickname} 的对局 {match_id} 已播报过，跳过")
+                            continue
+                        self.log(f"[{datetime.now()}] {nickname} 的对局 {match_id} 上次数据无效，重新处理")
 
                     # 胜负
                     win_team = data.get('winTeam')
@@ -494,7 +520,9 @@ class PwStatsReporter:
             hist['pw_nickname'] = nickname
             if pw_name:
                 hist['pw_nickname'] = pw_name
-            hist['last_match_id'] = match_id
+            # 仅在数据有效时标记已处理，防止 0/0/0 对局被永久跳过
+            if kills or deaths or assists or rating > 0 or pwRating > 0:
+                hist['last_match_id'] = match_id
 
     def _generate_messages(self, match_groups: dict, all_players: list,
                            match_base_info: dict, match_mvp_info: dict,
