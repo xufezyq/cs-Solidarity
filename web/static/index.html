@@ -1439,9 +1439,15 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="card card-enter">
       <div style="margin-bottom:8px;font-size:12px;color:var(--text2);">
-        共 {{ logs.total }} 条 | 第 {{ logs.page }} 页
+        共 {{ logs.total }} 条 | 第 {{ logs.page }}/{{ Math.max(1, Math.ceil(logs.total / logs.pageSize)) }} 页
         <button class="btn-sm" @click="logs.page>1&&(logs.page--,loadLogs())" :disabled="logs.page<=1" style="margin-left:8px;"><i class="mdi mdi-chevron-left"></i></button>
         <button class="btn-sm" @click="logs.page++;loadLogs()" style="margin-left:4px;"><i class="mdi mdi-chevron-right"></i></button>
+        <select class="input-sm" v-model.number="logs.pageSize" @change="logs.page=1;loadLogs()" style="margin-left:12px;min-width:70px;">
+          <option :value="100">100条</option>
+          <option :value="200">200条</option>
+          <option :value="500">500条</option>
+          <option :value="1000">1000条</option>
+        </select>
       </div>
       <div style="max-height:60vh;overflow-y:auto;">
         <div class="log-line" v-for="(line,i) in logs.lines" :key="i"
@@ -1739,7 +1745,7 @@ createApp({
     const pwForm = reactive({ old: '', new1: '', new2: '' });
 
     const config = reactive({ files: [], selectedFile: '', content: '', modified: '', error: '', backups: [] });
-    const logs = reactive({ date: new Date().toISOString().slice(0,10), level: '', keyword: '', lines: [], total: 0, page: 1, streaming: false, ws: null });
+    const logs = reactive({ date: new Date().toISOString().slice(0,10), level: '', keyword: '', lines: [], total: 0, page: 1, pageSize: 500, streaming: false, ws: null });
 
     const demoFileInput = ref(null);
 
@@ -1985,7 +1991,7 @@ createApp({
 
     async function loadLogs() {
       try {
-        const params = new URLSearchParams({ page: logs.page });
+        const params = new URLSearchParams({ page: logs.page, page_size: logs.pageSize });
         if (logs.level) params.set('level', logs.level);
         if (logs.keyword) params.set('keyword', logs.keyword);
         const data = await api(`/api/logs/${logs.date}?${params}`);

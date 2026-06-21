@@ -343,7 +343,7 @@ class AgentHandler:
         level_filter = params.get("level", "").upper()
         keyword = params.get("keyword", "")
         page = params.get("page", 1)
-        page_size = min(params.get("page_size", 200), 500)  # 最大 500 条/页
+        page_size = min(params.get("page_size", 200), 1000)  # 最大 1000 条/页
 
         log_file = self._safe_path(f"logs/{date}.log")
         if not log_file.exists():
