@@ -197,20 +197,6 @@ class KeywordFilter:
                     )
                     return True
 
-        # 白名单过滤
-        if self.whitelist:
-            hit = False
-            for keyword in self.whitelist:
-                if keyword and keyword in location:
-                    hit = True
-                    break
-
-            if not hit:
-                logger.debug(
-                    f"[灾害预警] 关键词过滤(白名单): '{location}' 不包含任一白名单关键词"
-                )
-                return True
-
         return False
 
     def hits_whitelist(self, earthquake: EarthquakeData) -> bool:
