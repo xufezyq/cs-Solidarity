@@ -16,3 +16,6 @@ fastapi>=0.110
 uvicorn>=0.29
 python-multipart>=0.0.9
 playwright>=1.30.0
+-e ./Plugins/CS2Video/third_party/cs-demo-downloader
+./Plugins/CS2Video/third_party/cs-demo-downloader/wheelhouse/cs_demo_pwa_signer-0.1.0-cp312-cp312-win_amd64.whl
+-r ./Plugins/CS2Video/third_party/cs2-insight-agent/backend/requirements.txt

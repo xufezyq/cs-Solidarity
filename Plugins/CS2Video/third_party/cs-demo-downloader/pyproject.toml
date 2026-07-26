@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cs-demo-downloader"
+version = "1.2.0"
+description = "Download Counter-Strike demos from 5EPlay, Perfect World Arena, and Steam share-code sources."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "WangChuDi" }
+]
+keywords = ["cs2", "csgo", "counter-strike", "demo", "downloader", "5e", "pwa", "steam"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Utilities"
+]
+dependencies = [
+  "cryptography>=41",
+  "packaging>=23",
+  "requests>=2.28.0"
+]
+
+[project.optional-dependencies]
+steam-boiler = [
+  "csgo",
+  "protobuf<5"
+]
+steam-login = [
+  "steam",
+  "csgo",
+  "gevent",
+  "protobuf<5"
+]
+steam = [
+  "protobuf<5",
+  "steam",
+  "csgo",
+  "gevent"
+]
+pwa-signer = [
+  "cs-demo-pwa-signer==0.1.0"
+]
+dev = [
+  "build",
+  "twine"
+]
+
+[project.scripts]
+cs-demo-downloader = "cs_demo_downloader.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cs_demo_downloader = [
+  "bin/*.exe",
+  "_vendor/cs_demo_pwa_signer/manifest.json",
+  "_vendor/cs_demo_pwa_signer/*/*.so",
+  "_vendor/cs_demo_pwa_signer/*/*.pyd",
+  "_vendor/cs_demo_pwa_signer/*/*.dylib"
+]
+
+[tool.setuptools.exclude-package-data]
+cs_demo_downloader = ["bin/*.cpp"]
+
+[tool.basedpyright]
+include = ["src", "tests", "cli.py"]
+extraPaths = ["src"]
+
+[tool.pyright]
+include = ["src", "tests", "cli.py"]
+extraPaths = ["src"]

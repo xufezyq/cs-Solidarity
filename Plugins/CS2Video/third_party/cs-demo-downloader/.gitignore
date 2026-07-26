@@ -1,0 +1,76 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyd
+*.dylib
+!src/cs_demo_downloader/_vendor/
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/manifest.json
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/**/
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/**/*.so
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/**/*.pyd
+!src/cs_demo_downloader/_vendor/cs_demo_pwa_signer/**/*.dylib
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+wheelhouse/*.whl
+!wheelhouse/cs_demo_pwa_signer-*.whl
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+config.json
+config.jsonc
+cache/
+vendor/PvpAlive/
+private/
+demos/
+*.dem
+*.zip

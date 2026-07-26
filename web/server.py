@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from web.auth import init_users
 from web.auth import decode_token
 from web.bridge import bridge
-from web.api import auth, users, config, status, logs, control, files, chat
+from web.api import auth, users, config, status, logs, control, files, chat, cs2_video
 
 # ── 日志 ──
 logging.basicConfig(
@@ -97,6 +97,7 @@ app.include_router(logs.router)
 app.include_router(control.router)
 app.include_router(files.router)
 app.include_router(chat.router)
+app.include_router(cs2_video.router)
 
 
 # ── Agent WebSocket 端点 ──
@@ -216,6 +217,24 @@ async def websocket_chat(ws: WebSocket):
         pass
     finally:
         bridge.unsubscribe_chat(ws)
+
+
+@app.websocket("/ws/cs2-video")
+async def websocket_cs2_video(ws: WebSocket):
+    token = ws.query_params.get("token", "")
+    payload = decode_token(token)
+    if not payload:
+        await ws.close(code=4001, reason="认证失败")
+        return
+    await ws.accept()
+    bridge.subscribe_cs2_video(ws, payload["sub"], payload.get("role") == "admin")
+    try:
+        while True:
+            if await ws.receive_text() == "ping": await ws.send_text("pong")
+    except WebSocketDisconnect:
+        pass
+    finally:
+        bridge.unsubscribe_cs2_video(ws)
 
 
 # ── 健康检查 ──

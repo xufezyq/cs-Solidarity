@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "downloader_config_path": "Plugins/CS2Video/third_party/cs-demo-downloader/config.jsonc",
+  "insight_project_dir": "Plugins/CS2Video/third_party/cs2-insight-agent",
+  "insight_base_url": "http://127.0.0.1:19871",
+  "insight_auto_start": true,
+  "bot_base_url": "http://127.0.0.1:18800",
+  "demo_dir": "data/cs2-video/demos",
+  "export_dir": "data/cs2-video/exports",
+  "allowed_player_ids": [],
+  "wechat_targets": [],
+  "max_active_jobs_per_user": 2,
+  "max_events_per_job": 20,
+  "max_output_mib": 200,
+  "match_query_limit": 10
+}

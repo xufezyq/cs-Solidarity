@@ -1,0 +1,32 @@
+services:
+  cs-demo-downloader:
+    image: ghcr.io/wangchudi/cs-demo-downloader:latest
+    container_name: cs-demo-downloader
+    volumes:
+      - ./config:/config          # Config directory. The app creates /config/config.jsonc on first start.
+      - ./demos:/demos            # Demo download directory.
+      - ./cache:/cache            # Optional cache directory, for example PvpAlive.dll.
+    environment:
+      CS_DEMO_CREATE_DEFAULT_CONFIG: "true"
+      CS_DEMO_SCHEDULE_CONFIG: "/config/config.jsonc"
+      CS_DEMO_PROGRESS: "auto"
+    command: ["schedule"]
+    # The generated Docker config enables the built-in scheduler at 08:00 every day.
+    # It is not cron; edit ./config/config.jsonc to change scheduler.daily_time or account settings.
+    # Manual one-shot run: docker compose run --rm cs-demo-downloader download --all --config /config/config.jsonc --output /demos
+
+  cs-demo-downloader-wine:
+    image: ghcr.io/wangchudi/cs-demo-downloader:latest-wine
+    container_name: cs-demo-downloader-wine
+    profiles: ["wine"]
+    volumes:
+      - ./config:/config
+      - ./demos:/demos
+      - ./cache:/cache
+    environment:
+      CS_DEMO_CREATE_DEFAULT_CONFIG: "true"
+      CS_DEMO_SCHEDULE_CONFIG: "/config/config.jsonc"
+      CS_DEMO_PROGRESS: "auto"
+    command: ["schedule"]
+    # Wine variant uses the same generated config and scheduler defaults.
+    # Manual one-shot run: docker compose --profile wine run --rm cs-demo-downloader-wine download --all --config /config/config.jsonc --output /demos

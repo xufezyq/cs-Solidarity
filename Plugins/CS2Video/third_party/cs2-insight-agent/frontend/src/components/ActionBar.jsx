@@ -1,0 +1,79 @@
+import { CheckSquare, XSquare, Loader2, ListPlus, Sparkles } from "lucide-react";
+import { useT } from "../i18n/useT.js";
+
+export default function ActionBar({
+  selectedCount,
+  totalCount,
+  hasSelection,
+  onSelectAll,
+  onDeselectAll,
+  onAddSelectedToQueue,
+  onAddAllHighlightsAllMatches,
+  queueLength,
+  batchRecording,
+  canAddAllHighlights,
+}) {
+  const t = useT();
+  return (
+    <div className="border-t border-cs2-border bg-cs2-bg-sidebar px-4 py-3 sm:px-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="font-mono text-sm">
+            <span className="font-bold text-cs2-accent">{selectedCount}</span>
+            <span className="text-cs2-text-secondary"> {t("actionbar.selectedOf", { total: totalCount })}</span>
+          </div>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={onSelectAll}
+              className="flex items-center gap-1 rounded-md border border-cs2-border bg-cs2-bg-input px-2.5 py-1.5 text-[11px] font-semibold text-cs2-text-secondary transition-colors hover:border-cs2-accent/30 hover:text-cs2-text-primary"
+            >
+              <CheckSquare className="h-3 w-3" />
+              {t("actionbar.selectAll")}
+            </button>
+            <button
+              type="button"
+              onClick={onDeselectAll}
+              className="flex items-center gap-1 rounded-md border border-cs2-border bg-cs2-bg-input px-2.5 py-1.5 text-[11px] font-semibold text-cs2-text-secondary transition-colors hover:border-cs2-accent/30 hover:text-cs2-text-primary"
+            >
+              <XSquare className="h-3 w-3" />
+              {t("actionbar.deselect")}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canAddAllHighlights && (
+            <button
+              type="button"
+              disabled={batchRecording}
+              onClick={onAddAllHighlightsAllMatches}
+              className="flex items-center gap-2 rounded-lg border border-cs2-accent/35 bg-cs2-accent/10 px-4 py-2.5 text-xs font-bold text-cs2-accent transition-colors hover:border-cs2-accent/60 hover:bg-cs2-accent/15 disabled:opacity-30"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("actionbar.addAllHighlights")}
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!hasSelection || batchRecording}
+            onClick={onAddSelectedToQueue}
+            className="flex items-center gap-2 rounded-lg border border-cs2-border bg-cs2-bg-input px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-cs2-text-primary transition-colors hover:border-cs2-accent/40 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {batchRecording ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ListPlus className="h-4 w-4 text-cs2-accent" />
+            )}
+            {t("actionbar.addSelected")}
+          </button>
+        </div>
+      </div>
+      {queueLength > 0 && (
+        <p className="mt-2 text-center font-mono text-[11px] text-cs2-text-muted sm:text-left">
+          {t("actionbar.queueCount", { n: queueLength })}
+        </p>
+      )}
+    </div>
+  );
+}

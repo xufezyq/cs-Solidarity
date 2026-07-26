@@ -10,6 +10,8 @@ import os
 import queue
 import tempfile
 import threading
+import json
+from pathlib import Path
 from datetime import datetime, time as dt_time
 
 from fastapi import FastAPI, File, Form, UploadFile
@@ -45,6 +47,35 @@ class SendMessageRequest(BaseModel):
     at: Optional[List[str]] = None
     at_all: bool = False
     force: bool = False  # 强制发送，绕过维护时间检查
+
+
+class SendLocalFileRequest(BaseModel):
+    target: str
+    path: str
+    idempotency_key: str
+    force: bool = False
+
+
+_local_send_lock = threading.Lock()
+_local_send_results = {}
+
+
+def _allowed_export_file(raw_path: str) -> Path:
+    root = Path(__file__).resolve().parent.parent
+    config_path = root / "instconfig" / "cs2_video_config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+    export_dir = Path(config.get("export_dir", "data/cs2-video/exports"))
+    if not export_dir.is_absolute(): export_dir = root / export_dir
+    export_dir = export_dir.resolve()
+    candidate = Path(raw_path).resolve()
+    try:
+        if os.path.commonpath([str(export_dir).lower(), str(candidate).lower()]) != str(export_dir).lower():
+            raise ValueError
+    except ValueError:
+        raise ValueError("文件不在允许的导出目录中")
+    if candidate.suffix.lower() != ".mp4" or not candidate.is_file():
+        raise ValueError("只允许发送已存在的 MP4 文件")
+    return candidate
 
 
 # ── 路由 ──
@@ -119,6 +150,30 @@ async def send_file(
             except OSError:
                 pass
 
+    return result
+
+
+@app.post("/send/local-file")
+async def send_local_file(req: SendLocalFileRequest):
+    """Queue an existing exported MP4 without loading it into API memory."""
+    if _is_maintenance_time() and not req.force:
+        return {"success": False, "error": "当前是维护时段，暂不支持发送"}
+    if not req.target or not req.idempotency_key:
+        return {"success": False, "error": "target 和 idempotency_key 不能为空"}
+    try:
+        path = _allowed_export_file(req.path)
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
+    with _local_send_lock:
+        previous = _local_send_results.get(req.idempotency_key)
+        if previous is not None: return previous
+        _local_send_results[req.idempotency_key] = {"success": False, "error": "发送处理中"}
+    result_q = queue.Queue()
+    api_send_queue.put({"type": "file", "target": req.target, "content": str(path),
+                        "filename": path.name, "result_q": result_q, "keep_file": True})
+    try: result = result_q.get(timeout=300)
+    except queue.Empty: result = {"success": False, "error": "发送超时，结果未知"}
+    with _local_send_lock: _local_send_results[req.idempotency_key] = result
     return result
 
 

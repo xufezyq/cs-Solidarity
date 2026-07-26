@@ -1,0 +1,99 @@
+import { Play, Square, Trash2, Layers, Timer } from "lucide-react";
+import { useT } from "../../i18n/useT.js";
+
+/**
+ * @param {{
+ *   queueLength: number,
+ *   totalEstimateSec: number,
+ *   batchRecording: boolean,
+ *   onStart: () => void,
+ *   onAbort: () => void,
+ *   abortRequested?: boolean,
+ *   onClear: () => void,
+ *   disabledStart: boolean,
+ *   obsConfigured: boolean,
+ * }} props
+ */
+export default function RecordingControlDock({
+  queueLength,
+  totalEstimateSec,
+  batchRecording,
+  onStart,
+  onAbort,
+  abortRequested = false,
+  onClear,
+  disabledStart,
+  obsConfigured,
+}) {
+  const t = useT();
+
+  const estLabel =
+    totalEstimateSec <= 0
+      ? "—"
+      : totalEstimateSec >= 3600
+        ? `${Math.floor(totalEstimateSec / 3600)}h ${Math.round((totalEstimateSec % 3600) / 60)}m`
+        : `${Math.max(1, Math.round(totalEstimateSec / 60))} min`;
+
+  const statusLabel = batchRecording
+    ? t("queue.dockStatusRecording")
+    : queueLength
+      ? t("queue.dockStatusReady")
+      : t("queue.dockStatusIdle");
+  const startDisabled = disabledStart;
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-4 border-t border-cs2-border bg-cs2-bg-page/95 px-4 py-3 backdrop-blur-md sm:gap-4 sm:px-5">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-cs2-text-muted">
+        <span className="inline-flex items-center gap-1">
+          <Layers className="h-3 w-3 text-cs2-text-muted" />
+          <span className="text-cs2-text-muted">{t("queue.dockTasks")}</span>
+          <span className="tabular-nums text-cs2-text-secondary">{queueLength}</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Timer className="h-3 w-3 text-cs2-text-muted" />
+          <span className="text-cs2-text-muted">{t("queue.dockEst")}</span>
+          <span className="tabular-nums text-cs2-text-secondary">{estLabel}</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${batchRecording ? "animate-pulse bg-emerald-400" : "bg-zinc-600"}`}
+          />
+          {statusLabel}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-col items-end gap-0.5">
+          <button
+            type="button"
+            disabled={startDisabled}
+            onClick={() => onStart()}
+            className="inline-flex items-center gap-1.5 rounded-md bg-cs2-accent px-3 py-2 text-[12px] font-bold text-cs2-text-on-accent shadow-sm shadow-cs2-accent/20 transition-colors hover:bg-cs2-accent-light disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <Play className="h-3.5 w-3.5" />
+            {t("queue.btnStartRecording")}
+          </button>
+        </div>
+        <button
+          type="button"
+          disabled={!batchRecording || abortRequested}
+          onClick={() => void onAbort()}
+          className="inline-flex items-center gap-1 rounded-md border border-cs2-border px-2.5 py-2 text-[12px] font-semibold text-cs2-text-secondary transition-colors hover:border-red-500/40 hover:text-cs2-red-on-surface disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Square className="h-3.5 w-3.5" />
+          {t("queue.btnStop")}
+        </button>
+        <button
+          type="button"
+          disabled={queueLength === 0 || batchRecording}
+          onClick={() => onClear()}
+          className="inline-flex items-center gap-1 rounded-md border border-cs2-border px-2.5 py-2 text-[12px] font-semibold text-cs2-text-muted transition-colors hover:border-red-500/35 hover:text-cs2-red-on-surface disabled:opacity-30"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          {t("queue.btnClear")}
+        </button>
+      </div>
+
+    </div>
+  );
+}

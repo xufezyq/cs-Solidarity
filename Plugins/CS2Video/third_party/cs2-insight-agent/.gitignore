@@ -1,0 +1,98 @@
+# Python
+python/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+frontend/dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Portable packaging cache (embeddable Python zips, get-pip.py)
+.packaging-cache/
+
+# Temp
+*.tmp
+*.log
+.empty-git-hooks/
+
+# Local demo files (do not upload)
+cs2_demo/
+cs2_demo_lib
+debugtest/
+
+# Local / agent plans and specs (not versioned)
+docs/superpowers/
+
+# Local GitHub PAT for update check (never commit)
+.cs2-insight-github-token
+
+# Stamped by packaging/windows/write-release-version.ps1 (local/CI); not kept in git
+backend/app/release_version.txt
+
+# Local portable zip from Compress-Archive (repo root)
+CS2InsightAgent-*-windows-amd64.zip
+
+# Project doc not tracked
+开发白皮书.md
+
+# Local tooling scripts (keep local only)
+debug_demoparser.py
+debug_demo_max_tick.py
+debug_demoparser2.py
+debug_parse_demo.py
+.cursor/
+.claude/
+# Root scripts/ is for ad-hoc local scripts; tracked exceptions below.
+/scripts/*
+!/scripts/github-bootstrap.ps1
+!/scripts/litecut_visual_regression.py
+build_portable.bat
+!build_electron.bat
+rebuild_frontend.ps1
+dev.sh
+
+# --- CS2 Insight local data (SQLite / player cfg backup / secrets — do not push) ---
+backend/config.json
+**/cs2-insight.config.json
+cs2-insight.db
+cs2-insight.db-wal
+cs2-insight.db-shm
+.cs2_config_backup/
+
+# Everything under data/ except the versioned example template
+data/**
+!data/cs2-insight.config.example.json
+!data/basic.ini
+!data/lite_cut_effect_contract.json
+!data/lite_cut_visual_acceptance.json
+
+# Alternate local data root used by development/testing
+/data1/
+frontend/public/__litecut_visual_tmp/
+/artifacts/
+
+# Electron distribution
+frontend/dist_electron/
+frontend/build/
+
+# Local generated preview artifacts (match report preview, etc.)
+frontend/preview/
+
+# Local UI design backups created before visual refactors
+backups/

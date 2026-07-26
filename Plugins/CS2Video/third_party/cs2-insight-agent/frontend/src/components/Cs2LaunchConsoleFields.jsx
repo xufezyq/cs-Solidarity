@@ -1,0 +1,238 @@
+import { useCallback, useMemo, useState } from "react";
+import { useT } from "../i18n/useT.js";
+
+/** 程序内置、始终生效、不可删除的启动参数（仅展示，不写配置）。 */
+const FIXED_LAUNCH_ARGS = [
+  "-console",
+  "-novid",
+  "-insecure",
+  "-worldwide",
+  "-allow_third_party_software",
+];
+
+export function countInjectConsoleLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("//") && !l.startsWith("#")).length;
+}
+
+/** 配置中的启动项：多行=多条录入；单行沿用旧版整段展示为一条 */
+function launchChipsFromStored(s) {
+  const t = String(s ?? "");
+  if (!t.trim()) return [];
+  if (/\r|\n/.test(t)) {
+    return t
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [t.trim()];
+}
+
+function storedFromLaunchChips(chips) {
+  return chips.map((x) => String(x).trim()).filter(Boolean).join("\n");
+}
+
+function consoleChipsFromStored(s) {
+  return String(s ?? "")
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function storedFromConsoleChips(chips) {
+  return chips.map((x) => String(x).trim()).filter(Boolean).join("\n");
+}
+
+function TagListAddRow({ draft, onDraftChange, onAdd, placeholder, addLabel, disabled }) {
+  return (
+    <div className="flex shrink-0 flex-col gap-2 @min-[24rem]/params:flex-row @min-[24rem]/params:flex-wrap @min-[24rem]/params:items-center">
+      <input
+        value={draft}
+        onChange={(e) => onDraftChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onAdd();
+          }
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        spellCheck={false}
+        className="min-w-0 w-full flex-1 rounded-md border border-cs2-border bg-cs2-bg-input px-3 py-2 text-[12px] text-cs2-text-primary placeholder:text-cs2-text-muted focus:border-cs2-accent/50 focus:outline-none disabled:opacity-45"
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onAdd()}
+        className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-cs2-border bg-cs2-bg-input px-3 py-2 text-[12px] font-semibold text-cs2-text-primary transition-colors hover:border-cs2-accent/45 hover:text-cs2-text-primary disabled:opacity-45 @min-[24rem]/params:w-auto"
+      >
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 额外启动参数 + 附加预热控制台（与常用参数页同一套交互）。
+ */
+export default function Cs2LaunchConsoleFields({
+  cs2ExtraLaunchArgs = "",
+  onCs2ExtraLaunchArgsChange,
+  recordInjectConsoleLines = "",
+  onRecordInjectConsoleLinesChange,
+}) {
+  const t = useT();
+  const [launchArgDraft, setLaunchArgDraft] = useState("");
+  const [consoleLineDraft, setConsoleLineDraft] = useState("");
+
+  const injectExtraCount = useMemo(
+    () => countInjectConsoleLines(recordInjectConsoleLines),
+    [recordInjectConsoleLines],
+  );
+
+  const launchChips = useMemo(() => launchChipsFromStored(cs2ExtraLaunchArgs), [cs2ExtraLaunchArgs]);
+  const editableLaunchChips = useMemo(
+    () => launchChips.filter((c) => !FIXED_LAUNCH_ARGS.includes(c)),
+    [launchChips],
+  );
+  const consoleChips = useMemo(() => consoleChipsFromStored(recordInjectConsoleLines), [recordInjectConsoleLines]);
+
+  const addLaunchChip = useCallback(() => {
+    const trimmed = launchArgDraft.trim();
+    if (!trimmed || !onCs2ExtraLaunchArgsChange) return;
+    const cur = launchChipsFromStored(cs2ExtraLaunchArgs);
+    if (cur.includes(trimmed)) {
+      setLaunchArgDraft("");
+      return;
+    }
+    if (cur.length >= 32) return;
+    onCs2ExtraLaunchArgsChange(storedFromLaunchChips([...cur, trimmed]));
+    setLaunchArgDraft("");
+  }, [launchArgDraft, cs2ExtraLaunchArgs, onCs2ExtraLaunchArgsChange]);
+
+  const removeLaunchChip = useCallback(
+    (idx) => {
+      if (!onCs2ExtraLaunchArgsChange) return;
+      const cur = launchChipsFromStored(cs2ExtraLaunchArgs);
+      onCs2ExtraLaunchArgsChange(storedFromLaunchChips(cur.filter((_, i) => i !== idx)));
+    },
+    [cs2ExtraLaunchArgs, onCs2ExtraLaunchArgsChange],
+  );
+
+  const addConsoleChip = useCallback(() => {
+    const trimmed = consoleLineDraft.trim();
+    if (!trimmed || !onRecordInjectConsoleLinesChange) return;
+    const cur = consoleChipsFromStored(recordInjectConsoleLines);
+    if (cur.length >= 60) return;
+    onRecordInjectConsoleLinesChange(storedFromConsoleChips([...cur, trimmed]));
+    setConsoleLineDraft("");
+  }, [consoleLineDraft, recordInjectConsoleLines, onRecordInjectConsoleLinesChange]);
+
+  const removeConsoleChip = useCallback(
+    (idx) => {
+      if (!onRecordInjectConsoleLinesChange) return;
+      const cur = consoleChipsFromStored(recordInjectConsoleLines);
+      onRecordInjectConsoleLinesChange(storedFromConsoleChips(cur.filter((_, i) => i !== idx)));
+    },
+    [recordInjectConsoleLines, onRecordInjectConsoleLinesChange],
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="min-w-0 space-y-2">
+        <label className="block text-[10px] font-semibold uppercase tracking-wider text-cs2-text-secondary">
+          {t("record.launchSectionLabel")}
+        </label>
+        <div className="flex min-h-[3rem] flex-wrap content-start gap-2 overflow-y-auto rounded-lg border border-cs2-border bg-cs2-bg-input/40 p-2">
+          {FIXED_LAUNCH_ARGS.map((line) => (
+            <span
+              key={`fixed-${line}`}
+              title={t("record.launchFixedArgTitle")}
+              className="inline-flex max-w-full items-center gap-1 rounded-md border border-cs2-border bg-cs2-bg-input/60 px-2 py-1 text-[11px] font-semibold text-cs2-text-muted"
+            >
+              <span aria-hidden className="shrink-0">🔒</span>
+              <span className="min-w-0 max-w-[min(100%,18rem)] truncate font-mono" title={line}>
+                {line}
+              </span>
+            </span>
+          ))}
+          {editableLaunchChips.map((line) => {
+            const idx = launchChips.indexOf(line);
+            return (
+              <span
+                key={`lc-${idx}`}
+                className="group inline-flex max-w-full items-center gap-1 rounded-md border border-cs2-accent/30 bg-cs2-accent/10 pl-2 pr-1 py-1 text-[11px] font-semibold text-cs2-accent"
+              >
+                <span className="min-w-0 max-w-[min(100%,18rem)] truncate font-mono" title={line}>
+                  {line}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-0.5 text-cs2-text-muted hover:bg-cs2-bg-input/50 hover:text-cs2-text-primary"
+                  aria-label={t("record.launchRemoveAriaLabel", { arg: line })}
+                  onClick={() => removeLaunchChip(idx)}
+                >
+                  ✕
+                </button>
+              </span>
+            );
+          })}
+        </div>
+        <TagListAddRow
+          draft={launchArgDraft}
+          onDraftChange={setLaunchArgDraft}
+          onAdd={addLaunchChip}
+          placeholder={t("record.launchInputPlaceholder")}
+          addLabel={t("record.launchAddBtn")}
+          disabled={launchChips.length >= 32}
+        />
+        <p className="text-[11px] leading-relaxed text-cs2-text-muted">
+          {t("record.launchHint")}
+        </p>
+      </div>
+
+      <div className="min-w-0 space-y-2 border-t border-cs2-border pt-4">
+        <label className="block text-[10px] font-semibold uppercase tracking-wider text-cs2-text-secondary">
+          {t("record.consoleSectionLabel")}
+        </label>
+        <div className="flex min-h-[3rem] flex-wrap content-start gap-2 overflow-y-auto rounded-lg border border-cs2-border bg-cs2-bg-input/40 p-2">
+          {consoleChips.length === 0 ? (
+            <span className="py-1 text-[12px] text-cs2-text-muted">{t("record.consoleEmpty")}</span>
+          ) : (
+            consoleChips.map((line, idx) => (
+              <span
+                key={`cc-${idx}`}
+                className="group inline-flex max-w-full items-center gap-1 rounded-md border border-cyan-500/35 bg-cs2-cyan-surface pl-2 pr-1 py-1 text-[11px] font-semibold text-cyan-100/95"
+              >
+                <span className="min-w-0 max-w-[min(100%,20rem)] truncate font-mono" title={line}>
+                  {line}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-0.5 text-cs2-text-muted hover:bg-cs2-bg-input/50 hover:text-cs2-text-primary"
+                  aria-label={t("record.consoleRemoveAriaLabel", { arg: line })}
+                  onClick={() => removeConsoleChip(idx)}
+                >
+                  ✕
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+        <TagListAddRow
+          draft={consoleLineDraft}
+          onDraftChange={setConsoleLineDraft}
+          onAdd={addConsoleChip}
+          placeholder={t("record.consoleInputPlaceholder")}
+          addLabel={t("record.consoleAddBtn")}
+          disabled={consoleChips.length >= 60}
+        />
+        <p className="text-[11px] leading-relaxed text-cs2-text-muted">
+          {t("record.consoleHint", { n: injectExtraCount })}
+        </p>
+      </div>
+    </div>
+  );
+}

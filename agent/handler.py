@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List
 
 from utils.steam_archive import archive_pw_season_data
+from agent.cs2_video import CS2VideoService
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class AgentHandler:
         self._chat_history_max = 500  # 最大历史条数
         self._chat_lock = threading.Lock()
         self._load_chat_history()
+        self.cs2_video = CS2VideoService(self.root_dir, push=self._push_event)
         log.info(f"AgentHandler 初始化，项目根目录: {self.root_dir}")
 
     def _git_pull(self):
@@ -131,6 +133,17 @@ class AgentHandler:
             "bot.restart": self._bot_restart,
             "chat.send": self._chat_send,
             "chat.history": self._chat_history_get,
+            "cs2_video.bootstrap": lambda p: {"success": True, "data": self.cs2_video.bootstrap()},
+            "cs2_video.query.create": self._cs2_video_query_create,
+            "cs2_video.query.get": self._cs2_video_query_get,
+            "cs2_video.job.create": self._cs2_video_job_create,
+            "cs2_video.job.list": self._cs2_video_job_list,
+            "cs2_video.job.get": self._cs2_video_job_get,
+            "cs2_video.job.render": self._cs2_video_job_render,
+            "cs2_video.job.cancel": self._cs2_video_job_cancel,
+            "cs2_video.job.retry": self._cs2_video_job_retry,
+            "cs2_video.settings.get": lambda p: {"success": True, "data": self.cs2_video.insight_settings()},
+            "cs2_video.settings.update": lambda p: {"success": True, "data": self.cs2_video.update_insight_settings(p.get("settings") or {})},
         }
 
         handler = handlers.get(action)
@@ -161,6 +174,52 @@ class AgentHandler:
             # commonpath 在不同驱动器时抛 ValueError
             raise ValueError(f"路径越权访问: {relative_path}")
         return full
+
+    def _push_event(self, event, data):
+        callback = getattr(self, "_push_callback", None)
+        loop = getattr(self, "_event_loop", None)
+        if callback and loop:
+            import asyncio
+            asyncio.run_coroutine_threadsafe(callback(event, data), loop)
+
+    @staticmethod
+    def _cs2_identity(params):
+        owner = str(params.get("_username") or "")
+        if not owner:
+            raise PermissionError("缺少服务端认证身份")
+        return owner, params.get("_role") == "admin"
+
+    def _cs2_video_query_create(self, p):
+        owner, _ = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.query_matches(owner, str(p.get("player_id", "")))}
+
+    def _cs2_video_query_get(self, p):
+        owner, admin = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.get_query(p["query_id"], owner, admin)}
+
+    def _cs2_video_job_create(self, p):
+        owner, _ = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.create_job(owner, p["query_id"], p["match_id"])}
+
+    def _cs2_video_job_list(self, p):
+        owner, admin = self._cs2_identity(p)
+        return {"success": True, "data": {"jobs": self.cs2_video.list_jobs(owner, admin)}}
+
+    def _cs2_video_job_get(self, p):
+        owner, admin = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.get_job(p["job_id"], owner, admin)}
+
+    def _cs2_video_job_render(self, p):
+        owner, _ = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.render(p["job_id"], owner, p.get("render", {}))}
+
+    def _cs2_video_job_cancel(self, p):
+        owner, admin = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.cancel(p["job_id"], owner, admin)}
+
+    def _cs2_video_job_retry(self, p):
+        owner, admin = self._cs2_identity(p)
+        return {"success": True, "data": self.cs2_video.retry(p["job_id"], owner, admin)}
 
     # ── 配置读写 ──
 

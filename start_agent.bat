@@ -38,5 +38,5 @@ if not defined TOKEN (
     exit /b 1
 )
 
-python -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
+py -3.12 -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
 pause

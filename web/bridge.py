@@ -30,6 +30,7 @@ class AgentBridge:
         self._lock = asyncio.Lock()
         self._log_subscribers: list = []  # 实例变量，非类变量
         self._chat_subscribers: list = []  # 聊天 WebSocket 订阅者
+        self._cs2_video_subscribers: list = []
         self._file_chunks: Dict[str, Dict[str, Any]] = {}  # download_id -> {chunks, total, filename, file_size}
         self._download_queues: Dict[str, asyncio.Queue] = {}  # download_id -> chunk queue for streaming
 
@@ -136,6 +137,8 @@ class AgentBridge:
             # 聊天消息：广播给聊天订阅者
             if event == "chat.message":
                 await self._broadcast_chat(data)
+            if event == "cs2_video.job":
+                await self._broadcast_cs2_video(data)
             # 处理文件块推送（流式写入下载队列）
             if event == "file.chunk":
                 download_id = data.get("download_id", "_default")
@@ -168,6 +171,21 @@ class AgentBridge:
         """移除聊天订阅者"""
         if ws in self._chat_subscribers:
             self._chat_subscribers.remove(ws)
+
+    def subscribe_cs2_video(self, ws, username, admin=False):
+        self._cs2_video_subscribers.append((ws, username, admin))
+
+    def unsubscribe_cs2_video(self, ws):
+        self._cs2_video_subscribers = [item for item in self._cs2_video_subscribers if item[0] is not ws]
+
+    async def _broadcast_cs2_video(self, data):
+        msg = json.dumps({"type": "push", "event": "cs2_video.job", "data": data}, ensure_ascii=False)
+        dead = []
+        for ws, username, admin in self._cs2_video_subscribers:
+            if admin or data.get("owner") == username:
+                try: await ws.send_text(msg)
+                except Exception: dead.append(ws)
+        for ws in dead: self.unsubscribe_cs2_video(ws)
 
     async def _broadcast_chat(self, data: dict):
         """广播聊天消息给所有聊天订阅者"""

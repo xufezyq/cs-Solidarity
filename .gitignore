@@ -58,6 +58,12 @@ instconfig/chat_history.json
 instconfig/steam_data.json
 instconfig/steam_timeline.json
 instconfig/steam_data_archives
+data/cs2-video/
+
+# Keep the CS2 video integration tests while other local test scratch files stay ignored.
+!tests/
+tests/*
+!tests/test_cs2_video.py
 
 # KouriChat 配置文件
 KouriChat/data/config/

@@ -614,6 +614,7 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
   .topbar-title { font-size:13px; }
 }
 </style>
+<link rel="stylesheet" href="/static/cs2-video.css?v=20260726-4">
 </head>
 <body>
 <!-- ═══════════ 登录页（独立于 Vue app，始终可见） ═══════════ -->
@@ -846,6 +847,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   <!-- ═══════════ 仪表盘 ═══════════ -->
+  <cs2-video-wizard v-if="currentPage==='cs2-video'" :token="token"></cs2-video-wizard>
   <div v-if="currentPage==='dashboard'">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-view-dashboard" style="margin-right:8px;"></i>仪表盘</h2>
     <!-- Agent 状态 -->
@@ -1652,11 +1654,13 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 </div>
 
+<script src="/static/cs2-video.js?v=20260726-9"></script>
 <script>
 const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 const __origCreateApp = createApp;
 window.__patchedCreateApp = function(...args) {
   const a = __origCreateApp(...args);
+  if (window.CS2VideoWizard) a.component('cs2-video-wizard', window.CS2VideoWizard);
   a.config.errorHandler = function(err, instance, info) {
     var d = document.createElement('div');
     d.id = '__vue_err__';
@@ -1670,7 +1674,7 @@ window.__patchedCreateApp = function(...args) {
 // Override Vue.createApp
 Vue.createApp = window.__patchedCreateApp;
 
-createApp({
+window.__patchedCreateApp({
   setup() {
     // ── 状态 ──
     const token = ref(localStorage.getItem('cs_token') || '');
@@ -1827,6 +1831,7 @@ createApp({
     const allNav = [
       { key:'dashboard', icon:'mdi-view-dashboard', label:'仪表盘', roles:['admin','user'] },
       { key:'chat',      icon:'mdi-chat-outline', label:'聊天', roles:['admin','user'] },
+      { key:'cs2-video', icon:'mdi-video-outline', label:'CS2 视频制作', roles:['admin','user'] },
       { key:'steam',     icon:'mdi-steam', label:'Steam',   roles:['admin','user'] },
       { key:'files',     icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
       { key:'instances', icon:'mdi-puzzle', label:'实例管理', roles:['admin','user'] },

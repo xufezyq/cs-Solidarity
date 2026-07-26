@@ -1,0 +1,97 @@
+{
+  // Demo download directory. "." means the current working directory.
+  "download_path": ".",
+  // Save normalized metadata next to each successfully downloaded demo.
+  "save_metadata_with_demo": false,
+
+  "scheduler": {
+    // Disabled by default. Used by `cs-demo-downloader schedule`.
+    "enabled": "false",
+    // Fixed interval between automatic downloads. Must be a positive integer.
+    "interval_seconds": "86400",
+    // Optional daily run time in local container/system time. When set, this takes precedence over interval_seconds.
+    "daily_time": "08:00",
+    // Set true to run one download immediately when the scheduler starts.
+    "run_on_start": "false",
+    // One of: "all", "5e", "pwa", "steam".
+    "platforms": "all",
+    // Optional config/output paths for scheduled Docker runs.
+    "config": "/config/config.jsonc",
+    "output": "/demos"
+  },
+
+  "five_e": {
+    "users": [
+      {
+        // Display label only; not used by platform APIs.
+        "label": "example_5e_user",
+        "userid": "YOUR_5E_USERID_HERE"
+      }
+    ]
+  },
+
+  "pwa": {
+    // Shared token used by pwa.users entries that do not set access_token.
+    "default_access_token": "SHARED_PWA_ACCESS_TOKEN",
+    // Default signing path uses the private compiled cs-demo-pwa-signer wheel.
+    // Optional explicit values:
+    // - "compiled": call the private compiled signer wheel.
+    // - "pvp_alive_native": call the packaged bridge directly on Windows.
+    // - "pvp_alive_wine": call the packaged bridge through Wine on Linux.
+    "signature_provider": "compiled",
+    // Used only when signature_provider is pvp_alive_native or pvp_alive_wine.
+    "pvp_alive_dll": "cache/PvpAlive.dll",
+    "pvp_alive_bridge_exe": "",
+    "pvp_alive_wine_executable": "wine",
+    "pvp_alive_timeout": "10",
+    // Optional private executable for decrypting encrypted user-info/match-list responses.
+    // The executable is built from the private signer repository and receives stdin JSON
+    // with e/t fields, then prints decrypted JSON to stdout.
+    "pwa_response_decryptor_exe": "",
+    "pwa_response_decryptor_timeout": "10",
+    "users": [
+      {
+        "label": "pwa_target_1",
+        "steamid": "TARGET_STEAM_ID_1",
+        // Optional: SteamID64 that owns the access token when querying another player.
+        "auth_steamid": "TOKEN_OWNER_STEAM_ID"
+      },
+      {
+        "label": "pwa_target_2",
+        "steamid": "TARGET_STEAM_ID_2"
+      },
+      {
+        "label": "pwa_target_with_custom_token",
+        "steamid": "TARGET_STEAM_ID_3",
+        "access_token": "OPTIONAL_TARGET_SPECIFIC_PWA_ACCESS_TOKEN"
+      }
+    ]
+  },
+
+  "steam": {
+    "users": [
+      {
+        "label": "example_steam_user",
+        "steamid": "YOUR_STEAM_ID64_HERE",
+        "api_key": "YOUR_STEAM_WEB_API_KEY_HERE",
+        "steamidkey": "YOUR_STEAM_ID_KEY_HERE",
+        "knowncode": "CSGO-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx"
+      }
+    ],
+    "resolver": {
+      "type": "boiler",
+      "executable_path": "boiler-writter",
+      "auto_download": "true",
+      "cache_dir": "",
+      "timeout": "60"
+    },
+    "gc": {
+      "username_env": "STEAM_GC_USERNAME",
+      "password_env": "STEAM_GC_PASSWORD",
+      "two_factor_secret_env": "STEAM_GC_TWO_FACTOR_SECRET",
+      "auth_code_env": "STEAM_GC_AUTH_CODE",
+      "sentry_dir": "",
+      "timeout": "30"
+    }
+  }
+}
