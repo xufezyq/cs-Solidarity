@@ -3,6 +3,7 @@ chcp 65001 >nul
 title cs-Solidarity Web Server - Port 11029
 set "ROOT=%~dp0"
 set "PYTHON=%ROOT%venv\Scripts\python.exe"
+set "WEB_DEPS_MARKER=%ROOT%venv\.web-deps-installed"
 
 if not exist "%PYTHON%" (
     echo Creating local Python virtual environment...
@@ -14,13 +15,17 @@ if not exist "%PYTHON%" (
         pause
         exit /b 1
     )
+)
+
+if not exist "%WEB_DEPS_MARKER%" (
     echo Installing Python dependencies...
-    "%PYTHON%" -m pip install -r "%ROOT%requirements.txt"
+    "%PYTHON%" -m pip install -r "%ROOT%web\requirements.txt"
     if errorlevel 1 (
         echo ERROR: Failed to install Python dependencies.
         pause
         exit /b 1
     )
+    type nul > "%WEB_DEPS_MARKER%"
 )
 
 cd /d "%ROOT%web"
