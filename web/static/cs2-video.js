@@ -1,5 +1,5 @@
 (function () {
-  const { ref, reactive, computed, onMounted, onUnmounted } = Vue;
+  const { ref, reactive, computed, watch, onMounted, onUnmounted } = Vue;
   window.CS2VideoWizard = {
     props: { token: String },
     setup(props) {
@@ -9,6 +9,7 @@
       const warmupDefaults = {cl_draw_only_deathnotices:true,spec_show_xray:0,fov_cs_debug:null,resolution_width:null,resolution_height:null,hud_showtargetid_hide:true,tv_nochat:true,viewmodel_fov_68:false,third_person_camera:false,spectator_flashbang_opacity:null,voice_filter:'mute',hide_demo_playback_ui:true,hide_grenade_trajectory_pip:true,aspect_ratio:null,pov_radar_mode:0,pov_teamcounter_numeric:false,pov_hud_enabled:false};
       const settings = reactive({ai_mode:false,cs2_path:'',ffmpeg_path:'',montage_encoder:'auto',obs_transition_enabled:false,obs_transition_name:'Fade',obs_transition_duration_ms:100,kb_overlay_enabled:false,kb_overlay_tick_offset:6,kb_overlay_position:'bottom_center',kill_fx_enabled:false,kill_fx_tick_offset:6,recording_global_pacing:{},default_record_warmup:{...warmupDefaults}});
       const output = reactive({ preset_id:'highlight-16x9', packaging_id:'clean', bgm_id:'none', wechat_target:'' });
+      watch(step, current => { settingsOpen.value = current === 4; }, { immediate:true });
       let timer = null;
       async function api(path, options={}) {
         const response = await fetch(path, { ...options, headers:{'Content-Type':'application/json','Authorization':'Bearer '+props.token} });
@@ -46,7 +47,7 @@
       async function submit(){ loading.value=true; error.value=''; try{ job.value=await api('/api/cs2-video/jobs/'+job.value.id+'/render',{method:'POST',body:JSON.stringify({...output,event_keys:selected.value})}); step.value=4; await poll(); }catch(e){error.value=e.message}finally{loading.value=false} }
       async function action(id,name){ try{await api('/api/cs2-video/jobs/'+id+'/'+name,{method:'POST'});await poll()}catch(e){error.value=e.message} }
       function normalizedWarmup(){const warmup={...settings.default_record_warmup}; for(const key of ['fov_cs_debug','resolution_width','resolution_height','spectator_flashbang_opacity','aspect_ratio'])if(warmup[key]==='')warmup[key]=null; return warmup;}
-      async function saveSettings(){loading.value=true;error.value='';try{await api('/api/cs2-video/settings',{method:'PUT',body:JSON.stringify({settings:{...settings,default_record_warmup:normalizedWarmup()}})});settingsOpen.value=false}catch(e){error.value=e.message}finally{loading.value=false}}
+      async function saveSettings(){loading.value=true;error.value='';try{await api('/api/cs2-video/settings',{method:'PUT',body:JSON.stringify({settings:{...settings,default_record_warmup:normalizedWarmup()}})})}catch(e){error.value=e.message}finally{loading.value=false}}
       onMounted(()=>{load();timer=setInterval(poll,3000)}); onUnmounted(()=>clearInterval(timer));
       return {boot,step,player,matches,selectedMatch,job,jobs,query,loading,error,selected,selectedCount,output,settings,settingsOpen,choosePlayer,createJob,toggle,submit,action,saveSettings,targetValue,targetLabel,stat,signed,eventLabel,eventIcon,statusLabel,statusClass,isRunning,healthClass};
     },
