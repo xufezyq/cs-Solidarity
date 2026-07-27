@@ -38,5 +38,9 @@ if not defined TOKEN (
     exit /b 1
 )
 
-py -3.12 -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
+if exist "venv\Scripts\python.exe" (
+    "venv\Scripts\python.exe" -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
+) else (
+    python -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
+)
 pause
