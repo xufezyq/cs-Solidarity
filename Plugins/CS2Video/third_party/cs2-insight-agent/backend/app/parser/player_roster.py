@@ -456,8 +456,10 @@ def _spec_player_id_offset(
         vals = [int(v) for v in observed_user_ids if int(v) >= 0]
         if vals and min(vals) == 0:
             return 1
-        if vals and min(vals) >= 2 and max(vals) >= 11:
-            return 1
+        # Demo user IDs are not necessarily a contiguous 1..10 range.  A
+        # 3..12 roster is still one-based for `spec_player`; treating it as
+        # zero-based shifted every target forward and made lower slots
+        # unreachable by the recording retry loop.
     try:
         return max(0, int(float((raw_env or "0").strip())))
     except ValueError:

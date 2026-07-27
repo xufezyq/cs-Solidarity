@@ -1,4 +1,4 @@
-.cs2v { max-width:1180px; margin:0 auto; padding-bottom:28px; color:var(--text); }
+.cs2v { width:100%; max-width:1560px; margin:0 auto; padding-bottom:28px; color:var(--text); }
 .cs2v-head, .cs2v-head-actions, .cs2v-health, .cs2v-panel-title, .cs2v-stage-title, .cs2v-actions, .cs2v-match-top, .cs2v-event-title, .cs2v-event-tags, .cs2v-job-main > div { display:flex; align-items:center; }
 .cs2v-head { justify-content:space-between; gap:20px; padding:4px 0 18px; border-bottom:1px solid var(--glass-border); }
 .cs2v-heading .cs2v-kicker { color:var(--accent); font-size:12px; font-weight:600; margin-bottom:5px; }.cs2v-heading h2 { margin:0; font-size:24px; }.cs2v-heading p,.cs2v-panel-title p,.cs2v-stage-title p { margin:5px 0 0; color:var(--text2); font-size:13px; }

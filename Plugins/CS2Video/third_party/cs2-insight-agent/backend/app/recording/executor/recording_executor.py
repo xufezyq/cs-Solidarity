@@ -399,8 +399,8 @@ class ExecutionResult:
     obs_record_directory: Optional[str] = None     # OBS output directory (from GetRecordDirectory)
 
 
-# Max additional slot offsets to try after the demo-parsed base slot fails GSI verify.
-# 5E / Perfect World demos are often off by +1; rarely more.
+# Maximum distance from the demo-parsed slot to search after GSI verification
+# rejects the initial choice. Some providers shift slots in either direction.
 _SPEC_SLOT_MAX_OFFSET = 3
 
 
@@ -413,8 +413,9 @@ async def _spec_by_slot_with_retry(
 ) -> "bool | None":
     """
     Switch to base_slot (pre-computed during demo parsing), then verify via GSI.
-    If verification fails, increment the slot by 1 and retry up to
-    _SPEC_SLOT_MAX_OFFSET times (handles 5E/PW demos that shift slots by +1).
+    If verification fails, search neighbouring slots in both directions up to
+    _SPEC_SLOT_MAX_OFFSET (handles provider-specific slot shifts without
+    skipping a valid lower slot).
 
     Returns:
         True  — verified correct player
@@ -443,8 +444,14 @@ async def _spec_by_slot_with_retry(
         )
         return None
 
-    for offset in range(_SPEC_SLOT_MAX_OFFSET + 1):
+    offsets = [0]
+    for distance in range(1, _SPEC_SLOT_MAX_OFFSET + 1):
+        offsets.extend((-distance, distance))
+
+    for offset in offsets:
         slot = base_slot + offset
+        if slot < 1:
+            continue
         logger.info(
             "[RecordingV3] spec_by_slot %d (base=%d offset=%d) for %r steamid=%s",
             slot, base_slot, offset, player_name, target_steamid64,
@@ -470,12 +477,12 @@ async def _spec_by_slot_with_retry(
             return None
         # verified is False — try next offset
         logger.warning(
-            "[RecordingV3] slot %d wrong for %r (offset=%d), trying +1",
+            "[RecordingV3] slot %d wrong for %r (offset=%d), trying next candidate",
             slot, player_name, offset,
         )
 
     logger.error(
-        "[RecordingV3] all slot offsets 0..%d failed for %r steamid=%s",
+        "[RecordingV3] all slot offsets +/-%d failed for %r steamid=%s",
         _SPEC_SLOT_MAX_OFFSET, player_name, target_steamid64,
     )
     return False
