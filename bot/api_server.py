@@ -8,6 +8,7 @@ Bot 本地 HTTP API — 供 OpenClaw 等同机 agent 直接调用发送消息/�
 import logging
 import os
 import queue
+import sys
 import tempfile
 import threading
 import json
@@ -26,10 +27,19 @@ app = FastAPI(title="cs-Solidarity Bot API", version="1.0")
 def _is_maintenance_time():
     """检查当前是否在维护时间内（与 main.py 逻辑一致）"""
     try:
-        import main
-        if getattr(main, 'DEBUG_MODE', False):
+        # main.py is normally started as a script, so its live module is
+        # registered as __main__. Importing ``main`` here would create a
+        # second module instance with the default maintenance window.
+        main_module = sys.modules.get('__main__')
+        if not hasattr(main_module, 'MAINTENANCE_START'):
+            import main as main_module
+        if getattr(main_module, 'DEBUG_MODE', False):
             return False
-        return main.MAINTENANCE_START <= datetime.now().time() < main.MAINTENANCE_END
+        return (
+            main_module.MAINTENANCE_START
+            <= datetime.now().time()
+            < main_module.MAINTENANCE_END
+        )
     except Exception:
         return False
 
