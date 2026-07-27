@@ -392,9 +392,9 @@ def _resolve_gsi_sink_url() -> str:
     if explicit:
         return explicit.strip()
     try:
-        port = int(os.environ.get("CS2_INSIGHT_PORT", "8000") or "8000")
+        port = int(os.environ.get("CS2_INSIGHT_PORT", "19871") or "19871")
     except ValueError:
-        port = 8000
+        port = 19871
     # CS2 POSTs from the same machine; mirror CS2_INSIGHT_PORT so a non-default
     # uvicorn port still receives GSI (previously defaulted to :8000 only).
     return f"http://127.0.0.1:{port}/api/gsi/cs2"

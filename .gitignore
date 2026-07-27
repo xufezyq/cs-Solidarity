@@ -35,6 +35,9 @@ logs/
 !start_agent.bat
 !start_web.bat
 
+# Local launch helpers contain machine-specific paths and tokens.
+local-*.cmd
+
 # @AutomationLog.txt
 @AutomationLog.txt
 

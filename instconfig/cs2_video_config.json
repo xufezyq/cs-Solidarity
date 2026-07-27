@@ -8,7 +8,12 @@
   "demo_dir": "data/cs2-video/demos",
   "export_dir": "data/cs2-video/exports",
   "allowed_player_ids": [],
-  "wechat_targets": [],
+  "demo_player_names": {
+    "76561198383859685": "皮干侠"
+  },
+  "wechat_targets": [
+    "【CS】团结友爱"
+  ],
   "max_active_jobs_per_user": 2,
   "max_events_per_job": 20,
   "max_output_mib": 200,

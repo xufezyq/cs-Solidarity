@@ -98,6 +98,17 @@ class Repository:
         with self._lock:
             return self._decode(self._db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
 
+    def delete_job(self, job_id):
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+
+    def delete_cancelled_jobs(self, owner=None):
+        with self._lock, self._db:
+            if owner:
+                self._db.execute("DELETE FROM jobs WHERE owner=? AND status='cancelled'", (owner,))
+            else:
+                self._db.execute("DELETE FROM jobs WHERE status='cancelled'")
+
     def list_jobs(self, owner=None):
         with self._lock:
             if owner:

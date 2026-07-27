@@ -103,6 +103,9 @@ class CS2VideoService:
         Path(self.config["export_dir"]).mkdir(parents=True, exist_ok=True)
         self._ensure_insight()
         self._refresh_health_async()
+        # The agent can be restarted while a user has already submitted clips.
+        # Resume those jobs instead of leaving them permanently at 60%.
+        threading.Thread(target=self._resume_queued_recordings, daemon=True).start()
 
     def _ensure_insight(self):
         if not self.config.get("insight_auto_start") or self._health(self.config["insight_base_url"]):
@@ -244,6 +247,11 @@ class CS2VideoService:
             # cs2_pw identifies Perfect World matches as ``PVP@<numeric-id>``;
             # the demo endpoint accepts only the numeric component.
             download_match_id = str(job["match_id"]).split("@", 1)[-1]
+            demo_candidates = sorted(
+                Path(self.config["demo_dir"]).glob(f"{download_match_id}*.dem"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
             if not download_match_id.isdigit():
                 raise RuntimeError("比赛 ID 格式无效，无法下载 Demo")
             # Reuse the downloader's PWA list lookup so cup_id matches the
@@ -263,8 +271,10 @@ class CS2VideoService:
             except (TypeError, ValueError):
                 cup_id = 0
             demo_url = get_demo_url(download_match_id, credential.access_token, cup_id=cup_id, signer=signer)
-            if not download_and_extract(
-                demo_url, self.config["demo_dir"], headers=build_download_headers(credential.request_steamid),
+            public_ip = str(cfg.pwa.get("public_ipv4") or "").strip() or None
+            if not demo_candidates and not download_and_extract(
+                demo_url, self.config["demo_dir"],
+                headers=build_download_headers(credential.request_steamid, public_ip=public_ip),
             ):
                 raise RuntimeError("Demo 下载或解压失败，请检查完美平台授权和该场 Demo 是否可用")
             demo_candidates = sorted(Path(self.config["demo_dir"]).glob(f"{download_match_id}*.dem"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -273,16 +283,18 @@ class CS2VideoService:
             demo_path = demo_candidates[0].resolve()
             self.repo.update_job(job_id, status="ingesting", progress=25)
             target = next((p for p in self._players() if str(p["steamid"]) == str(job["player_id"])), None)
-            if not target or not target.get("nickname"):
+            demo_names = self.config.get("demo_player_names") or {}
+            target_name = str(demo_names.get(str(job["player_id"])) or (target or {}).get("nickname") or "").strip()
+            if not target_name:
                 raise RuntimeError("未找到该玩家的完美平台昵称，无法分析 Demo")
             self.repo.update_job(job_id, status="analyzing", progress=50)
             result = self._insight_json(
                 "/api/demo/parse-multi?filename=" + urllib.parse.quote(demo_path.name)
                 + "&path=" + urllib.parse.quote(str(demo_path)),
-                {"target_players": [target["nickname"]], "locale": "zh"}, timeout=600,
+                {"target_players": [target_name], "locale": "zh"}, timeout=600,
             )
             players = result.get("players") if isinstance(result, dict) else {}
-            analyzed = players.get(target["nickname"]) if isinstance(players, dict) else None
+            analyzed = players.get(target_name) if isinstance(players, dict) else None
             if not isinstance(analyzed, dict):
                 raise RuntimeError("Insight 未在 Demo 中找到该玩家，请确认完美昵称与 Demo 一致")
             clips = analyzed.get("clips") if isinstance(analyzed.get("clips"), list) else []
@@ -305,11 +317,11 @@ class CS2VideoService:
         except Exception as exc:
             self.repo.update_job(job_id, status="failed", error=str(exc))
 
-    def _insight_json(self, path, payload, timeout=60):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    def _insight_json(self, path, payload, timeout=60, method="POST"):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
         request = urllib.request.Request(
             self.config["insight_base_url"].rstrip("/") + path, data=body,
-            headers={"Content-Type": "application/json"}, method="POST",
+            headers={"Content-Type": "application/json"} if body is not None else {}, method=method,
         )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -345,6 +357,10 @@ class CS2VideoService:
 
     def render(self, job_id, owner, payload):
         job = self.get_job(job_id, owner)
+        # A browser retry or a double-click must not submit the same recording
+        # twice.  The first request has already persisted its selection.
+        if job["status"] in {"queued_recording", "recording", "composing", "sending", "completed"}:
+            return job
         if job["status"] != "awaiting_clip_selection": raise ValueError("任务当前不能提交片段")
         keys = payload.get("event_keys") or []
         valid = {e["event_key"] for e in job["events"]}
@@ -354,16 +370,166 @@ class CS2VideoService:
         targets = {t["id"] if isinstance(t, dict) else t for t in self.config["wechat_targets"]}
         if payload.get("preset_id") not in preset_ids or payload.get("wechat_target") not in targets:
             raise ValueError("输出预设或微信目标不在白名单中")
-        return self.repo.update_job(job_id, status="queued_recording", progress=60, selection=keys, output=payload)
+        result = self.repo.update_job(job_id, status="queued_recording", progress=60, selection=keys, output=payload)
+        threading.Thread(target=self._record_job, args=(job_id,), daemon=True, name=f"cs2-video-record-{job_id[:8]}").start()
+        return result
+
+    def _resume_queued_recordings(self):
+        for job in self.repo.list_jobs():
+            if job["status"] == "queued_recording":
+                threading.Thread(target=self._record_job, args=(job["id"],), daemon=True,
+                                 name=f"cs2-video-resume-{job['id'][:8]}").start()
+
+    def _record_job(self, job_id):
+        """Run the long-lived local recording, compose, and delivery pipeline."""
+        try:
+            job = self.repo.get_job(job_id)
+            if not job or job["status"] != "queued_recording":
+                return
+            selected = set(job.get("selection") or [])
+            events = [event for event in (job.get("events") or []) if event.get("event_key") in selected]
+            if not events:
+                raise RuntimeError("没有可录制的已选片段")
+            self.repo.update_job(job_id, status="recording", progress=65, error=None)
+            requests = [self._recording_request(job, event, index) for index, event in enumerate(events)]
+            recordings = self._insight_json("/api/recording/queue", {"requests": requests}, timeout=7200)
+            failed = [item for item in recordings if not isinstance(item, dict) or not item.get("success")]
+            if failed:
+                detail = failed[0] if failed else {}
+                raise RuntimeError(str(detail.get("error") or detail.get("message") or "Insight 录制失败"))
+
+            self.repo.update_job(job_id, status="composing", progress=88)
+            clip_ids = self._recorded_clip_ids(requests)
+            if not clip_ids:
+                raise RuntimeError("录制完成，但 Insight 未保存可合成的片段")
+            output_path = Path(self.config["export_dir"]) / f"{job_id}.mp4"
+            exported = self._insight_json(
+                "/api/montage/export",
+                {"recorded_clip_ids": clip_ids, "output_path": str(output_path)},
+                timeout=7200,
+            )
+            video_path = str(exported.get("output_path") or output_path)
+            if not Path(video_path).is_file():
+                raise RuntimeError("视频合成接口未返回有效 MP4 文件")
+
+            self.repo.update_job(job_id, status="sending", progress=96,
+                                 output={**(job.get("output") or {}), "video_path": video_path,
+                                         "recorded_clip_ids": clip_ids})
+            self._send_video((job.get("output") or {}).get("wechat_target"), video_path)
+            self.repo.update_job(job_id, status="completed", progress=100,
+                                 output={**(job.get("output") or {}), "video_path": video_path,
+                                         "recorded_clip_ids": clip_ids})
+        except Exception as exc:
+            log.exception("CS2 video job %s failed", job_id)
+            self.repo.update_job(job_id, status="failed", error=str(exc))
+
+    def _recording_request(self, job, event, index):
+        raw = event.get("raw_clip") or {}
+        target_name = str((self.config.get("demo_player_names") or {}).get(str(job["player_id"])) or "").strip()
+        if not target_name:
+            target = next((item for item in self._players() if str(item["steamid"]) == str(job["player_id"])), {})
+            target_name = str(target.get("nickname") or job["player_id"])
+        target = {"name": target_name, "steamid64": str(job["player_id"]), "spec_slot": raw.get("target_spec_slot")}
+        category = str(raw.get("category") or event.get("category") or "highlight")
+        compilation_kind = str(raw.get("compilation_kind") or "")
+        is_death = category in {"fail", "meme_death"} or compilation_kind in {"all_deaths", "nemesis_deaths", "freeze_to_death"}
+        request_type = "death_compilation" if category == "compilation" and is_death else "kill_compilation" if category == "compilation" else "fail" if is_death else "highlight"
+        ticks = list(raw.get("kill_ticks") or raw.get("source_ticks") or [])
+        if ticks and isinstance(ticks[0], list):
+            ticks = [pair[0] for pair in ticks if pair]
+        if not ticks:
+            ticks = [raw.get("death_tick") if is_death else event.get("start_tick")]
+        ticks = [int(tick) for tick in ticks if isinstance(tick, (int, float))]
+        victim_names = list(raw.get("victims") or event.get("victims") or [])
+        victim_ids = list(raw.get("victim_steamid64s") or [])
+        events = []
+        for pos, tick in enumerate(ticks):
+            victim = {"name": str(victim_names[pos]) if pos < len(victim_names) else "未知玩家",
+                      "steamid64": str(victim_ids[pos]) if pos < len(victim_ids) else "",
+                      "spec_slot": (raw.get("victim_spec_slots") or [None] * len(ticks))[pos] if pos < len(raw.get("victim_spec_slots") or []) else None}
+            killer = target if not is_death else {"name": str((raw.get("killers") or ["未知玩家"])[pos] if pos < len(raw.get("killers") or []) else "未知玩家"), "steamid64": "", "spec_slot": None}
+            events.append({"event_type": "death" if is_death else "kill", "tick": tick,
+                           "round": int(event.get("round") or raw.get("round") or 1), "killer": killer,
+                           "victim": target if is_death else victim, "target_player": target,
+                           "perspective": "main" if is_death else "killer", "weapon": raw.get("weapon_used") or "",
+                           "headshot": False, "tags": raw.get("context_tags") or []})
+        all_events = job.get("events") or []
+        demo_end = max([int((item.get("raw_clip") or {}).get("clip_max_tick") or item.get("end_tick") or 0) for item in all_events] or [1])
+        return {"request_id": f"{job['id']}-{index}", "request_type": request_type,
+                "source_type": "death" if is_death else "kill",
+                "demo": {"demo_path": str(self._demo_path_for_job(job)), "demo_filename": self._demo_path_for_job(job).name,
+                         "map_name": raw.get("map_name") or "", "tick_rate": 64.0, "first_tick": 0,
+                         "demo_end_tick": demo_end, "final_round": max([int((item.get("raw_clip") or {}).get("round") or item.get("round") or 1) for item in all_events] or [1]),
+                         "final_round_start_tick": 0, "final_round_end_tick": demo_end},
+                "target_player": target, "events": events,
+                "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or []}}
+
+    def _demo_path_for_job(self, job):
+        match_id = str(job["match_id"]).split("@", 1)[-1]
+        candidates = sorted(Path(self.config["demo_dir"]).glob(f"{match_id}*.dem"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if not candidates:
+            raise RuntimeError("本地 Demo 文件不存在，请重新下载并分析")
+        return candidates[0].resolve()
+
+    def _recorded_clip_ids(self, requests):
+        data = self._insight_json("/api/recorded-clips?limit=1000", None, timeout=30, method="GET")
+        wanted = {request["source_ref"]["original_clip_id"] for request in requests}
+        return [int(item["id"]) for item in data.get("items", []) if item.get("clip_id") in wanted]
+
+    def _send_video(self, target, video_path):
+        if not target:
+            raise RuntimeError("未选择微信接收目标")
+        boundary = "----CS2Video" + uuid.uuid4().hex
+        path = Path(video_path)
+        payload = [
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"target\"\r\n\r\n{target}\r\n".encode(),
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{path.name}\"\r\nContent-Type: video/mp4\r\n\r\n".encode(),
+            path.read_bytes(), b"\r\n", f"--{boundary}--\r\n".encode(),
+        ]
+        request = urllib.request.Request(self.config["bot_base_url"].rstrip("/") + "/send/file", data=b"".join(payload),
+                                         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}, method="POST")
+        with urllib.request.urlopen(request, timeout=360) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if not result.get("success"):
+            raise RuntimeError(str(result.get("error") or "微信发送失败"))
+
+    def _deliver_job(self, job_id):
+        try:
+            job = self.repo.get_job(job_id)
+            output = (job or {}).get("output") or {}
+            video_path = str(output.get("video_path") or "")
+            if not video_path or not Path(video_path).is_file():
+                raise RuntimeError("已生成的视频文件不存在，无法重新发送")
+            self.repo.update_job(job_id, status="sending", progress=96, error=None)
+            self._send_video(output.get("wechat_target"), video_path)
+            self.repo.update_job(job_id, status="completed", progress=100, error=None)
+        except Exception as exc:
+            log.exception("CS2 video delivery for job %s failed", job_id)
+            self.repo.update_job(job_id, status="failed", progress=96, error=str(exc))
 
     def cancel(self, job_id, owner, admin=False):
         job = self.get_job(job_id, owner, admin)
-        if job["status"] in {"completed", "cancelled"}: return job
-        return self.repo.update_job(job_id, status="cancelled", error=None)
+        if job["status"] == "completed":
+            return job
+        self.repo.delete_job(job_id)
+        return {"id": job_id, "status": "cancelled", "deleted": True}
 
     def retry(self, job_id, owner, admin=False):
         job = self.get_job(job_id, owner, admin)
         if job["status"] not in {"failed", "sending_unknown"}: raise ValueError("任务当前不可重试")
+        video_path = str((job.get("output") or {}).get("video_path") or "")
+        if video_path and Path(video_path).is_file():
+            result = self.repo.update_job(job_id, status="sending", progress=96, error=None)
+            threading.Thread(target=self._deliver_job, args=(job_id,), daemon=True,
+                             name=f"cs2-video-send-{job_id[:8]}").start()
+            return result
+        # A recording/composition failure already has a local demo and a locked
+        # selection.  Retrying it must not download and analyse the same demo.
+        if job.get("selection") and job.get("events"):
+            result = self.repo.update_job(job_id, status="queued_recording", progress=60, error=None)
+            threading.Thread(target=self._record_job, args=(job_id,), daemon=True,
+                             name=f"cs2-video-retry-{job_id[:8]}").start()
+            return result
         self.repo.update_job(job_id, status="downloading", progress=5, error=None)
         threading.Thread(target=self._prepare_job, args=(job_id,), daemon=True).start()
         return self.repo.get_job(job_id)
@@ -371,7 +537,10 @@ class CS2VideoService:
     def get_job(self, job_id, owner, admin=False):
         row = self.repo.get_job(job_id); self._owned(row, owner, admin); return row
 
-    def list_jobs(self, owner, admin=False): return self.repo.list_jobs(None if admin else owner)
+    def list_jobs(self, owner, admin=False):
+        visible_owner = None if admin else owner
+        self.repo.delete_cancelled_jobs(visible_owner)
+        return self.repo.list_jobs(visible_owner)
 
     def _require_player(self, player_id):
         if str(player_id) not in {p["steamid"] for p in self._players()}: raise ValueError("玩家不在允许列表中")
