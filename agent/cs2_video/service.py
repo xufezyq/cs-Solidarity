@@ -130,12 +130,16 @@ class CS2VideoService:
         path = self.root / "instconfig" / "steam_data.json"
         data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         allowed = set(map(str, self.config.get("allowed_player_ids") or []))
+        pw_history = data.get("friend_pw_history_stats") or {}
         result = []
         for p in data.get("monitored_friends", []):
             sid = str(p.get("steamid", ""))
             if sid and (not allowed or sid in allowed):
-                result.append({"steamid": sid, "nickname": p.get("pw_nickname") or p.get("personaname") or sid,
-                               "steam_name": p.get("personaname", ""), "avatar": p.get("avatar", "")})
+                pw_profile = pw_history.get(sid) if isinstance(pw_history, dict) else {}
+                pw_avatar = pw_profile.get("avatar", "") if isinstance(pw_profile, dict) else ""
+                result.append({"steamid": sid, "nickname": p.get("personaname") or sid,
+                               "steam_name": p.get("personaname", ""),
+                               "avatar": pw_avatar or p.get("avatar", "")})
         return result
 
     def bootstrap(self):
