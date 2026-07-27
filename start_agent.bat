@@ -3,13 +3,38 @@ chcp 65001 >nul
 title cs-Solidarity Agent - WebSocket Client
 
 cd /d "%~dp0"
+set "ROOT=%~dp0"
+set "PYTHON=%ROOT%venv-agent\Scripts\python.exe"
+set "AGENT_DEPS_MARKER=%ROOT%venv-agent\.agent-deps-installed"
 
-REM Check if virtualenv exists
-if exist "venv\Scripts\activate.bat" (
-    echo Activating virtualenv...
-    call venv\Scripts\activate.bat
-) else (
-    echo Virtualenv not found, using system Python
+REM The CS2 PWA signer bundled with the Agent requires CPython 3.12.
+REM Keep its environment separate from the lightweight Web environment.
+if not exist "%PYTHON%" (
+    echo Creating Agent Python 3.12 virtual environment...
+    py -3.12 -m venv "%ROOT%venv-agent"
+    if errorlevel 1 (
+        echo ERROR: Python 3.12 is required for the Agent CS2 video signer.
+        echo Install Python 3.12 and run this script again.
+        pause
+        exit /b 1
+    )
+)
+
+if not exist "%PYTHON%" (
+    echo ERROR: Failed to create Agent virtual environment.
+    pause
+    exit /b 1
+)
+
+if not exist "%AGENT_DEPS_MARKER%" (
+    echo Installing Agent Python dependencies...
+    "%PYTHON%" -m pip install -r "%ROOT%requirements.txt"
+    if errorlevel 1 (
+        echo ERROR: Failed to install Agent Python dependencies.
+        pause
+        exit /b 1
+    )
+    type nul > "%AGENT_DEPS_MARKER%"
 )
 
 REM Load environment variables from .env file
@@ -38,9 +63,5 @@ if not defined TOKEN (
     exit /b 1
 )
 
-if exist "venv\Scripts\python.exe" (
-    "venv\Scripts\python.exe" -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
-) else (
-    python -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%~dp0."
-)
+"%PYTHON%" -m agent.client --server "%SERVER%" --token "%TOKEN%" --root "%ROOT%."
 pause
