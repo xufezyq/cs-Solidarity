@@ -151,9 +151,10 @@ class CS2VideoService:
             if sid and (not allowed or sid in allowed):
                 pw_profile = pw_history.get(sid) if isinstance(pw_history, dict) else {}
                 pw_avatar = pw_profile.get("avatar", "") if isinstance(pw_profile, dict) else ""
+                steam_avatar = p.get("avatar", "")
                 result.append({"steamid": sid, "nickname": p.get("personaname") or sid,
                                "steam_name": p.get("personaname", ""),
-                               "avatar": pw_avatar or p.get("avatar", "")})
+                               "avatar": steam_avatar or pw_avatar})
         return result
 
     def bootstrap(self):

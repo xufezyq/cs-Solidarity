@@ -54,6 +54,7 @@
       return {boot,step,player,matches,selectedMatch,job,jobs,query,loading,error,selected,selectedCount,output,settings,settingsOpen,choosePlayer,createJob,toggle,submit,action,saveSettings,targetValue,targetLabel,stat,signed,eventLabel,eventIcon,statusLabel,statusClass,isRunning,healthClass,failedPlayerAvatars,playerAvatarFailed};
     },
     template:`<section class="cs2v">
+      <div id="cs2v-settings-slot"></div>
       <header class="cs2v-head">
         <div class="cs2v-heading"><div class="cs2v-kicker"><i class="mdi mdi-movie-open-play-outline"></i> CS2 视频工作台</div><h2>视频制作</h2><p>从对局中挑选高光，生成成片并发送到微信。</p></div>
         <div class="cs2v-head-actions"><div class="cs2v-health" aria-label="服务状态"><span :class="healthClass(boot.health.downloader)"><i class="mdi mdi-download-outline"></i>下载器</span><span :class="healthClass(boot.health.insight)"><i class="mdi mdi-radar"></i>Insight</span><span :class="healthClass(boot.health.bot)"><i class="mdi mdi-wechat"></i>微信 Bot</span></div><button class="cs2v-icon-btn" title="制作设置" @click="settingsOpen=!settingsOpen"><i class="mdi mdi-cog-outline"></i></button></div>

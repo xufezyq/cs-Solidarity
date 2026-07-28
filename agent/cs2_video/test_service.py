@@ -1,4 +1,7 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 from agent.cs2_video.service import CS2VideoService
 
@@ -39,6 +42,29 @@ class CS2VideoServiceTests(unittest.TestCase):
         self.assertEqual(result["bgm_volume"], 0.35)
         self.assertTrue(result["bgm_path"].endswith("assets\\bgm.mp3"))
         self.assertTrue(result["intro_path"].endswith("assets\\intro.mp4"))
+
+    def test_players_prefer_steam_avatar_and_fall_back_to_perfect_world(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "instconfig").mkdir()
+            (root / "instconfig" / "steam_data.json").write_text(json.dumps({
+                "monitored_friends": [
+                    {"steamid": "1", "personaname": "Steam", "avatar": "steam-avatar"},
+                    {"steamid": "2", "personaname": "PW", "avatar": ""},
+                ],
+                "friend_pw_history_stats": {
+                    "1": {"avatar": "pw-avatar"},
+                    "2": {"avatar": "pw-fallback"},
+                },
+            }), encoding="utf-8")
+            self.service.root = root
+            self.service.config["allowed_player_ids"] = []
+            self.service._players = CS2VideoService._players.__get__(self.service)
+
+            players = self.service._players()
+
+        self.assertEqual(players[0]["avatar"], "steam-avatar")
+        self.assertEqual(players[1]["avatar"], "pw-fallback")
 
     def test_delivery_summary_contains_requested_traceability(self):
         summary = self.service._delivery_summary({
