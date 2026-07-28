@@ -3828,15 +3828,18 @@ class OBSDirector:
                     _clip_dict = _v3_clip_dict_for_rename(dto)
                     _player = dto.target_player.name if dto.target_player.name else None
 
-                    final_output_path = result.output_path
+                    # A failed V3 request may leave an OBS file behind.  It is
+                    # diagnostic output only: do not scan for it, rename it,
+                    # or return it as a usable clip to the calling service.
+                    final_output_path = result.output_path if result.success else None
                     rename_meta: dict = {}
                     rename_status: str = "skipped"
                     resolved_path: Optional[Path] = None
 
-                    if result.output_path:
+                    if result.success and result.output_path:
                         resolved_path = Path(result.output_path)
                         rename_status = "from_executor"
-                    else:
+                    elif result.success:
                         # Fallback: scan the OBS record directory for the newest video
                         # written since recording started.
                         # Use obs_record_directory from executor (fetched via GetRecordDirectory
@@ -3941,7 +3944,7 @@ class OBSDirector:
                         "success": result.success,
                         "output_path": final_output_path,
                         "original_output_path": rename_meta.get("original_output_path") or (
-                            str(resolved_path) if resolved_path else result.output_path
+                            str(resolved_path) if resolved_path else (result.output_path if result.success else None)
                         ),
                         "resolved_output_path": str(resolved_path) if resolved_path else None,
                         "output_filename": rename_meta.get("output_filename"),

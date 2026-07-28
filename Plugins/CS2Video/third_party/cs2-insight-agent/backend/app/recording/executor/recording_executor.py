@@ -15,7 +15,7 @@ from .demo_controller import (
     DemoSeekError, inject_console_sequence,
 )
 from .spec_controller import spec_by_slot, spec_player
-from .gsi_verifier import verify_spec_target
+from .gsi_verifier import get_last_gsi_payload_at, verify_spec_target
 
 logger = logging.getLogger(__name__)
 
@@ -404,13 +404,87 @@ class ExecutionResult:
 _SPEC_SLOT_MAX_OFFSET = 3
 
 
+@dataclass(frozen=True)
+class SpecSelectionResult:
+    """Verified target selection and the slot to reuse after a demo re-seek."""
+
+    verified: "bool | None"
+    selected_slot: Optional[int] = None
+
+
+def _completed_all_active_segments(
+    active_segments: list[RecordingSegment],
+    segment_results: list[SegmentResult],
+) -> bool:
+    """Return true only when every planned active segment finished cleanly.
+
+    A recording is one montage input.  Returning success for a partial capture
+    makes callers export and send footage that is known to be incomplete or
+    from an unverified POV.
+    """
+    expected = {segment.segment_index for segment in active_segments}
+    completed = {
+        item.segment_index
+        for item in segment_results
+        if item.status == "ok"
+    }
+    return bool(expected) and completed == expected and len(segment_results) == len(active_segments)
+
+
+async def _spec_by_name_with_verify(
+    player_name: str,
+    target_steamid64: str,
+    result_warnings: list,
+    segment_index: int,
+) -> SpecSelectionResult:
+    """Select a known player name and fail closed unless GSI confirms its SteamID."""
+    name = (player_name or "").strip()
+    if not name:
+        return SpecSelectionResult(False)
+
+    logger.info(
+        "[RecordingV3] spec_player by name for %r steamid=%s",
+        name,
+        target_steamid64,
+    )
+    if not await spec_player(name):
+        result_warnings.append(
+            f"segment {segment_index}: spec_player name injection failed for {name}"
+        )
+        return SpecSelectionResult(False)
+    if not target_steamid64:
+        return SpecSelectionResult(None)
+
+    # The command helper waits for CS2 to settle.  Sample the GSI marker only
+    # now, so a payload queued before/during command injection cannot approve
+    # this selection as if it were its result.
+    after_payload_at = get_last_gsi_payload_at()
+
+    verified = await verify_spec_target(
+        target_steamid64,
+        after_payload_at=after_payload_at,
+    )
+    if verified is False:
+        result_warnings.append(
+            f"segment {segment_index}: spec verify failed for "
+            f"{name} (name fallback) - wrong player spectated"
+        )
+    elif verified is None:
+        result_warnings.append(
+            f"segment {segment_index}: spec verify inconclusive for "
+            f"{name} (name fallback) - refusing unverified POV"
+        )
+        return SpecSelectionResult(False)
+    return SpecSelectionResult(verified)
+
+
 async def _spec_by_slot_with_retry(
     base_slot: Optional[int],
     player_name: str,
     target_steamid64: str,
     result_warnings: list,
     segment_index: int,
-) -> "bool | None":
+) -> SpecSelectionResult:
     """
     Switch to base_slot (pre-computed during demo parsing), then verify via GSI.
     If verification fails, search neighbouring slots in both directions up to
@@ -428,21 +502,14 @@ async def _spec_by_slot_with_retry(
                 "[RecordingV3] no spec slot for %r; falling back to spec_player by name",
                 player_name,
             )
-            await spec_player(player_name)
-            if not target_steamid64:
-                return None
-            verified = await verify_spec_target(target_steamid64)
-            if verified is False:
-                result_warnings.append(
-                    f"segment {segment_index}: spec verify failed for "
-                    f"{player_name} (name fallback) — wrong player spectated"
-                )
-            return verified
+            return await _spec_by_name_with_verify(
+                player_name, target_steamid64, result_warnings, segment_index,
+            )
         logger.warning(
             "[RecordingV3] no spec slot or name for spectate target; skipping spec switch",
             player_name,
         )
-        return None
+        return SpecSelectionResult(None)
 
     offsets = [0]
     for distance in range(1, _SPEC_SLOT_MAX_OFFSET + 1):
@@ -456,36 +523,58 @@ async def _spec_by_slot_with_retry(
             "[RecordingV3] spec_by_slot %d (base=%d offset=%d) for %r steamid=%s",
             slot, base_slot, offset, player_name, target_steamid64,
         )
-        await spec_by_slot(slot)
+        if not await spec_by_slot(slot):
+            logger.warning(
+                "[RecordingV3] slot %d injection failed for %r; trying next candidate",
+                slot, player_name,
+            )
+            continue
 
         if not target_steamid64:
-            return None
+            return SpecSelectionResult(None, slot)
 
-        verified = await verify_spec_target(target_steamid64)
+        # Require a GSI update emitted after CS2 has accepted and settled the
+        # command.  This is the guard that prevents an old correct slot from
+        # approving a later, wrong slot after a re-seek.
+        after_payload_at = get_last_gsi_payload_at()
+
+        verified = await verify_spec_target(
+            target_steamid64,
+            after_payload_at=after_payload_at,
+        )
         if verified is True:
             if offset > 0:
                 logger.info(
                     "[RecordingV3] slot offset +%d worked for %r (base=%d actual=%d)",
                     offset, player_name, base_slot, slot,
                 )
-            return True
+            return SpecSelectionResult(True, slot)
         if verified is None:
             result_warnings.append(
                 f"segment {segment_index}: spec verify inconclusive for "
-                f"{player_name} at slot {slot} — GSI silent"
+                f"{player_name} at slot {slot} - refusing unverified POV"
             )
-            return None
+            return SpecSelectionResult(False)
         # verified is False — try next offset
         logger.warning(
             "[RecordingV3] slot %d wrong for %r (offset=%d), trying next candidate",
             slot, player_name, offset,
         )
 
+    if (player_name or "").strip():
+        logger.warning(
+            "[RecordingV3] all slot offsets +/-%d failed for %r; trying name fallback",
+            _SPEC_SLOT_MAX_OFFSET, player_name,
+        )
+        return await _spec_by_name_with_verify(
+            player_name, target_steamid64, result_warnings, segment_index,
+        )
+
     logger.error(
         "[RecordingV3] all slot offsets +/-%d failed for %r steamid=%s",
         _SPEC_SLOT_MAX_OFFSET, player_name, target_steamid64,
     )
-    return False
+    return SpecSelectionResult(False)
 
 
 class RecordingExecutor:
@@ -681,13 +770,18 @@ class RecordingExecutor:
                 spec_ok = None
                 if segment.target_steamid64 or segment.target_player_name:
                     spec_t0 = time.monotonic()
-                    spec_ok = await _spec_by_slot_with_retry(
+                    spec_selection = await _spec_by_slot_with_retry(
                         base_slot=segment.target_spec_slot,
                         player_name=segment.target_player_name,
                         target_steamid64=segment.target_steamid64,
                         result_warnings=result.warnings,
                         segment_index=segment.segment_index,
                     )
+                    spec_ok = spec_selection.verified
+                    if spec_ok is True:
+                        # A provider-specific offset may have selected a different
+                        # live slot. Reuse it if prepare work requires a re-seek.
+                        segment.target_spec_slot = spec_selection.selected_slot
                     spec_elapsed = time.monotonic() - spec_t0
 
                     if spec_ok is not False and self._post_spec_console_lines:
@@ -727,8 +821,11 @@ class RecordingExecutor:
                         )
                         if obs_recording_started:
                             await self._ctrl.stop_record_safe()
-                        result.output_path = final_output_path
-                        result.success = any(r.status == "ok" for r in result.segment_results)
+                        # Do not expose a partial OBS output as a valid clip.
+                        # It remains on disk for diagnosis, but cannot be
+                        # exported or sent by the caller.
+                        result.output_path = None
+                        result.success = False
                         result.warnings.extend(plan.warnings)
                         return result
 
@@ -767,13 +864,16 @@ class RecordingExecutor:
                     prepare_elapsed_sec = 0.0
                     spec_elapsed = 0.0
                     if segment.target_steamid64 or segment.target_player_name:
-                        spec_ok = await _spec_by_slot_with_retry(
+                        spec_selection = await _spec_by_slot_with_retry(
                             base_slot=segment.target_spec_slot,
                             player_name=segment.target_player_name,
                             target_steamid64=segment.target_steamid64,
                             result_warnings=result.warnings,
                             segment_index=segment.segment_index,
                         )
+                        spec_ok = spec_selection.verified
+                        if spec_ok is True:
+                            segment.target_spec_slot = spec_selection.selected_slot
                         if spec_ok is False:
                             logger.error(
                                 "[RecordingV3] spec failed after resync for %s perspective=%s",
@@ -800,8 +900,8 @@ class RecordingExecutor:
                             )
                             if obs_recording_started:
                                 await self._ctrl.stop_record_safe()
-                            result.output_path = final_output_path
-                            result.success = any(r.status == "ok" for r in result.segment_results)
+                            result.output_path = None
+                            result.success = False
                             result.warnings.extend(plan.warnings)
                             return result
                     if segment.voice_listen_mask is not None:
@@ -1092,17 +1192,24 @@ class RecordingExecutor:
             logger.warning("[RecordingV3] OBS still recording after all segments; force stopping")
             await self._ctrl.force_stop_recording()
 
-        result.output_path = final_output_path
         was_aborted = self._is_aborted() or any(
             str(item.error or "").strip().lower() == "aborted"
             for item in result.segment_results
         )
+        completed_all_segments = _completed_all_active_segments(
+            active_segments, result.segment_results,
+        )
         if was_aborted:
-            # Keep partial output_path information, but make the request-level
-            # state unambiguous for the API and result modal.
             result.error = "aborted"
             result.success = False
+        elif not completed_all_segments:
+            result.error = result.error or "recording incomplete; refusing to export partial footage"
+            result.success = False
         else:
-            result.success = any(r.status == "ok" for r in result.segment_results)
+            result.success = True
+        # Never return a path for a failed request.  OBS may still retain that
+        # file locally for diagnostics, but it must not enter the export/send
+        # path as a usable recording.
+        result.output_path = final_output_path if result.success else None
         result.warnings.extend(plan.warnings)
         return result

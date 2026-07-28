@@ -864,6 +864,7 @@ class SteamAuto(BaseInstance):
             game_name = self._get_cn_game_name(game_id, raw_game_name) if game_id and game_id != '0' else '未游玩游戏'
             personastate = friend.get('personastate', 0)  # 0: 离线, 1: 在线, 2: 忙碌, 3: 离开, 4: 暂离, 5: 求交易, 6: 求组队
             lastlogoff = friend.get('lastlogoff')  # 上次离线时间
+            avatar = friend.get('avatarfull') or friend.get('avatarmedium') or friend.get('avatar') or ''
 
             # 获取该好友的上一次状态
             prev_game_id = self.friend_game_status.get(steam_id, {}).get('gameid')
@@ -965,6 +966,9 @@ class SteamAuto(BaseInstance):
                 # 已存在的好友，每次检查都更新在线状态和最后离线时间
                 self.friend_game_status[steam_id]['personastate'] = personastate
                 self.friend_game_status[steam_id]['lastlogoff'] = lastlogoff
+
+            if avatar:
+                self.friend_game_status[steam_id]['avatar'] = avatar
 
         # 生成合并的消息
         messages = []
@@ -1069,6 +1073,8 @@ class SteamAuto(BaseInstance):
                 friend['personastate'] = game_status.get('personastate', 0)
                 friend['gameextrainfo'] = game_status.get('game_name', '')
                 friend['lastlogoff'] = game_status.get('lastlogoff')
+                if game_status.get('avatar'):
+                    friend['avatar'] = game_status['avatar']
                 updated = True
 
         if updated:

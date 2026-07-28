@@ -85,6 +85,20 @@ def sanitize_pw_match(item: dict) -> dict:
     }
 
 
+def _preset_by_id(items, preset_id: str) -> dict:
+    """Return the configured preset with ``preset_id``, or an empty mapping."""
+    for item in items or []:
+        if isinstance(item, dict) and str(item.get("id")) == str(preset_id):
+            return item
+    return {}
+
+
+def _number(value, digits: int = 0) -> str:
+    if not isinstance(value, (int, float)):
+        return "--"
+    return f"{value:.{digits}f}" if digits else str(int(value))
+
+
 class CS2VideoService:
     def __init__(self, root: Path, push=None):
         self.root = Path(root).resolve()
@@ -371,8 +385,15 @@ class CS2VideoService:
         if not keys or len(keys) > int(self.config["max_events_per_job"]) or any(k not in valid for k in keys):
             raise ValueError("片段选择无效或超过数量限制")
         preset_ids = {p["id"] for p in self.config["presets"]}
+        packaging_ids = {p["id"] for p in self.config["packaging_presets"]}
+        bgm_ids = {p["id"] for p in self.config["bgm_presets"]}
         targets = {t["id"] if isinstance(t, dict) else t for t in self.config["wechat_targets"]}
-        if payload.get("preset_id") not in preset_ids or payload.get("wechat_target") not in targets:
+        if (
+            payload.get("preset_id") not in preset_ids
+            or payload.get("packaging_id") not in packaging_ids
+            or payload.get("bgm_id") not in bgm_ids
+            or payload.get("wechat_target") not in targets
+        ):
             raise ValueError("输出预设或微信目标不在白名单中")
         result = self.repo.update_job(job_id, status="queued_recording", progress=60, selection=keys, output=payload)
         threading.Thread(target=self._record_job, args=(job_id,), daemon=True, name=f"cs2-video-record-{job_id[:8]}").start()
@@ -395,8 +416,26 @@ class CS2VideoService:
             if not events:
                 raise RuntimeError("没有可录制的已选片段")
             self.repo.update_job(job_id, status="recording", progress=65, error=None)
-            requests = [self._recording_request(job, event, index) for index, event in enumerate(events)]
-            recordings = self._insight_json("/api/recording/queue", {"requests": requests}, timeout=7200)
+            insight_settings = self.insight_settings()
+            requests = [
+                self._recording_request(job, event, index, insight_settings)
+                for index, event in enumerate(events)
+            ]
+            warmup = dict(insight_settings.get("default_record_warmup") or {})
+            output = job.get("output") or {}
+            video_preset = _preset_by_id(self.config.get("presets"), output.get("preset_id"))
+            # Recording resolution is the actual source resolution.  Apply the
+            # selected output preset here instead of merely storing its ID.
+            for key in ("width", "height"):
+                value = video_preset.get(key)
+                if isinstance(value, (int, float)) and value > 0:
+                    warmup[f"resolution_{key}"] = int(value)
+
+            recordings = self._insight_json(
+                "/api/recording/queue",
+                {"requests": requests, "warmup": warmup},
+                timeout=7200,
+            )
             failed = [item for item in recordings if not isinstance(item, dict) or not item.get("success")]
             if failed:
                 detail = failed[0] if failed else {}
@@ -407,9 +446,10 @@ class CS2VideoService:
             if not clip_ids:
                 raise RuntimeError("录制完成，但 Insight 未保存可合成的片段")
             output_path = Path(self.config["export_dir"]) / f"{job_id}.mp4"
+            export_options = self._export_options(output)
             exported = self._insight_json(
                 "/api/montage/export",
-                {"recorded_clip_ids": clip_ids, "output_path": str(output_path)},
+                {"recorded_clip_ids": clip_ids, "output_path": str(output_path), **export_options},
                 timeout=7200,
             )
             video_path = str(exported.get("output_path") or output_path)
@@ -417,17 +457,15 @@ class CS2VideoService:
                 raise RuntimeError("视频合成接口未返回有效 MP4 文件")
 
             self.repo.update_job(job_id, status="sending", progress=96,
-                                 output={**(job.get("output") or {}), "video_path": video_path,
+                                 output={**output, "video_path": video_path,
                                          "recorded_clip_ids": clip_ids})
-            self._send_video((job.get("output") or {}).get("wechat_target"), video_path)
-            self.repo.update_job(job_id, status="completed", progress=100,
-                                 output={**(job.get("output") or {}), "video_path": video_path,
-                                         "recorded_clip_ids": clip_ids})
+            self._deliver_video_for_job(job_id)
+            self.repo.update_job(job_id, status="completed", progress=100, error=None)
         except Exception as exc:
             log.exception("CS2 video job %s failed", job_id)
             self.repo.update_job(job_id, status="failed", error=str(exc))
 
-    def _recording_request(self, job, event, index):
+    def _recording_request(self, job, event, index, insight_settings=None):
         raw = event.get("raw_clip") or {}
         target_name = str((self.config.get("demo_player_names") or {}).get(str(job["player_id"])) or "").strip()
         if not target_name:
@@ -459,14 +497,120 @@ class CS2VideoService:
                            "headshot": False, "tags": raw.get("context_tags") or []})
         all_events = job.get("events") or []
         demo_end = max([int((item.get("raw_clip") or {}).get("clip_max_tick") or item.get("end_tick") or 0) for item in all_events] or [1])
+        runtime = insight_settings or {}
+        options = {
+            "obs_transition_enabled": bool(runtime.get("obs_transition_enabled")),
+            "obs_transition_name": runtime.get("obs_transition_name") or None,
+            "obs_transition_duration_ms": runtime.get("obs_transition_duration_ms"),
+            "kb_overlay_enabled": bool(runtime.get("kb_overlay_enabled")),
+            "kb_overlay_tick_offset": runtime.get("kb_overlay_tick_offset"),
+            "kb_overlay_position": runtime.get("kb_overlay_position") or None,
+            "kill_fx_enabled": bool(runtime.get("kill_fx_enabled")),
+            "kill_fx_tick_offset": runtime.get("kill_fx_tick_offset"),
+        }
         return {"request_id": f"{job['id']}-{index}", "request_type": request_type,
                 "source_type": "death" if is_death else "kill",
                 "demo": {"demo_path": str(self._demo_path_for_job(job)), "demo_filename": self._demo_path_for_job(job).name,
                          "map_name": raw.get("map_name") or "", "tick_rate": 64.0, "first_tick": 0,
                          "demo_end_tick": demo_end, "final_round": max([int((item.get("raw_clip") or {}).get("round") or item.get("round") or 1) for item in all_events] or [1]),
                          "final_round_start_tick": 0, "final_round_end_tick": demo_end},
-                "target_player": target, "events": events,
+                "target_player": target, "events": events, "options": options,
                 "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or []}}
+
+    def _export_options(self, output: dict) -> dict:
+        """Translate configured packaging/BGM selections into montage API fields."""
+        packaging = _preset_by_id(self.config.get("packaging_presets"), output.get("packaging_id"))
+        bgm = _preset_by_id(self.config.get("bgm_presets"), output.get("bgm_id"))
+        fields = (
+            "intro_path", "intro_image_duration", "outro_path", "outro_image_duration",
+            "transitions", "theme_id", "name_cards_enabled",
+        )
+        result = {key: packaging[key] for key in fields if key in packaging}
+        bgm_fields = ("bgm_path", "bgm_volume", "bgm_start_sec")
+        # ``path`` is the concise form used by cs2_video_config.json.
+        if bgm.get("path"):
+            result["bgm_path"] = bgm["path"]
+        result.update({key: bgm[key] for key in bgm_fields if key in bgm})
+        for key in ("bgm_path", "intro_path", "outro_path"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                path = Path(value.strip())
+                result[key] = str(path if path.is_absolute() else (self.root / path).resolve())
+        return result
+
+    def _delivery_summary(self, job: dict) -> str:
+        """Build the message that must be sent immediately before the MP4."""
+        query = self.repo.get_query(job.get("query_id")) or {}
+        match = next(
+            (item for item in (query.get("matches") or [])
+             if str(item.get("match_id")) == str(job.get("match_id"))),
+            {},
+        )
+        player = next(
+            (item for item in self._players()
+             if str(item.get("steamid")) == str(job.get("player_id"))),
+            {},
+        )
+        stats = match.get("stats") if isinstance(match.get("stats"), dict) else {}
+        kda = " / ".join(_number(stats.get(key)) for key in ("kills", "deaths", "assists"))
+        selected = set(job.get("selection") or [])
+        chosen_events = [event for event in (job.get("events") or []) if event.get("event_key") in selected]
+        lines = [
+            "CS2 视频制作摘要",
+            f"请求用户：{job.get('owner') or '--'}",
+            f"选择对局：{job.get('match_id') or '--'} | {match.get('map') or '未知地图'} | {match.get('score') or '-- : --'} | {match.get('result') or '结果未知'}",
+            f"选择玩家：{player.get('nickname') or job.get('player_id') or '--'}",
+            f"KDA：{kda} | RT：{_number(stats.get('rating'), 2)} | WE：{_number(stats.get('we'), 1)}",
+            f"选择回合（{len(chosen_events)} 段）：",
+        ]
+        for event in chosen_events:
+            parts = [
+                str(event.get("category") or "片段"),
+                f"{_number(event.get('kills'))} 杀",
+            ]
+            if event.get("weapon"):
+                parts.append(str(event["weapon"]))
+            victims = [str(item) for item in (event.get("victims") or []) if item]
+            if victims:
+                parts.append("击败 " + "、".join(victims))
+            if event.get("comment"):
+                parts.append(str(event["comment"]).strip())
+            elif event.get("tags"):
+                parts.append("、".join(str(tag) for tag in event["tags"] if tag))
+            lines.append(f"- 第 {event.get('round') or '--'} 回合：{'；'.join(parts)}")
+        return "\n".join(lines)
+
+    def _send_text(self, target, content):
+        if not target:
+            raise RuntimeError("未选择微信接收目标")
+        payload = json.dumps({"target": target, "content": content}, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(
+            self.config["bot_base_url"].rstrip("/") + "/send/message",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=360) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if not result.get("success"):
+            raise RuntimeError(str(result.get("error") or "制作摘要发送失败"))
+
+    def _deliver_video_for_job(self, job_id):
+        job = self.repo.get_job(job_id)
+        if not job:
+            raise RuntimeError("制作任务不存在")
+        output = job.get("output") or {}
+        target = output.get("wechat_target")
+        video_path = str(output.get("video_path") or "")
+        if not video_path or not Path(video_path).is_file():
+            raise RuntimeError("已生成的视频文件不存在，无法发送")
+        if not output.get("delivery_summary_sent"):
+            self._send_text(target, self._delivery_summary(job))
+            self.repo.update_job(
+                job_id,
+                output={**output, "delivery_summary_sent": True},
+            )
+        self._send_video(target, video_path)
 
     def _demo_path_for_job(self, job):
         match_id = str(job["match_id"]).split("@", 1)[-1]
@@ -505,7 +649,7 @@ class CS2VideoService:
             if not video_path or not Path(video_path).is_file():
                 raise RuntimeError("已生成的视频文件不存在，无法重新发送")
             self.repo.update_job(job_id, status="sending", progress=96, error=None)
-            self._send_video(output.get("wechat_target"), video_path)
+            self._deliver_video_for_job(job_id)
             self.repo.update_job(job_id, status="completed", progress=100, error=None)
         except Exception as exc:
             log.exception("CS2 video delivery for job %s failed", job_id)
