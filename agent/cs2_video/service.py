@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -110,6 +111,7 @@ class CS2VideoService:
         self.push = push
         self._query_metadata = {}
         self._insight_process = None
+        self._insight_start_lock = threading.Lock()
         self._health_lock = threading.Lock()
         self._health_snapshot = {"downloader": False, "insight": None, "bot": None}
         self._health_refreshing = False
@@ -122,45 +124,60 @@ class CS2VideoService:
         threading.Thread(target=self._resume_queued_recordings, daemon=True).start()
 
     def _ensure_insight(self):
-        if not self.config.get("insight_auto_start") or self._health(self.config["insight_base_url"]):
-            return
-        launcher = Path(self.config["insight_project_dir"]) / "backend" / "app" / "run_server.py"
-        if not launcher.is_file():
-            log.warning("Integrated Insight launcher not found: %s", launcher)
-            return
-        project_dir = Path(self.config["insight_project_dir"])
-        bundled_python = project_dir / "python" / "python.exe"
-        venv_python = project_dir / ".venv" / "Scripts" / "python.exe"
-        python_executable = (
-            str(bundled_python) if bundled_python.is_file()
-            else str(venv_python) if venv_python.is_file()
-            else sys.executable
-        )
-        env = os.environ.copy()
-        env.setdefault("CS2_INSIGHT_HOST", "127.0.0.1")
-        env.setdefault("CS2_INSIGHT_PORT", "19871")
-        appdata = env.get("APPDATA", "")
-        if appdata:
-            _data_root = str(Path(appdata) / "CS2 Insight Agent" / "data")
-            env.setdefault("CS2_INSIGHT_DATA_DIR", _data_root)
-            env.setdefault("CS2_INSIGHT_CONFIG", str(Path(_data_root) / "cs2-insight.config.json"))
-            env.setdefault("CS2_INSIGHT_LOG_DIR", str(Path(_data_root) / "logs"))
-        bundle_data = project_dir / "data"
-        if bundle_data.is_dir():
-            env.setdefault("CS2_INSIGHT_BUNDLE_DATA_DIR", str(bundle_data))
-        env.setdefault("PYTHONNOUSERSITE", "1")
-        env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
-        env.setdefault("PYTHONUNBUFFERED", "1")
-        env.setdefault("PYTHONFAULTHANDLER", "1")
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        try:
-            log.info("Starting integrated Insight from %s with %s", project_dir, python_executable)
-            self._insight_process = subprocess.Popen(
-                [python_executable, str(launcher)], cwd=str(project_dir),
-                env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags,
+        with self._insight_start_lock:
+            if not self.config.get("insight_auto_start") or self._health(self.config["insight_base_url"]):
+                return
+            if self._insight_process is not None and self._insight_process.poll() is None:
+                return
+            launcher = Path(self.config["insight_project_dir"]) / "backend" / "app" / "run_server.py"
+            if not launcher.is_file():
+                log.warning("Integrated Insight launcher not found: %s", launcher)
+                return
+            project_dir = Path(self.config["insight_project_dir"])
+            bundled_python = project_dir / "python" / "python.exe"
+            venv_python = project_dir / ".venv" / "Scripts" / "python.exe"
+            python_executable = (
+                str(bundled_python) if bundled_python.is_file()
+                else str(venv_python) if venv_python.is_file()
+                else sys.executable
             )
-        except Exception as exc:
-            log.warning("Unable to start integrated Insight backend: %s", exc)
+            env = os.environ.copy()
+            env.setdefault("CS2_INSIGHT_HOST", "127.0.0.1")
+            env.setdefault("CS2_INSIGHT_PORT", "19871")
+            appdata = env.get("APPDATA", "")
+            if appdata:
+                _data_root = str(Path(appdata) / "CS2 Insight Agent" / "data")
+                env.setdefault("CS2_INSIGHT_DATA_DIR", _data_root)
+                env.setdefault("CS2_INSIGHT_CONFIG", str(Path(_data_root) / "cs2-insight.config.json"))
+                env.setdefault("CS2_INSIGHT_LOG_DIR", str(Path(_data_root) / "logs"))
+            bundle_data = project_dir / "data"
+            if bundle_data.is_dir():
+                env.setdefault("CS2_INSIGHT_BUNDLE_DATA_DIR", str(bundle_data))
+            env.setdefault("PYTHONNOUSERSITE", "1")
+            env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+            env.setdefault("PYTHONUNBUFFERED", "1")
+            env.setdefault("PYTHONFAULTHANDLER", "1")
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            try:
+                log.info("Starting integrated Insight from %s with %s", project_dir, python_executable)
+                self._insight_process = subprocess.Popen(
+                    [python_executable, str(launcher)], cwd=str(project_dir),
+                    env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags,
+                )
+            except Exception as exc:
+                log.warning("Unable to start integrated Insight backend: %s", exc)
+
+    def _wait_for_insight(self, timeout=30):
+        base_url = self.config["insight_base_url"]
+        if self._health(base_url):
+            return
+        self._ensure_insight()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._health(base_url):
+                return
+            time.sleep(0.25)
+        raise RuntimeError(f"Insight 服务未就绪，无法连接 {base_url}；请确认服务已启动后重试")
 
     def _players(self):
         path = self.root / "instconfig" / "steam_data.json"
@@ -469,6 +486,7 @@ class CS2VideoService:
             if not events:
                 raise RuntimeError("没有可录制的已选片段")
             self.repo.update_job(job_id, status="recording", progress=65, error=None)
+            self._wait_for_insight()
             insight_settings = self.insight_settings()
             requests = [
                 self._recording_request(job, event, index, insight_settings)
@@ -739,7 +757,10 @@ class CS2VideoService:
     def _send_text(self, target, content):
         if not target:
             raise RuntimeError("未选择微信接收目标")
-        payload = json.dumps({"target": target, "content": content}, ensure_ascii=False).encode("utf-8")
+        payload = json.dumps(
+            {"target": target, "content": content, "force": True},
+            ensure_ascii=False,
+        ).encode("utf-8")
         request = urllib.request.Request(
             self.config["bot_base_url"].rstrip("/") + "/send/message",
             data=payload,
@@ -787,6 +808,7 @@ class CS2VideoService:
         path = Path(video_path)
         payload = [
             f"--{boundary}\r\nContent-Disposition: form-data; name=\"target\"\r\n\r\n{target}\r\n".encode(),
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"force\"\r\n\r\ntrue\r\n".encode(),
             f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{path.name}\"\r\nContent-Type: video/mp4\r\n\r\n".encode(),
             path.read_bytes(), b"\r\n", f"--{boundary}--\r\n".encode(),
         ]

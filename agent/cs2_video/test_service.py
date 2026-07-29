@@ -2,6 +2,7 @@ import unittest
 import json
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from agent.cs2_video.service import CS2VideoService
 
@@ -25,6 +26,7 @@ class CS2VideoServiceTests(unittest.TestCase):
         self.service.root = __import__("pathlib").Path("D:/code/cs-Solidarity")
         self.service.repo = _Repo()
         self.service.config = {
+            "bot_base_url": "http://127.0.0.1:18800",
             "packaging_presets": [{
                 "id": "branded",
                 "intro_path": "assets/intro.mp4",
@@ -87,6 +89,25 @@ class CS2VideoServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "765"):
             self.service._demo_player_name("fixture.dem", "765")
 
+    @mock.patch("agent.cs2_video.service.time.sleep")
+    def test_wait_for_insight_starts_service_and_waits_until_ready(self, _sleep):
+        self.service.config["insight_base_url"] = "http://127.0.0.1:19871"
+        self.service._health = mock.Mock(side_effect=[False, False, True])
+        self.service._ensure_insight = mock.Mock()
+
+        self.service._wait_for_insight(timeout=1)
+
+        self.service._ensure_insight.assert_called_once_with()
+        _sleep.assert_called_once_with(0.25)
+
+    def test_wait_for_insight_reports_clear_error_when_unavailable(self):
+        self.service.config["insight_base_url"] = "http://127.0.0.1:19871"
+        self.service._health = mock.Mock(return_value=False)
+        self.service._ensure_insight = mock.Mock()
+
+        with self.assertRaisesRegex(RuntimeError, "Insight 服务未就绪"):
+            self.service._wait_for_insight(timeout=0)
+
     def test_delivery_summary_contains_requested_traceability(self):
         summary = self.service._delivery_summary({
             "owner": "alice",
@@ -107,6 +128,31 @@ class CS2VideoServiceTests(unittest.TestCase):
 
         for expected in ("alice", "PVP@42", "皮干侠", "20 / 11 / 7", "RT：1.23", "WE：8.5", "第 8 回合", "残局三杀"):
             self.assertIn(expected, summary)
+
+    @mock.patch("agent.cs2_video.service.urllib.request.urlopen")
+    def test_video_summary_is_forced_during_maintenance(self, urlopen):
+        response = mock.MagicMock()
+        response.read.return_value = b'{"success": true}'
+        urlopen.return_value.__enter__.return_value = response
+
+        self.service._send_text("target", "summary")
+
+        request = urlopen.call_args.args[0]
+        self.assertIs(json.loads(request.data)["force"], True)
+
+    @mock.patch("agent.cs2_video.service.urllib.request.urlopen")
+    def test_video_file_is_forced_during_maintenance(self, urlopen):
+        response = mock.MagicMock()
+        response.read.return_value = b'{"success": true}'
+        urlopen.return_value.__enter__.return_value = response
+        with tempfile.TemporaryDirectory() as directory:
+            video = Path(directory) / "clip.mp4"
+            video.write_bytes(b"video")
+
+            self.service._send_video("target", str(video))
+
+        request = urlopen.call_args.args[0]
+        self.assertIn(b'name="force"\r\n\r\ntrue\r\n', request.data)
 
 
 if __name__ == "__main__":
