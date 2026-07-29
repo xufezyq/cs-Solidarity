@@ -128,13 +128,35 @@ class CS2VideoService:
         if not launcher.is_file():
             log.warning("Integrated Insight launcher not found: %s", launcher)
             return
+        project_dir = Path(self.config["insight_project_dir"])
+        bundled_python = project_dir / "python" / "python.exe"
+        venv_python = project_dir / ".venv" / "Scripts" / "python.exe"
+        python_executable = (
+            str(bundled_python) if bundled_python.is_file()
+            else str(venv_python) if venv_python.is_file()
+            else sys.executable
+        )
         env = os.environ.copy()
         env.setdefault("CS2_INSIGHT_HOST", "127.0.0.1")
         env.setdefault("CS2_INSIGHT_PORT", "19871")
+        appdata = env.get("APPDATA", "")
+        if appdata:
+            _data_root = str(Path(appdata) / "CS2 Insight Agent" / "data")
+            env.setdefault("CS2_INSIGHT_DATA_DIR", _data_root)
+            env.setdefault("CS2_INSIGHT_CONFIG", str(Path(_data_root) / "cs2-insight.config.json"))
+            env.setdefault("CS2_INSIGHT_LOG_DIR", str(Path(_data_root) / "logs"))
+        bundle_data = project_dir / "data"
+        if bundle_data.is_dir():
+            env.setdefault("CS2_INSIGHT_BUNDLE_DATA_DIR", str(bundle_data))
+        env.setdefault("PYTHONNOUSERSITE", "1")
+        env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+        env.setdefault("PYTHONUNBUFFERED", "1")
+        env.setdefault("PYTHONFAULTHANDLER", "1")
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
+            log.info("Starting integrated Insight from %s with %s", project_dir, python_executable)
             self._insight_process = subprocess.Popen(
-                [sys.executable, str(launcher)], cwd=str(Path(self.config["insight_project_dir"])),
+                [python_executable, str(launcher)], cwd=str(project_dir),
                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags,
             )
         except Exception as exc:
@@ -245,6 +267,26 @@ class CS2VideoService:
         threading.Thread(target=self._prepare_job, args=(job["id"],), daemon=True).start()
         return job
 
+    def _demo_player_name(self, demo_path, player_id):
+        inspection = self._insight_json(
+            "/api/demo/open-local",
+            {"paths": [str(Path(demo_path).resolve())]},
+            timeout=600,
+        )
+        uploads = inspection.get("uploads") if isinstance(inspection, dict) else None
+        upload = uploads[0] if isinstance(uploads, list) and uploads else {}
+        players = upload.get("players") if isinstance(upload, dict) else None
+        for candidate in players if isinstance(players, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            steam_id = candidate.get("steam_id") or candidate.get("steamid64") or candidate.get("steamid")
+            if str(steam_id or "") != str(player_id):
+                continue
+            name = str(candidate.get("name") or "").strip()
+            if name:
+                return name
+        raise RuntimeError(f"Demo 玩家名单中未找到 SteamID {player_id}，无法生成可靠片段")
+
     def _prepare_job(self, job_id):
         try:
             job = self.repo.get_job(job_id)
@@ -301,12 +343,8 @@ class CS2VideoService:
                 raise RuntimeError("Demo 下载完成后未找到 .dem 文件")
             demo_path = demo_candidates[0].resolve()
             self.repo.update_job(job_id, status="ingesting", progress=25)
-            target = next((p for p in self._players() if str(p["steamid"]) == str(job["player_id"])), None)
-            demo_names = self.config.get("demo_player_names") or {}
-            target_name = str(demo_names.get(str(job["player_id"])) or (target or {}).get("nickname") or "").strip()
-            if not target_name:
-                raise RuntimeError("未找到该玩家的完美平台昵称，无法分析 Demo")
             self.repo.update_job(job_id, status="analyzing", progress=50)
+            target_name = self._demo_player_name(demo_path, job["player_id"])
             result = self._insight_json(
                 "/api/demo/parse-multi?filename=" + urllib.parse.quote(demo_path.name)
                 + "&path=" + urllib.parse.quote(str(demo_path)),
@@ -326,6 +364,8 @@ class CS2VideoService:
                     "category": clip.get("category"), "kills": clip.get("kill_count"), "weapon": clip.get("weapon_used"),
                     "victims": clip.get("victims") or [], "tags": clip.get("context_tags") or [],
                     "comment": clip.get("ai_commentary") or "", "raw_clip": clip,
+                    "target_name": target_name,
+                    "match_meta": analyzed.get("match_meta") if isinstance(analyzed.get("match_meta"), dict) else {},
                     "score_own": clip.get("score_own"), "score_opp": clip.get("score_opp"),
                     "round_won": clip.get("round_won"), "kill_ticks": clip.get("kill_ticks") or [],
                     "source_rounds": clip.get("source_rounds") or [], "killer_name": clip.get("killer_name"),
@@ -373,6 +413,18 @@ class CS2VideoService:
                                          headers={"Content-Type": "application/json"}, method=method)
         with urllib.request.urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def _bot_request(self, path: str) -> None:
+        try:
+            req = urllib.request.Request(
+                self.config["bot_base_url"].rstrip("/") + path,
+                data=b"", method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                pass
+        except Exception as exc:
+            log.warning("Bot request %s failed: %s", path, exc)
 
     def render(self, job_id, owner, payload):
         job = self.get_job(job_id, owner)
@@ -422,21 +474,20 @@ class CS2VideoService:
                 self._recording_request(job, event, index, insight_settings)
                 for index, event in enumerate(events)
             ]
-            warmup = dict(insight_settings.get("default_record_warmup") or {})
             output = job.get("output") or {}
-            video_preset = _preset_by_id(self.config.get("presets"), output.get("preset_id"))
-            # Recording resolution is the actual source resolution.  Apply the
-            # selected output preset here instead of merely storing its ID.
-            for key in ("width", "height"):
-                value = video_preset.get(key)
-                if isinstance(value, (int, float)) and value > 0:
-                    warmup[f"resolution_{key}"] = int(value)
-
-            recordings = self._insight_json(
-                "/api/recording/queue",
-                {"requests": requests, "warmup": warmup},
-                timeout=7200,
-            )
+            self._bot_request("/cs2-recording/start")
+            try:
+                recordings = self._insight_json(
+                    "/api/recording/queue",
+                    # The queue endpoint does not implicitly consume
+                    # ``default_record_warmup`` from Insight's config.  Passing it
+                    # here is required for the Web settings (HUD, resolution,
+                    # voice, POV HUD, etc.) to affect this recording.
+                    {"requests": requests, "warmup": insight_settings.get("default_record_warmup") or {}},
+                    timeout=7200,
+                )
+            finally:
+                self._bot_request("/cs2-recording/end")
             failed = [item for item in recordings if not isinstance(item, dict) or not item.get("success")]
             if failed:
                 detail = failed[0] if failed else {}
@@ -468,55 +519,159 @@ class CS2VideoService:
 
     def _recording_request(self, job, event, index, insight_settings=None):
         raw = event.get("raw_clip") or {}
-        target_name = str((self.config.get("demo_player_names") or {}).get(str(job["player_id"])) or "").strip()
+        target_name = str(event.get("target_name") or "").strip()
+        target_name = target_name or str((self.config.get("demo_player_names") or {}).get(str(job["player_id"])) or "").strip()
         if not target_name:
             target = next((item for item in self._players() if str(item["steamid"]) == str(job["player_id"])), {})
             target_name = str(target.get("nickname") or job["player_id"])
         target = {"name": target_name, "steamid64": str(job["player_id"]), "spec_slot": raw.get("target_spec_slot")}
         category = str(raw.get("category") or event.get("category") or "highlight")
         compilation_kind = str(raw.get("compilation_kind") or "")
-        is_death = category in {"fail", "meme_death"} or compilation_kind in {"all_deaths", "nemesis_deaths", "freeze_to_death"}
-        request_type = "death_compilation" if category == "compilation" and is_death else "kill_compilation" if category == "compilation" else "fail" if is_death else "highlight"
+        is_freeze_to_death = category == "compilation" and compilation_kind == "freeze_to_death"
+        is_death = category in {"fail", "meme_death"} or compilation_kind in {"all_deaths", "nemesis_deaths"}
+        request_type = "round_compilation" if is_freeze_to_death else "death_compilation" if category == "compilation" and is_death else "kill_compilation" if category == "compilation" else "fail" if is_death else "highlight"
         ticks = list(raw.get("kill_ticks") or raw.get("source_ticks") or [])
         if ticks and isinstance(ticks[0], list):
             ticks = [pair[0] for pair in ticks if pair]
-        if not ticks:
+        if not ticks and not is_freeze_to_death:
             ticks = [raw.get("death_tick") if is_death else event.get("start_tick")]
         ticks = [int(tick) for tick in ticks if isinstance(tick, (int, float))]
         victim_names = list(raw.get("victims") or event.get("victims") or [])
         victim_ids = list(raw.get("victim_steamid64s") or [])
+        source_rounds = list(raw.get("source_rounds") or [])
+        killer_names = list(raw.get("killers") or [])
+        killer_ids = list(raw.get("killers_steamid64s") or [])
+        killer_slots = list(raw.get("killers_spec_slots") or [])
+        victim_slots = list(raw.get("victim_spec_slots") or [])
+        kill_weapons = list(raw.get("kill_weapons") or [])
+        kill_headshots = list(raw.get("kill_headshots") or [])
         events = []
         for pos, tick in enumerate(ticks):
+            event_round = int(source_rounds[pos]) if pos < len(source_rounds) and source_rounds[pos] is not None else int(event.get("round") or raw.get("round") or 1)
             victim = {"name": str(victim_names[pos]) if pos < len(victim_names) else "未知玩家",
                       "steamid64": str(victim_ids[pos]) if pos < len(victim_ids) else "",
-                      "spec_slot": (raw.get("victim_spec_slots") or [None] * len(ticks))[pos] if pos < len(raw.get("victim_spec_slots") or []) else None}
+                      "spec_slot": victim_slots[pos] if pos < len(victim_slots) else None}
             killer = target if not is_death else {"name": str((raw.get("killers") or ["未知玩家"])[pos] if pos < len(raw.get("killers") or []) else "未知玩家"), "steamid64": "", "spec_slot": None}
+            if is_death:
+                killer = {
+                    "name": str(killer_names[pos]) if pos < len(killer_names) else "unknown",
+                    "steamid64": str(killer_ids[pos]) if pos < len(killer_ids) else "",
+                    "spec_slot": killer_slots[pos] if pos < len(killer_slots) else None,
+                }
             events.append({"event_type": "death" if is_death else "kill", "tick": tick,
-                           "round": int(event.get("round") or raw.get("round") or 1), "killer": killer,
+                           "round": event_round, "killer": killer,
                            "victim": target if is_death else victim, "target_player": target,
-                           "perspective": "main" if is_death else "killer", "weapon": raw.get("weapon_used") or "",
-                           "headshot": False, "tags": raw.get("context_tags") or []})
+                           "perspective": "victim" if is_death else "killer",
+                           "weapon": str(kill_weapons[pos]) if pos < len(kill_weapons) else (raw.get("weapon_used") or ""),
+                           "headshot": bool(kill_headshots[pos]) if pos < len(kill_headshots) else False,
+                           "tags": raw.get("context_tags") or []})
         all_events = job.get("events") or []
+        match_meta = event.get("match_meta") if isinstance(event.get("match_meta"), dict) else {}
+        if not match_meta:
+            match_meta = next((item.get("match_meta") for item in all_events if isinstance(item.get("match_meta"), dict)), {})
+        total_rounds = int(match_meta.get("total_rounds") or 0)
         demo_end = max([int((item.get("raw_clip") or {}).get("clip_max_tick") or item.get("end_tick") or 0) for item in all_events] or [1])
+        if is_freeze_to_death:
+            windows = [w for w in (raw.get("freeze_to_death_round_windows") or []) if isinstance(w, dict)]
+            demo_end = max([int(w.get("round_end_tick") or w.get("end_tick") or 0) for w in windows] or [demo_end])
+        # Preserve the parser roster and match-end metadata.  The V3 planner
+        # uses these for voice masks, victim/killer slot recovery, and the
+        # final-round scoreboard guard.
+        all_players = match_meta.get("all_players") if isinstance(match_meta.get("all_players"), list) else []
+        tick_rate = float(match_meta.get("tick_rate") or raw.get("tick_rate") or 64.0)
+        global_pacing = insight_settings.get("recording_global_pacing") if isinstance(insight_settings, dict) else {}
+        global_pacing = global_pacing if isinstance(global_pacing, dict) else {}
+        pacing = {}
+        pacing.update(global_pacing)
+        raw_pacing = raw.get("pacing_override")
+        if isinstance(raw_pacing, dict):
+            pacing.update(raw_pacing)
+
+        def _number(name):
+            value = pacing.get(name)
+            return value if isinstance(value, (int, float)) and value >= 0 else None
+
         runtime = insight_settings or {}
         options = {
-            "obs_transition_enabled": bool(runtime.get("obs_transition_enabled")),
+            "obs_transition_enabled": runtime.get("obs_transition_enabled"),
             "obs_transition_name": runtime.get("obs_transition_name") or None,
             "obs_transition_duration_ms": runtime.get("obs_transition_duration_ms"),
-            "kb_overlay_enabled": bool(runtime.get("kb_overlay_enabled")),
+            "kb_overlay_enabled": runtime.get("kb_overlay_enabled"),
             "kb_overlay_tick_offset": runtime.get("kb_overlay_tick_offset"),
             "kb_overlay_position": runtime.get("kb_overlay_position") or None,
-            "kill_fx_enabled": bool(runtime.get("kill_fx_enabled")),
+            "kill_fx_enabled": runtime.get("kill_fx_enabled"),
             "kill_fx_tick_offset": runtime.get("kill_fx_tick_offset"),
         }
+        # Match the Insight frontend's pacingOverrideToOptions mapping.
+        pre = _number("pre_first_sec")
+        post = _number("post_last_sec")
+        gap = _number("max_gap_sec")
+        if pre is not None:
+            options.update(highlight_pre_sec=pre, kill_compilation_pre_sec=pre, timeline_kill_pre_sec=pre)
+        if post is not None:
+            options.update(highlight_post_sec=post, kill_compilation_post_sec=post, timeline_kill_post_sec=post)
+        if gap is not None:
+            options.update(kill_jump_cut_threshold_sec=gap, kill_compilation_jump_cut_threshold_sec=gap)
+        if pacing.get("victim_pov") is True or (
+            pacing.get("default_victim_pov") is True and bool(victim_names)
+        ):
+            options["enable_victim_pov"] = True
+        if pacing.get("pov_interleaved") is True or pacing.get("default_pov_interleaved") is True:
+            options["interleave_pov_pairs"] = True
+        if pacing.get("ai_director") is True:
+            options["use_ai_director"] = True
+        for source, target_key in (("victim_pov_pre_sec", "victim_pov_pre_sec"), ("victim_pov_post_sec", "victim_pov_post_sec")):
+            value = _number(source)
+            if value is not None:
+                options[target_key] = value
+        if pacing.get("killer_pov") is True or (
+            pacing.get("default_killer_pov") is True and is_death
+        ):
+            options["enable_fail_killer_pov"] = True
+            options["fail_killer_pre_sec"] = _number("killer_pov_pre_sec") if _number("killer_pov_pre_sec") is not None else (_number("victim_pov_pre_sec") if _number("victim_pov_pre_sec") is not None else 1.5)
+            options["fail_killer_post_sec"] = _number("killer_pov_post_sec") if _number("killer_pov_post_sec") is not None else (_number("victim_pov_post_sec") if _number("victim_pov_post_sec") is not None else 1.5)
+        else:
+            for source, target_key in (("killer_pov_pre_sec", "fail_killer_pre_sec"), ("killer_pov_post_sec", "fail_killer_post_sec")):
+                value = _number(source)
+                if value is not None:
+                    options[target_key] = value
+        event_round = int(event.get("round") or raw.get("round") or 1)
+        final_round = total_rounds or max(
+            [int((item.get("raw_clip") or {}).get("round") or item.get("round") or 1) for item in all_events] or [1]
+        )
+        final_round_end = demo_end if event_round == final_round else 0
+        rounds = []
+        if is_freeze_to_death:
+            windows = [w for w in (raw.get("freeze_to_death_round_windows") or []) if isinstance(w, dict)]
+            by_round = {int(w.get("round")): w for w in windows if w.get("round") is not None}
+            selected = raw.get("freeze_to_death_round_filter")
+            selected_set = {int(x) for x in selected} if isinstance(selected, list) and selected else None
+            for window in windows:
+                round_number = int(window.get("round") or 0)
+                if selected_set is not None and round_number not in selected_set:
+                    continue
+                next_window = by_round.get(round_number + 1, {})
+                rounds.append({
+                    "round": round_number,
+                    "round_start_tick": window.get("round_start_tick") or window.get("start_tick") or 0,
+                    "round_end_tick": window.get("round_end_tick"),
+                    "freeze_start_tick": None,
+                    "freeze_end_tick": window.get("freeze_end_tick"),
+                    "next_round_start_tick": next_window.get("round_start_tick") or next_window.get("start_tick"),
+                    "next_round_freeze_start_tick": next_window.get("freeze_start_tick"),
+                    "next_round_freeze_end_tick": next_window.get("freeze_end_tick"),
+                    "target_death_tick": window.get("death_tick"),
+                })
         return {"request_id": f"{job['id']}-{index}", "request_type": request_type,
-                "source_type": "death" if is_death else "kill",
+                "source_type": "round" if is_freeze_to_death else ("death" if is_death else "kill"),
                 "demo": {"demo_path": str(self._demo_path_for_job(job)), "demo_filename": self._demo_path_for_job(job).name,
-                         "map_name": raw.get("map_name") or "", "tick_rate": 64.0, "first_tick": 0,
-                         "demo_end_tick": demo_end, "final_round": max([int((item.get("raw_clip") or {}).get("round") or item.get("round") or 1) for item in all_events] or [1]),
-                         "final_round_start_tick": 0, "final_round_end_tick": demo_end},
-                "target_player": target, "events": events, "options": options,
-                "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or []}}
+                         "map_name": raw.get("map_name") or match_meta.get("map_name") or "", "tick_rate": tick_rate, "first_tick": 0,
+                         "demo_end_tick": demo_end, "final_round": final_round,
+                         "final_round_start_tick": 0, "final_round_end_tick": final_round_end,
+                         "all_players": all_players,
+                         "win_panel_match_tick": int(match_meta.get("win_panel_match_tick") or 0)},
+                "target_player": target, "events": [] if is_freeze_to_death else events, "rounds": rounds, "options": options,
+                "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or [], "group_id": compilation_kind if compilation_kind == "weapon_kills" else None}}
 
     def _export_options(self, output: dict) -> dict:
         """Translate configured packaging/BGM selections into montage API fields."""
@@ -658,8 +813,6 @@ class CS2VideoService:
 
     def cancel(self, job_id, owner, admin=False):
         job = self.get_job(job_id, owner, admin)
-        if job["status"] == "completed":
-            return job
         self.repo.delete_job(job_id)
         return {"id": job_id, "status": "cancelled", "deleted": True}
 

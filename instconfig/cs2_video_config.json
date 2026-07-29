@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "downloader_config_path": "Plugins/CS2Video/third_party/cs-demo-downloader/config.jsonc",
-  "insight_project_dir": "Plugins/CS2Video/third_party/cs2-insight-agent",
+  "insight_project_dir": "D:\\code\\cs2-insight-agent\\CS2 Insight Agent",
   "insight_base_url": "http://127.0.0.1:19871",
   "insight_auto_start": true,
   "bot_base_url": "http://127.0.0.1:18800",
