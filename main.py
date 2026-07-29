@@ -13,7 +13,7 @@ from utils.human_sim import human_delay, human_action_delay, random_poll_interva
 from utils.logger import setup_logger, info, debug, error, warning
 from version import VERSION, get_version_info
 from bot.chat_server import start_chat_server
-from bot.api_server import start_api_server, api_send_queue
+from bot.api_server import start_api_server, api_send_queue, cs2_recording
 import win32gui
 
 # 设置进程名
@@ -263,6 +263,8 @@ def process_all_pending_messages(msg_queue, orig_senders, orig_file_senders=None
     发送期间微信已在前台，每个消息都会自动捕获发送期间的新消息。
     仅在真正需要发送到微信时才恢复窗口，web-only 消息不会弹窗。
     """
+    if cs2_recording.is_set():
+        return False
     sent_any = False
     window_restored = False
     while True:
@@ -524,6 +526,8 @@ def process_api_send_requests():
     在主循环中调用，与 msg_queue 同级处理，共享窗口管理和发送锁。
     """
     global _is_sending, _last_send_time, _sending_count
+    if cs2_recording.is_set():
+        return 0
 
     # API 发送总是需要微信窗口，首次调用时恢复
     hwnd = win32gui.FindWindow('WeChatMainWndForPC', None)

@@ -48,6 +48,9 @@ def _is_maintenance_time():
 # 每项格式: {"type": "text"|"file", "target": str, "content": str|path, "result_q": Queue}
 api_send_queue: queue.Queue = queue.Queue()
 
+# CS2 录制锁：录制期间 set，主循环跳过微信窗口操作防止焦点冲突
+cs2_recording = threading.Event()
+
 
 # ── 请求模型 ──
 
@@ -93,6 +96,20 @@ def _allowed_export_file(raw_path: str) -> Path:
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/cs2-recording/start")
+async def cs2_recording_start():
+    """CS2 录制开始：主循环将暂停微信窗口操作以避免焦点冲突"""
+    cs2_recording.set()
+    return {"recording": True}
+
+
+@app.post("/cs2-recording/end")
+async def cs2_recording_end():
+    """CS2 录制结束：恢复微信窗口操作"""
+    cs2_recording.clear()
+    return {"recording": False}
 
 
 @app.post("/send/message")

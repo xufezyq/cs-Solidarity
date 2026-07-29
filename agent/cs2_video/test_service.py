@@ -66,6 +66,27 @@ class CS2VideoServiceTests(unittest.TestCase):
         self.assertEqual(players[0]["avatar"], "steam-avatar")
         self.assertEqual(players[1]["avatar"], "pw-fallback")
 
+    def test_demo_player_name_uses_roster_steam_id(self):
+        self.service._insight_json = lambda *_args, **_kwargs: {
+            "uploads": [{"players": [
+                {"name": "Current Demo Name", "steam_id": "765"},
+                {"name": "Another Player", "steam_id": "999"},
+            ]}],
+        }
+
+        self.assertEqual(
+            self.service._demo_player_name("fixture.dem", "765"),
+            "Current Demo Name",
+        )
+
+    def test_demo_player_name_rejects_missing_steam_id(self):
+        self.service._insight_json = lambda *_args, **_kwargs: {
+            "uploads": [{"players": [{"name": "Wrong Player", "steam_id": "999"}]}],
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "765"):
+            self.service._demo_player_name("fixture.dem", "765")
+
     def test_delivery_summary_contains_requested_traceability(self):
         summary = self.service._delivery_summary({
             "owner": "alice",
