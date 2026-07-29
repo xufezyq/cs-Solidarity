@@ -543,11 +543,8 @@ class CS2VideoService:
         killer_ids = list(raw.get("killers_steamid64s") or [])
         killer_slots = list(raw.get("killers_spec_slots") or [])
         victim_slots = list(raw.get("victim_spec_slots") or [])
-<<<<<<< Updated upstream
         kill_weapons = list(raw.get("kill_weapons") or [])
         kill_headshots = list(raw.get("kill_headshots") or [])
-=======
->>>>>>> Stashed changes
         events = []
         for pos, tick in enumerate(ticks):
             event_round = int(source_rounds[pos]) if pos < len(source_rounds) and source_rounds[pos] is not None else int(event.get("round") or raw.get("round") or 1)
@@ -674,11 +671,7 @@ class CS2VideoService:
                          "all_players": all_players,
                          "win_panel_match_tick": int(match_meta.get("win_panel_match_tick") or 0)},
                 "target_player": target, "events": [] if is_freeze_to_death else events, "rounds": rounds, "options": options,
-<<<<<<< Updated upstream
                 "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or [], "group_id": compilation_kind if compilation_kind == "weapon_kills" else None}}
-=======
-                "source_ref": {"original_clip_id": raw.get("clip_id") or event.get("event_key"), "context_tags": raw.get("context_tags") or []}}
->>>>>>> Stashed changes
 
     def _export_options(self, output: dict) -> dict:
         """Translate configured packaging/BGM selections into montage API fields."""
