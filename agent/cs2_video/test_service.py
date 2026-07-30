@@ -89,6 +89,48 @@ class CS2VideoServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "765"):
             self.service._demo_player_name("fixture.dem", "765")
 
+    def test_recording_request_summary_keeps_pov_traceability(self):
+        summary = self.service._recording_request_summary({
+            "request_id": "job-0",
+            "request_type": "highlight",
+            "source_type": "kill",
+            "demo": {"demo_filename": "match.dem"},
+            "target_player": {"name": "Target", "steamid64": "765", "spec_slot": 10},
+            "events": [{
+                "tick": 1234,
+                "round": 6,
+                "perspective": "killer",
+                "killer": {"name": "Target"},
+                "victim": {"name": "Victim"},
+                "target_player": {"spec_slot": 10},
+            }],
+            "source_ref": {"original_clip_id": "clip-1"},
+        })
+
+        self.assertEqual(summary["target_player"]["steamid64"], "765")
+        self.assertEqual(summary["target_player"]["spec_slot"], 10)
+        self.assertEqual(summary["events"][0]["tick"], 1234)
+        self.assertEqual(summary["events"][0]["target_spec_slot"], 10)
+
+    def test_recording_failure_message_preserves_segment_details(self):
+        message = self.service._recording_failure_message({
+            "request_id": "job-0",
+            "success": False,
+            "error": "wrong POV",
+            "segment_results": [{
+                "segment_index": 0,
+                "status": "spec_failed",
+                "error": "expected 765, last seen 999",
+            }],
+            "warnings": ["slot 10 failed"],
+        })
+
+        self.assertIn("wrong POV", message)
+        self.assertIn("request_id=job-0", message)
+        self.assertIn("spec_failed", message)
+        self.assertIn("last seen 999", message)
+        self.assertIn("slot 10 failed", message)
+
     @mock.patch("agent.cs2_video.service.time.sleep")
     def test_wait_for_insight_starts_service_and_waits_until_ready(self, _sleep):
         self.service.config["insight_base_url"] = "http://127.0.0.1:19871"

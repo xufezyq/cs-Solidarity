@@ -492,6 +492,13 @@ class CS2VideoService:
                 self._recording_request(job, event, index, insight_settings)
                 for index, event in enumerate(events)
             ]
+            log.info(
+                "CS2 video job %s queueing %d recording request(s): %s",
+                job_id, len(requests), json.dumps(
+                    [self._recording_request_summary(request) for request in requests],
+                    ensure_ascii=False,
+                ),
+            )
             output = job.get("output") or {}
             self._bot_request("/cs2-recording/start")
             try:
@@ -509,7 +516,11 @@ class CS2VideoService:
             failed = [item for item in recordings if not isinstance(item, dict) or not item.get("success")]
             if failed:
                 detail = failed[0] if failed else {}
-                raise RuntimeError(str(detail.get("error") or detail.get("message") or "Insight 录制失败"))
+                log.error(
+                    "CS2 video job %s Insight recording failed: %s",
+                    job_id, json.dumps(detail, ensure_ascii=False, default=str),
+                )
+                raise RuntimeError(self._recording_failure_message(detail))
 
             self.repo.update_job(job_id, status="composing", progress=88)
             clip_ids = self._recorded_clip_ids(requests)
@@ -534,6 +545,70 @@ class CS2VideoService:
         except Exception as exc:
             log.exception("CS2 video job %s failed", job_id)
             self.repo.update_job(job_id, status="failed", error=str(exc))
+
+    @staticmethod
+    def _recording_request_summary(request):
+        events = request.get("events") if isinstance(request.get("events"), list) else []
+        rounds = request.get("rounds") if isinstance(request.get("rounds"), list) else []
+        target = request.get("target_player") if isinstance(request.get("target_player"), dict) else {}
+        demo = request.get("demo") if isinstance(request.get("demo"), dict) else {}
+        return {
+            "request_id": request.get("request_id"),
+            "request_type": request.get("request_type"),
+            "source_type": request.get("source_type"),
+            "demo_filename": demo.get("demo_filename"),
+            "target_player": {
+                "name": target.get("name"),
+                "steamid64": target.get("steamid64"),
+                "spec_slot": target.get("spec_slot"),
+            },
+            "events": [
+                {
+                    "tick": event.get("tick"),
+                    "round": event.get("round"),
+                    "perspective": event.get("perspective"),
+                    "killer": (event.get("killer") or {}).get("name") if isinstance(event.get("killer"), dict) else None,
+                    "victim": (event.get("victim") or {}).get("name") if isinstance(event.get("victim"), dict) else None,
+                    "target_spec_slot": ((event.get("target_player") or {}).get("spec_slot")
+                                         if isinstance(event.get("target_player"), dict) else None),
+                }
+                for event in events[:10]
+                if isinstance(event, dict)
+            ],
+            "rounds": [
+                {
+                    "round": round_info.get("round"),
+                    "round_start_tick": round_info.get("round_start_tick"),
+                    "round_end_tick": round_info.get("round_end_tick"),
+                    "target_death_tick": round_info.get("target_death_tick"),
+                }
+                for round_info in rounds[:10]
+                if isinstance(round_info, dict)
+            ],
+            "source_ref": request.get("source_ref"),
+        }
+
+    @staticmethod
+    def _recording_failure_message(detail):
+        if not isinstance(detail, dict):
+            return f"Insight recording failed: {detail!r}"
+        primary = detail.get("error") or detail.get("message") or "Insight recording failed"
+        parts = [str(primary)]
+        for key in ("request_id", "status", "output_path"):
+            if detail.get(key):
+                parts.append(f"{key}={detail.get(key)}")
+        segment_results = detail.get("segment_results")
+        if isinstance(segment_results, list) and segment_results:
+            failed_segments = [
+                item for item in segment_results
+                if isinstance(item, dict) and item.get("status") not in (None, "ok")
+            ]
+            if failed_segments:
+                parts.append("segments=" + json.dumps(failed_segments[:3], ensure_ascii=False, default=str))
+        warnings = detail.get("warnings")
+        if isinstance(warnings, list) and warnings:
+            parts.append("warnings=" + json.dumps(warnings[:5], ensure_ascii=False, default=str))
+        return " | ".join(parts)
 
     def _recording_request(self, job, event, index, insight_settings=None):
         raw = event.get("raw_clip") or {}
