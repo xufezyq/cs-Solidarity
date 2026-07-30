@@ -40,10 +40,21 @@ class AgentHandler:
     def _git_pull(self):
         """执行 git pull，暂存本地修改后拉取，再恢复暂存"""
         try:
-            # 检查是否是 git 仓库
             git_dir = self.root_dir / ".git"
             if not git_dir.is_dir():
                 log.debug("非 git 仓库，跳过拉取")
+                return
+
+            # 若 index 中有未解决冲突则跳过，避免产生嵌套错误
+            conflict_check = subprocess.run(
+                ["git", "ls-files", "-u"],
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+            )
+            if conflict_check.stdout.strip():
+                log.error("❌ Git index 中存在未解决的冲突，跳过自动拉取。请手动运行 git status 并解决冲突后再重启。")
                 return
 
             # git stash push -u: 暂存本地修改（含未跟踪文件）
@@ -54,9 +65,14 @@ class AgentHandler:
                 text=True,
                 encoding='utf-8',
             )
-            # 检查是否真的有修改被暂存（返回码为 0 但可能是因为无修改）
-            has_stash = stash_result.returncode == 0 and "No local changes to save" not in stash_result.stderr
-            if has_stash:
+            # "No local changes to save" 出现在 stdout 或 stderr，视 git 版本而定
+            _no_changes = "No local changes to save"
+            has_stash = (stash_result.returncode == 0
+                         and _no_changes not in stash_result.stdout
+                         and _no_changes not in stash_result.stderr)
+            if stash_result.returncode != 0:
+                log.warning(f"⚠️ git stash 失败: {stash_result.stderr.strip()}")
+            elif has_stash:
                 log.info("本地修改已暂存")
             else:
                 log.debug("无本地修改需要暂存")
@@ -73,19 +89,6 @@ class AgentHandler:
                 log.info("✅ Git 拉取成功")
             else:
                 log.warning(f"⚠️ Git 拉取失败: {pull_result.stderr.strip()}")
-                # 尝试普通的 git pull（非 rebase）
-                log.info("尝试普通 git pull...")
-                pull_result2 = subprocess.run(
-                    ["git", "pull"],
-                    cwd=str(self.root_dir),
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                )
-                if pull_result2.returncode == 0:
-                    log.info("✅ 普通 Git 拉取成功")
-                else:
-                    log.error(f"❌ 普通 Git 拉取也失败: {pull_result2.stderr.strip()}")
 
             # git stash pop: 恢复本地修改
             if has_stash:
@@ -99,7 +102,19 @@ class AgentHandler:
                 if stash_pop_result.returncode == 0:
                     log.info("本地修改已恢复")
                 else:
-                    log.warning(f"⚠️ 恢复本地修改失败（可能有冲突，请手动检查）: {stash_pop_result.stderr.strip()}")
+                    # stash pop 冲突会污染 index，导致下次启动也无法 stash/pull
+                    # 丢弃 stash 保持 index 干净，本地运行时修改会在下次启动时自然重建
+                    log.error(
+                        f"❌ 恢复本地修改时发生冲突，已丢弃 stash 以防下次启动循环报错。"
+                        f"请手动检查: {stash_pop_result.stderr.strip()}"
+                    )
+                    subprocess.run(
+                        ["git", "stash", "drop"],
+                        cwd=str(self.root_dir),
+                        capture_output=True,
+                        text=True,
+                        encoding='utf-8',
+                    )
 
         except FileNotFoundError:
             log.warning("git 命令未找到，跳过拉取")
