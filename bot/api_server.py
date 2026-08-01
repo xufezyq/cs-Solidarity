@@ -50,6 +50,7 @@ api_send_queue: queue.Queue = queue.Queue()
 
 # CS2 录制锁：录制期间 set，主循环跳过微信窗口操作防止焦点冲突
 cs2_recording = threading.Event()
+_cs2_recording_lock = threading.Lock()
 
 
 # ── 请求模型 ──
@@ -101,15 +102,21 @@ async def health():
 @app.post("/cs2-recording/start")
 async def cs2_recording_start():
     """CS2 录制开始：主循环将暂停微信窗口操作以避免焦点冲突"""
-    cs2_recording.set()
-    return {"recording": True}
+    with _cs2_recording_lock:
+        already = cs2_recording.is_set()
+        cs2_recording.set()
+        log.info("[CS2 recording] start: already=%s state=True time=%s", already, datetime.now().isoformat())
+    return {"recording": True, "changed": not already}
 
 
 @app.post("/cs2-recording/end")
 async def cs2_recording_end():
     """CS2 录制结束：恢复微信窗口操作"""
-    cs2_recording.clear()
-    return {"recording": False}
+    with _cs2_recording_lock:
+        already = cs2_recording.is_set()
+        cs2_recording.clear()
+        log.info("[CS2 recording] end: was_recording=%s state=False time=%s", already, datetime.now().isoformat())
+    return {"recording": False, "changed": already}
 
 
 @app.post("/send/message")

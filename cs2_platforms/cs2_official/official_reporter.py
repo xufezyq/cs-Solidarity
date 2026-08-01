@@ -35,12 +35,13 @@ class OfficialStatsReporter:
     MAX_MATCH_AGE_SECONDS = 3600
 
     def __init__(self, pw_api, friend_official_nickname_map, friend_official_history_stats,
-                 friend_official_daily_stats, log):
+                 friend_official_daily_stats, log, monitored_friend_ids=None):
         self.pw_api = pw_api
         self.friend_official_nickname_map = friend_official_nickname_map
         self.friend_official_history_stats = friend_official_history_stats
         self.friend_official_daily_stats = friend_official_daily_stats
         self.log = log
+        self.monitored_friend_ids = {str(x) for x in (monitored_friend_ids or [])}
 
     @staticmethod
     def _is_draw_result(win_team, score1, score2) -> bool:
@@ -148,7 +149,7 @@ class OfficialStatsReporter:
                     match_base_info[match_id] = {}
                     continue
 
-                all_known_friends = set(self.friend_official_history_stats.keys())
+                all_known_friends = set(self.friend_official_history_stats.keys()) | self.monitored_friend_ids | {str(s) for s, _ in match_groups[match_id]}
                 group_steam_ids = {sid for sid, _ in match_groups[match_id]}
                 newly_discovered = set()
 

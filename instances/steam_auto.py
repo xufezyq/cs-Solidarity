@@ -681,7 +681,8 @@ class SteamAuto(BaseInstance):
             friend_pw_nickname_map=self.friend_pw_nickname_map,
             friend_pw_history_stats=self.friend_pw_history_stats,
             friend_pw_daily_stats=self.friend_pw_daily_stats,
-            log=log.info
+            log=log.info,
+            monitored_friend_ids=self.monitored_friends,
         )
 
         messages, processed_matches = await reporter.fetch_and_report(steam_ids)
@@ -765,6 +766,7 @@ class SteamAuto(BaseInstance):
             friend_official_history_stats=self.friend_official_history_stats,
             friend_official_daily_stats=self.friend_official_daily_stats,
             log=log.info,
+            monitored_friend_ids=self.monitored_friends,
         )
 
         messages, processed_matches = await reporter.fetch_and_report(steam_ids)

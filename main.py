@@ -796,12 +796,22 @@ def start_instances(instances):
     last_flash_time = 0
     wx_is_minimized = True
     idle_cycle_count = 0   # 连续空闲轮询次数
+    recording_pause_logged = False
 
     info(f"主循环启动（轮询间隔 {poll_base}s 对数正态分布）")
 
     try:
         while True:
             now = time.time()
+
+            # CS2 录制期间完全暂停微信 GUI 和消息处理；后台实例仍可继续产出队列任务。
+            if cs2_recording.is_set():
+                if not recording_pause_logged:
+                    info("[CS2 recording] 微信主循环暂停，队列保持不变")
+                    recording_pause_logged = True
+                time.sleep(0.2)
+                continue
+            recording_pause_logged = False
 
             # ── 第零步：处理 Web 聊天消息（与微信收发无关，维护时间也处理）──
             if not web_msg_queue.empty():

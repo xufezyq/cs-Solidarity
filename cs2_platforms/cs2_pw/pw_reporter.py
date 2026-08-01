@@ -33,7 +33,7 @@ class PwStatsReporter:
     MAX_MATCH_AGE_SECONDS = 3600
 
     def __init__(self, pw_api, friend_pw_nickname_map, friend_pw_history_stats,
-                 friend_pw_daily_stats, log):
+                 friend_pw_daily_stats, log, monitored_friend_ids=None):
         """
         Args:
             pw_api: PerfectWorldApi 实例
@@ -47,6 +47,7 @@ class PwStatsReporter:
         self.friend_pw_history_stats = friend_pw_history_stats
         self.friend_pw_daily_stats = friend_pw_daily_stats
         self.log = log
+        self.monitored_friend_ids = {str(x) for x in (monitored_friend_ids or [])}
 
     @staticmethod
     def _is_draw_result(win_team, score1, score2) -> bool:
@@ -182,7 +183,7 @@ class PwStatsReporter:
                     continue
 
                 # 2. 构建已知好友的 steam_id 集合（playerId 即为 steam_id）
-                all_known_friends = set(self.friend_pw_history_stats.keys())
+                all_known_friends = set(self.friend_pw_history_stats.keys()) | self.monitored_friend_ids | {str(s) for s, _ in match_groups[match_id]}
                 group_steam_ids = {sid for sid, _ in match_groups[match_id]}
                 newly_discovered = set()
 
