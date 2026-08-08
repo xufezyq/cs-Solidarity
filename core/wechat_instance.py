@@ -26,6 +26,20 @@ _IGNORED_MSG_TYPES = {'self', 'time', 'sys', 'recall'}
 _IGNORED_SENDERS = {'Self', 'Time', 'SYS', 'Recall'}
 
 
+def _is_cs2_recording() -> bool:
+    """CS2 录制是否进行中。延迟导入避免循环依赖。
+
+    bot.api_server 导入轻量，但 main.py 既导入 bot.api_server 又导入
+    core.wechat_instance，延迟导入可彻底切断任何潜在循环；走 sys.modules
+    缓存开销 <1μs。
+    """
+    try:
+        from bot.api_server import cs2_recording
+        return cs2_recording.is_set()
+    except Exception:
+        return False
+
+
 def _msg_attr(msg, attr, fallback_index=None, default=None):
     if hasattr(msg, attr):
         return getattr(msg, attr)
@@ -326,14 +340,19 @@ def _patch_wxauto_human_behavior():
                 with _wx_show_lock:
                     self.HWND = FindWindow(classname='WeChatMainWndForPC')
                     win32gui.ShowWindow(self.HWND, 1)
-                    win32gui.SetForegroundWindow(self.HWND)
+                    # CS2 录制期间不抢前台焦点：CS2 在后台会被 Win11 限帧降级，
+                    # 导致 Insight 录屏卡顿。仍保留 ShowWindow 以恢复最小化窗口，
+                    # 让 UIAutomation 控件树可访问。
+                    if not _is_cs2_recording():
+                        win32gui.SetForegroundWindow(self.HWND)
                     time.sleep(random.uniform(0.05, 0.15))
 
             def _safe_chatwnd_show(self):
                 with _wx_show_lock:
                     self.HWND = FindWindow(name=self.who, classname='ChatWnd')
                     win32gui.ShowWindow(self.HWND, 1)
-                    win32gui.SetForegroundWindow(self.HWND)
+                    if not _is_cs2_recording():
+                        win32gui.SetForegroundWindow(self.HWND)
                     time.sleep(random.uniform(0.05, 0.15))
 
             wxmod.WeChat._show = _safe_show

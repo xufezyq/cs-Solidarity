@@ -27,6 +27,7 @@ class CS2VideoServiceTests(unittest.TestCase):
         self.service.repo = _Repo()
         self.service.config = {
             "bot_base_url": "http://127.0.0.1:18800",
+            "presets": [{"id": "highlight-16x9", "fps": 60}],
             "packaging_presets": [{
                 "id": "branded",
                 "intro_path": "assets/intro.mp4",
@@ -36,6 +37,37 @@ class CS2VideoServiceTests(unittest.TestCase):
             "bgm_presets": [{"id": "rock", "path": "assets/bgm.mp3", "bgm_volume": 0.35}],
         }
         self.service._players = lambda: [{"steamid": "765", "nickname": "皮干侠"}]
+
+    def test_recording_preflight_rejects_obs_below_preset_fps(self):
+        self.service._insight_json = mock.Mock(return_value={
+            "video": {"fps_num": 30, "fps_den": 1},
+        })
+
+        with self.assertRaisesRegex(RuntimeError, "OBS.*30 FPS.*60 FPS"):
+            self.service._validate_recording_environment({"preset_id": "highlight-16x9"})
+
+        self.service._insight_json.assert_called_once_with(
+            "/api/obs-config/status", None, timeout=15, method="GET"
+        )
+
+    def test_recording_preflight_accepts_matching_obs_fps(self):
+        self.service._insight_json = mock.Mock(return_value={
+            "video": {"fps_num": 60000, "fps_den": 1000},
+        })
+
+        self.service._validate_recording_environment({"preset_id": "highlight-16x9"})
+
+    @mock.patch("agent.cs2_video.service.urllib.request.urlopen")
+    def test_bot_request_is_optional_by_default(self, urlopen):
+        urlopen.side_effect = OSError("bot offline")
+
+        self.assertFalse(self.service._bot_request("/cs2-recording/start"))
+
+    @mock.patch("agent.cs2_video.service.urllib.request.urlopen")
+    def test_bot_request_returns_true_when_notified(self, urlopen):
+        urlopen.return_value.__enter__.return_value = mock.Mock()
+
+        self.assertTrue(self.service._bot_request("/cs2-recording/start"))
 
     def test_export_selection_becomes_montage_options(self):
         result = self.service._export_options({"packaging_id": "branded", "bgm_id": "rock"})

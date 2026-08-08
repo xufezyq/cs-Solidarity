@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .config import load_config
 from .repository import Repository
+from utils.cs2_window_guard import Cs2WindowGuard
 
 log = logging.getLogger(__name__)
 
@@ -431,17 +432,63 @@ class CS2VideoService:
         with urllib.request.urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
 
-    def _bot_request(self, path: str) -> None:
-        try:
-            req = urllib.request.Request(
-                self.config["bot_base_url"].rstrip("/") + path,
-                data=b"", method="POST",
-                headers={"Content-Type": "application/json"},
+    def _bot_request(self, path: str, critical: bool = False,
+                     retries: int = 1, retry_delay: float = 0.5) -> bool:
+        """POST 到本地 bot API。
+
+        critical=True 时，重试 retries 次后仍失败则抛 RuntimeError，
+        用于必须成功的请求（如 /cs2-recording/start：失败会导致主循环
+        不暂停微信、_safe_show 不跳过 SetForegroundWindow，CS2 焦点被抢占）。
+        """
+        last_exc = None
+        attempts = max(1, int(retries))
+        for attempt in range(attempts):
+            try:
+                req = urllib.request.Request(
+                    self.config["bot_base_url"].rstrip("/") + path,
+                    data=b"", method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=5):
+                    pass
+                return True
+            except Exception as exc:
+                last_exc = exc
+                log.warning("Bot request %s failed (attempt %d/%d): %s",
+                            path, attempt + 1, attempts, exc)
+                if attempt < attempts - 1:
+                    time.sleep(retry_delay)
+        if critical:
+            raise RuntimeError(
+                f"关键 Bot 请求 {path} 失败（{attempts} 次重试后仍失败）: {last_exc}"
             )
-            with urllib.request.urlopen(req, timeout=5):
-                pass
+        return False
+
+    def _validate_recording_environment(self, output: dict) -> None:
+        """Reject a recording when OBS cannot satisfy the selected FPS preset."""
+        if not self.config.get("obs_fps_preflight_enabled", True):
+            return
+        preset = _preset_by_id(self.config.get("presets"), output.get("preset_id"))
+        requested_fps = int(preset.get("fps") or 0)
+        if requested_fps <= 0:
+            return
+        try:
+            status = self._insight_json(
+                "/api/obs-config/status", None, timeout=15, method="GET"
+            )
         except Exception as exc:
-            log.warning("Bot request %s failed: %s", path, exc)
+            raise RuntimeError(f"无法读取 OBS 录制状态，已取消录制: {exc}") from exc
+        video = status.get("video") if isinstance(status, dict) else None
+        video = video if isinstance(video, dict) else {}
+        fps_num = float(video.get("fps_num") or video.get("fps") or 0)
+        fps_den = float(video.get("fps_den") or 1)
+        actual_fps = fps_num / fps_den if fps_num > 0 and fps_den > 0 else 0
+        if actual_fps + 0.01 < requested_fps:
+            raise RuntimeError(
+                f"OBS 当前仅 {actual_fps:g} FPS，但输出预设需要 {requested_fps} FPS；"
+                f"请在 OBS -> 设置 -> 视频中将帧率设为 {requested_fps}，"
+                "并确认统计面板没有渲染或编码丢帧后重试"
+            )
 
     def render(self, job_id, owner, payload):
         job = self.get_job(job_id, owner)
@@ -500,19 +547,35 @@ class CS2VideoService:
                 ),
             )
             output = job.get("output") or {}
-            self._bot_request("/cs2-recording/start")
-            try:
-                recordings = self._insight_json(
-                    "/api/recording/queue",
-                    # The queue endpoint does not implicitly consume
-                    # ``default_record_warmup`` from Insight's config.  Passing it
-                    # here is required for the Web settings (HUD, resolution,
-                    # voice, POV HUD, etc.) to affect this recording.
-                    {"requests": requests, "warmup": insight_settings.get("default_record_warmup") or {}},
-                    timeout=7200,
+            self._validate_recording_environment(output)
+            # Bot 通知只用于暂停微信 GUI，不是 Insight 录制的必要条件。
+            # Bot 离线时由 CS2 窗口守护独立保持前台，录制照常继续。
+            bot_paused = self._bot_request(
+                "/cs2-recording/start", retries=3, retry_delay=0.5
+            )
+            if not bot_paused:
+                log.warning(
+                    "Bot is unavailable; recording job %s continues with the CS2 window guard only",
+                    job_id,
                 )
+            try:
+                guard_enabled = bool(self.config.get("cs2_window_guard_enabled", True))
+                guard_interval = float(self.config.get("cs2_window_guard_interval_sec", 1.5))
+                with Cs2WindowGuard(interval_sec=guard_interval, enabled=guard_enabled):
+                    recordings = self._insight_json(
+                        "/api/recording/queue",
+                        # The queue endpoint does not implicitly consume
+                        # ``default_record_warmup`` from Insight's config.  Passing it
+                        # here is required for the Web settings (HUD, resolution,
+                        # voice, POV HUD, etc.) to affect this recording.
+                        {"requests": requests, "warmup": insight_settings.get("default_record_warmup") or {}},
+                        timeout=7200,
+                    )
             finally:
-                self._bot_request("/cs2-recording/end")
+                # 先停守护（with 退出自动停），再发 end（best-effort，不重试不抛）：
+                # end 失败最差只是主循环多暂停一会，下次 start 会重置 event。
+                if bot_paused:
+                    self._bot_request("/cs2-recording/end")
             failed = [item for item in recordings if not isinstance(item, dict) or not item.get("success")]
             if failed:
                 detail = failed[0] if failed else {}
@@ -540,7 +603,14 @@ class CS2VideoService:
             self.repo.update_job(job_id, status="sending", progress=96,
                                  output={**output, "video_path": video_path,
                                          "recorded_clip_ids": clip_ids})
-            self._deliver_video_for_job(job_id)
+            try:
+                self._deliver_video_for_job(job_id)
+            except Exception as exc:
+                log.exception("CS2 video delivery for job %s deferred", job_id)
+                self.repo.update_job(
+                    job_id, status="sending_unknown", progress=96, error=str(exc)
+                )
+                return
             self.repo.update_job(job_id, status="completed", progress=100, error=None)
         except Exception as exc:
             log.exception("CS2 video job %s failed", job_id)
@@ -906,7 +976,7 @@ class CS2VideoService:
             self.repo.update_job(job_id, status="completed", progress=100, error=None)
         except Exception as exc:
             log.exception("CS2 video delivery for job %s failed", job_id)
-            self.repo.update_job(job_id, status="failed", progress=96, error=str(exc))
+            self.repo.update_job(job_id, status="sending_unknown", progress=96, error=str(exc))
 
     def cancel(self, job_id, owner, admin=False):
         job = self.get_job(job_id, owner, admin)

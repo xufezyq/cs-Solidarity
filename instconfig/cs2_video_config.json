@@ -12,7 +12,8 @@
     "76561198383859685": "皮干侠"
   },
   "wechat_targets": [
-    "【CS】团结友爱"
+    "【CS】团结友爱",
+    "测试"
   ],
   "max_active_jobs_per_user": 2,
   "max_events_per_job": 20,

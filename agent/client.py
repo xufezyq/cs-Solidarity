@@ -105,7 +105,7 @@ class AgentClient:
 
             except websockets.InvalidHandshake as e:
                 log.error(f"握手失败（检查 token）: {e}")
-            except ConnectionRefusedError:
+            except ConnectionRefusedError as e:
                 log.error(f"连接被拒绝（检查 Server 是否启动）: {e}")
             except Exception as e:
                 log.error(f"连接异常: {e}")

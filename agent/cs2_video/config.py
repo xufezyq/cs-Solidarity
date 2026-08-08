@@ -23,6 +23,13 @@ DEFAULTS = {
     ],
     "packaging_presets": [{"id": "clean", "label": "简洁"}],
     "bgm_presets": [{"id": "none", "label": "无 BGM"}],
+    # CS2 录制期间窗口守护：把 CS2 主窗口拉到前台，避免 Win11 对后台窗口
+    # 降级渲染（限帧、降 GPU 优先级）导致 Insight 录屏卡顿。
+    "cs2_window_guard_enabled": True,
+    "cs2_window_guard_interval_sec": 1.5,
+    # Do not record a nominal 60 FPS preset while OBS is actually running at
+    # 30 FPS.  That produces a valid file, but motion is visibly stuttery.
+    "obs_fps_preflight_enabled": True,
 }
 
 
