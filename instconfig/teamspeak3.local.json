@@ -1,0 +1,13 @@
+{
+  "host": "159.75.169.14",
+  "query_port": 10011,
+  "server_port": 9987,
+  "server_id": null,
+  "username": "serveradmin",
+  "bot_nickname": "KTV点歌姬",
+  "bot_uid": "jcY3mOKLenwTNWcOpmTwiYhHoU4=",
+  "home_channel_id": 12,
+  "empty_return_delay_seconds": 60,
+  "check_interval_seconds": 15,
+  "timeout": 10.0
+}

@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from web.auth import init_users
 from web.auth import decode_token
 from web.bridge import bridge
-from web.api import auth, users, config, status, logs, control, files, chat, cs2_video
+from web.api import auth, users, config, status, logs, control, files, chat, cs2_video, teamspeak
 
 # ── 日志 ──
 logging.basicConfig(
@@ -98,6 +98,7 @@ app.include_router(control.router)
 app.include_router(files.router)
 app.include_router(chat.router)
 app.include_router(cs2_video.router)
+app.include_router(teamspeak.router)
 
 
 # ── Agent WebSocket 端点 ──

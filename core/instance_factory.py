@@ -17,7 +17,7 @@ def list_instance_types():
 def init_defaults():
     """初始化默认实例类型注册"""
     # 如果已经注册过，直接返回
-    required_types = ['steam', 'daily', 'chat', 'infopush', 'korichat', 'disaster_warning']
+    required_types = ['steam', 'daily', 'chat', 'infopush', 'korichat', 'disaster_warning', 'teamspeak']
     if all(t in _INSTANCE_TYPES for t in required_types):
         return
 
@@ -29,6 +29,7 @@ def init_defaults():
         from instances.kori_chat import KoriChatInstance
         from instances.info_push import InfoPush
         from instances.disaster_warning import DisasterWarningInstance
+        from instances.teamspeak_auto import TeamSpeakAuto
 
         register_instance_type('steam', lambda data: SteamAuto.create_from_config(data.get('config')))
         register_instance_type('daily', lambda data: DailyAuto.create_from_data(data))
@@ -36,6 +37,7 @@ def init_defaults():
         register_instance_type('korichat', lambda data: KoriChatInstance.create_from_config(data.get('config')))
         register_instance_type('infopush', lambda data: InfoPush.create_from_data(data))
         register_instance_type('disaster_warning', lambda data: DisasterWarningInstance.create_from_data(data))
+        register_instance_type('teamspeak', lambda data: TeamSpeakAuto.create_from_data(data))
     except ImportError as e:
         log.warning(f"导入实例模块失败: {e}")
         import traceback

@@ -202,6 +202,7 @@ python main.py
 | `korichat` | KoriChat 智能助手 | `instconfig/korichat_config.json` |
 | `infopush` | 信息推送 | `instconfig/info_push_config.json` |
 | `disaster_warning` | 灾害预警 | `instconfig/disaster_warning.json` |
+| `teamspeak` | TeamSpeak KTV点歌姬自动回收 | `instconfig/teamspeak3.local.json` 或环境变量 |
 
 ### 配置示例
 

@@ -371,6 +371,13 @@ textarea.code:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glo
 }
 .friend-state { font-size:12px; color:var(--text2); margin-top:4px; }
 
+/* TeamSpeak */
+.ts-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+.ts-row-active td { background:rgba(124,108,255,0.08); }
+.ts-mono { font-family:'Cascadia Code','Fira Code',monospace; color:var(--text2); font-size:12px; }
+.ts-client-bot { color:var(--yellow); font-weight:600; }
+.ts-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
 /* 弹窗 */
 .modal-overlay {
   position:fixed; inset:0; background:rgba(0,0,0,0.6);
@@ -1325,6 +1332,100 @@ document.addEventListener('DOMContentLoaded', function() {
     </template>
   </div>
 
+  <!-- ═══════════ TeamSpeak ═══════════ -->
+  <div v-if="currentPage==='teamspeak'" class="page-enter">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <h2 style="margin:0;"><i class="mdi mdi-headphones" style="margin-right:8px;"></i>TeamSpeak 频道面板</h2>
+      <div class="ts-actions">
+        <button class="btn-sm" @click="loadTeamSpeakStatus" :disabled="teamspeak.loading">
+          <i class="mdi" :class="teamspeak.loading ? 'mdi-loading mdi-spin' : 'mdi-refresh'"></i> 刷新
+        </button>
+        <button class="btn-sm success" @click="moveTeamSpeakBotHome" :disabled="teamspeak.moving || !teamspeak.status?.music_bot?.online || teamspeak.status?.music_bot?.is_home">
+          <i class="mdi mdi-home-import-outline"></i> 送回音乐机器人频道
+        </button>
+      </div>
+    </div>
+
+    <div v-if="teamspeak.loading && !teamspeak.status" class="card empty">正在读取 TeamSpeak 状态...</div>
+    <div v-else-if="!teamspeak.status" class="card empty">Agent 未连接或 TeamSpeak 状态不可用</div>
+    <template v-else>
+      <div class="card card-enter">
+        <div class="ts-grid">
+          <div class="stat">
+            <div class="num"><span class="badge" :class="teamspeak.status.connected ? 'green' : 'red'">{{ teamspeak.status.connected ? '已连接' : '未连接' }}</span></div>
+            <div class="label">连接状态</div>
+          </div>
+          <div class="stat">
+            <div class="num" style="font-size:20px;">{{ teamspeak.status.music_bot?.channel_name || '离线' }}</div>
+            <div class="label">机器人频道</div>
+          </div>
+          <div class="stat">
+            <div class="num"><span class="badge" :class="teamspeak.status.music_bot?.is_home ? 'green' : 'yellow'">{{ teamspeak.status.music_bot?.is_home ? '在位' : '外借' }}</span></div>
+            <div class="label">音乐机器人频道</div>
+          </div>
+          <div class="stat">
+            <div class="num">{{ teamspeak.status.online_human_count || 0 }}</div>
+            <div class="label">在线真人</div>
+          </div>
+        </div>
+        <div v-if="teamspeak.status.error" style="margin-top:14px;color:var(--red);font-size:13px;">
+          <i class="mdi mdi-alert-circle-outline" style="margin-right:4px;"></i>{{ teamspeak.status.error }}
+        </div>
+        <div v-if="teamspeak.status.last_auto_move" style="margin-top:12px;color:var(--text2);font-size:12px;">
+          最近移动：{{ teamspeak.status.last_auto_move.reason }} → cid={{ teamspeak.status.last_auto_move.target_cid }}，{{ formatTeamSpeakTime(teamspeak.status.last_auto_move.time) }}
+        </div>
+      </div>
+
+      <div class="card card-enter" style="animation-delay:.05s">
+        <h2><i class="mdi mdi-format-list-bulleted" style="margin-right:8px;"></i>频道列表</h2>
+        <table>
+          <tr><th>频道名</th><th>cid</th><th>父频道</th><th>真人数</th><th>状态</th><th style="text-align:right;">操作</th></tr>
+          <tr v-for="ch in teamspeak.status.channels" :key="ch.cid" :class="{'ts-row-active': ch.bot_here}">
+            <td>{{ ch.channel_name }}</td>
+            <td class="ts-mono">{{ ch.cid }}</td>
+            <td class="ts-mono">{{ ch.pid === null ? '-' : ch.pid }}</td>
+            <td>{{ ch.human_count }}</td>
+            <td>
+              <span v-if="ch.bot_here" class="badge yellow">机器人所在</span>
+              <span v-else-if="ch.cid === teamspeak.status.home_channel_id" class="badge blue">音乐机器人频道</span>
+              <span v-else class="badge green">可移动</span>
+            </td>
+            <td>
+              <div class="ts-actions">
+                <button v-if="ch.cid === teamspeak.status.home_channel_id" class="btn-sm success" @click="moveTeamSpeakBotHome" :disabled="teamspeak.moving || teamspeak.status.music_bot?.is_home">
+                  <i class="mdi mdi-home-import-outline"></i> 送回
+                </button>
+                <button v-else class="btn-sm" @click="moveTeamSpeakBot(ch.cid)" :disabled="teamspeak.moving || ch.bot_here || !teamspeak.status.music_bot?.online">
+                  <i class="mdi mdi-arrow-right-bold-circle-outline"></i> 移动到这里
+                </button>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="card card-enter" style="animation-delay:.10s">
+        <h2><i class="mdi mdi-account-voice" style="margin-right:8px;"></i>在线用户</h2>
+        <div v-if="!teamspeak.status.clients.length" class="empty-state">
+          <i class="mdi mdi-account-off-outline empty-icon"></i>
+          <div class="empty-title">当前没有在线语音客户端</div>
+        </div>
+        <table v-else>
+          <tr><th>昵称</th><th>clid</th><th>cid</th><th>频道</th><th>UID</th></tr>
+          <tr v-for="client in teamspeak.status.clients" :key="client.clid" :class="{'ts-row-active': client.is_music_bot}">
+            <td :class="{'ts-client-bot': client.is_music_bot}">
+              <i class="mdi" :class="client.is_music_bot ? 'mdi-music-circle' : 'mdi-account'" style="margin-right:6px;"></i>{{ client.nickname }}
+            </td>
+            <td class="ts-mono">{{ client.clid }}</td>
+            <td class="ts-mono">{{ client.cid }}</td>
+            <td>{{ client.channel_name || '-' }}</td>
+            <td class="ts-mono">{{ client.uid }}</td>
+          </tr>
+        </table>
+      </div>
+    </template>
+  </div>
+
   <!-- ═══════════ 文件管理 ═══════════ -->
   <div v-if="currentPage==='files'" class="page-enter">
     <h2 style="margin-bottom:16px;"><i class="mdi mdi-folder-upload" style="margin-right:8px;"></i>文件管理</h2>
@@ -1738,6 +1839,7 @@ window.__patchedCreateApp({
         return (priority[a.personastate] ?? 99) - (priority[b.personastate] ?? 99);
       });
     });
+    const teamspeak = reactive({ status: null, loading: false, moving: false });
     const filesData = reactive({ files: [], total_size: 0, total_size_text: '0 B' });
     const showUploadModal = ref(false);
     const selectedFile = ref(null);
@@ -1833,6 +1935,7 @@ window.__patchedCreateApp({
       { key:'chat',      icon:'mdi-chat-outline', label:'聊天', roles:['admin','user'] },
       { key:'cs2-video', icon:'mdi-video-outline', label:'视频制作', roles:['admin','user'] },
       { key:'steam',     icon:'mdi-steam', label:'Steam',   roles:['admin','user'] },
+      { key:'teamspeak', icon:'mdi-headphones', label:'TeamSpeak', roles:['admin','user'] },
       { key:'files',     icon:'mdi-folder-upload', label:'文件管理', roles:['admin','user'] },
       { key:'instances', icon:'mdi-puzzle', label:'实例管理', roles:['admin','user'] },
       { key:'config',    icon:'mdi-cog', label:'配置编辑', roles:['admin'] },
@@ -1909,6 +2012,7 @@ window.__patchedCreateApp({
       await loadSteamData();
       loadSteamTimelineExtreme();
       loadSteamTimelinePlay();
+      loadTeamSpeakStatus();
     }
 
     async function loadOverview() {
@@ -2123,6 +2227,58 @@ window.__patchedCreateApp({
         setTimeout(() => { if (playScrollEl.value) playScrollEl.value.scrollLeft = playScrollEl.value.scrollWidth; }, 100);
       } catch(e) { console.error(e); }
     }
+
+    async function loadTeamSpeakStatus() {
+      teamspeak.loading = true;
+      try {
+        const data = await api('/api/teamspeak/status');
+        teamspeak.status = data.data || null;
+      } catch(e) {
+        teamspeak.status = { connected: false, error: e.message, channels: [], clients: [], music_bot: { online: false, is_home: false } };
+        showToast(e.message, 'error');
+      } finally {
+        teamspeak.loading = false;
+      }
+    }
+
+    async function moveTeamSpeakBot(targetCid) {
+      if (!targetCid || teamspeak.moving) return;
+      teamspeak.moving = true;
+      try {
+        const data = await api('/api/teamspeak/music-bot/move', {
+          method: 'POST',
+          body: JSON.stringify({ target_cid: targetCid }),
+        });
+        showToast(data.data?.message || 'KTV点歌姬已移动');
+        await loadTeamSpeakStatus();
+      } catch(e) {
+        showToast(e.message, 'error');
+      } finally {
+        teamspeak.moving = false;
+      }
+    }
+
+    async function moveTeamSpeakBotHome() {
+      if (teamspeak.moving) return;
+      teamspeak.moving = true;
+      try {
+        const data = await api('/api/teamspeak/music-bot/home', { method: 'POST' });
+        showToast(data.data?.message || 'KTV点歌姬已送回音乐机器人频道');
+        await loadTeamSpeakStatus();
+      } catch(e) {
+        showToast(e.message, 'error');
+      } finally {
+        teamspeak.moving = false;
+      }
+    }
+
+    function formatTeamSpeakTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return ts;
+      return d.toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    }
+
     function matchCardFlex(ev) {
       if (ev.kind !== 'match') return '0 0 172px';
       const n = ev.players ? ev.players.length : 1;
@@ -2368,6 +2524,7 @@ window.__patchedCreateApp({
       if (p === 'users') loadUserList();
       if (p === 'files') loadFiles();
       if (p === 'chat') { loadChatHistory(); connectChatWs(); }
+      if (p === 'teamspeak') loadTeamSpeakStatus();
       if (p === 'steam') {
         nextTick(() => {
           if (extremeScrollEl.value) extremeScrollEl.value.scrollLeft = extremeScrollEl.value.scrollWidth;
@@ -2546,11 +2703,12 @@ window.__patchedCreateApp({
 
     // 暴露给外部脚本调用
     const appExports = { token, user, currentPage, toast, loadAll, demoFileInput,
-      overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, newUser, pwForm, config, logs, chat, chatPrefixes, selectedChatLabel,
+      overview, webHardware, agentHwItems, webHwItems, instances, userList, steamDetail, steamFriendsStatus, steamFriendsStatusSorted, teamspeak, newUser, pwForm, config, logs, chat, chatPrefixes, selectedChatLabel,
       visibleNav, currentNavItem, globalLoading, lastRefreshAt, lastRefreshText, typeIcons, leaderboardLabels, lbKeyOrder, getTop3, ctrlLoading, failedAvatars, onAvatarError,
       doLogout, loadConfigList, loadConfig, saveConfig, backupConfig, restoreBackup,
       loadLogs, toggleLogStream, createUser, deleteUser, toggleRole, changePassword, controlBot,
       pendingRegs, loadPendingRegs, approveReg, rejectReg, loadSteamFriendsStatus, resetPwSeasonRecords, resetFiveeSeasonRecords, resetOfficialSeasonRecords,
+      loadTeamSpeakStatus, moveTeamSpeakBot, moveTeamSpeakBotHome, formatTeamSpeakTime,
       filesData, showUploadModal, selectedFile, uploading, uploadProgress, downloadProgress, fileStorageMode,
       loadFiles, handleFileSelect, uploadFile, deleteFile, downloadFile, formatSize, switchStorageMode,
       loadChatHistory, connectChatWs, disconnectChatWs, sendChatMessage, uploadDemoFile, formatChatTime,

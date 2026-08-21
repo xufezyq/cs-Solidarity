@@ -62,6 +62,7 @@ instconfig/chat_history.json
 instconfig/steam_data.json
 instconfig/steam_timeline.json
 instconfig/steam_data_archives
+instconfig/teamspeak3_state.json
 data/cs2-video/
 
 # Keep the CS2 video integration tests while other local test scratch files stay ignored.

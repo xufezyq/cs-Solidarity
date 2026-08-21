@@ -98,6 +98,8 @@ class SteamAuto(BaseInstance):
         self.game_event_mute_duration_seconds = self.game_event_mute_duration_minutes * 60
         self.friend_game_event_history = {}  # steamid -> [timestamp, ...]
         self.friend_game_event_muted_until = {}  # steamid -> timestamp
+        self._teamspeak_game_start_last_move = 0.0
+        self._teamspeak_game_start_cooldown_seconds = 30
         
         # 新闻检查相关
         self.enable_news_check = enable_news_check
@@ -972,6 +974,9 @@ class SteamAuto(BaseInstance):
             if avatar:
                 self.friend_game_status[steam_id]['avatar'] = avatar
 
+        if game_start_messages:
+            self._move_teamspeak_home_for_game_start(game_start_messages)
+
         # 生成合并的消息
         messages = []
         
@@ -1046,6 +1051,36 @@ class SteamAuto(BaseInstance):
 
         # 保存好友状态到配置文件，供 Web 面板读取
         self.save_friend_status()
+
+    def _move_teamspeak_home_for_game_start(self, game_start_messages, current_time=None, service=None):
+        """Move KTV点歌姬 home when any monitored friend starts a game.
+
+        TeamSpeak failures are logged and swallowed so Steam notifications,
+        timeline records, and match-stat lookups continue normally.
+        """
+        if not game_start_messages:
+            return None
+
+        now_ts = time.time() if current_time is None else float(current_time)
+        cooldown = getattr(self, '_teamspeak_game_start_cooldown_seconds', 30)
+        last_move = getattr(self, '_teamspeak_game_start_last_move', 0.0)
+        if now_ts - last_move < cooldown:
+            return {"success": True, "skipped": True, "reason": "cooldown"}
+
+        self._teamspeak_game_start_last_move = now_ts
+        try:
+            if service is None:
+                from utils.teamspeak_service import get_default_teamspeak_service
+                service = get_default_teamspeak_service()
+            result = service.move_home(reason="steam_game_start", automated=True)
+            if result.get("moved"):
+                log.info(f"[{datetime.now()}] Steam 好友启动游戏，已送回 KTV点歌姬: {result}")
+            else:
+                log.debug(f"[{datetime.now()}] Steam 好友启动游戏，TeamSpeak 无需移动: {result}")
+            return {"success": True, "data": result}
+        except Exception as e:
+            log.info(f"[{datetime.now()}] Steam 启动游戏联动 TeamSpeak 失败: {e}")
+            return {"success": False, "error": str(e)}
 
     def save_friend_status(self):
         """保存好友状态到数据文件，供 Web 面板读取"""

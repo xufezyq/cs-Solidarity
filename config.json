@@ -19,6 +19,10 @@
       "config": "instconfig/steam_account.json"
     },
     {
+      "type": "teamspeak",
+      "config": "instconfig/teamspeak3.local.json"
+    },
+    {
       "type": "korichat",
       "config": "instconfig/korichat_config.json"
     },

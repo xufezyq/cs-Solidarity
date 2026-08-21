@@ -139,6 +139,9 @@ class AgentHandler:
             "steam.reset_5e_season_records": self._steam_reset_5e_season_records,
             "steam.reset_official_season_records": self._steam_reset_official_season_records,
             "steam.get_timeline": self._steam_get_timeline,
+            "teamspeak.status": self._teamspeak_status,
+            "teamspeak.move_music_bot": self._teamspeak_move_music_bot,
+            "teamspeak.move_music_bot_home": self._teamspeak_move_music_bot_home,
             "files.list": self._files_list,
             "files.upload": self._files_upload,
             "files.delete": self._files_delete,
@@ -1068,6 +1071,40 @@ class AgentHandler:
                 "last_update": datetime.now().isoformat()
             }
         }
+
+    # ── TeamSpeak ──
+
+    def _teamspeak_config_path(self) -> Optional[str]:
+        config_file = self.root_dir / "config.json"
+        if not config_file.exists():
+            return None
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            for item in cfg.get("instances", []):
+                if item.get("type") == "teamspeak" and item.get("config"):
+                    return item.get("config")
+        except Exception:
+            pass
+        return None
+
+    def _teamspeak_service(self):
+        from utils.teamspeak_service import get_default_teamspeak_service
+        return get_default_teamspeak_service(root_dir=self.root_dir, config_path=self._teamspeak_config_path())
+
+    def _teamspeak_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {"success": True, "data": self._teamspeak_service().status()}
+
+    def _teamspeak_move_music_bot(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        target_cid = params.get("target_cid")
+        if target_cid in (None, ""):
+            return {"success": False, "error": "target_cid 不能为空"}
+        result = self._teamspeak_service().move_music_bot(int(target_cid), reason="manual_web", automated=False)
+        return {"success": True, "data": result}
+
+    def _teamspeak_move_music_bot_home(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        result = self._teamspeak_service().move_home(reason="manual_web_home", automated=False)
+        return {"success": True, "data": result}
 
     # ── 文件管理 ──
 
