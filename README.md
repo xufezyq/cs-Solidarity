@@ -1,3 +1,5 @@
+
+
 # cs-Solidarity — 多功能微信机器人
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -159,6 +161,8 @@ pip install -r requirements.txt
   ]
 }
 ```
+
+示例配置关闭了 `enable_receive` 和 `enable_flash_detect`，运行后不会接收微信消息；如需接收微信消息，请将这两项设为 `true`。
 
 ### 3. 运行
 
