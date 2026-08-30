@@ -247,8 +247,10 @@ class DisasterWarningInstance(BaseInstance):
 
         log.debug(f"[灾害预警] 收到消息: {chat_name} - {sender}: {content}")
 
-        # 处理灾害预警命令
-        if content.startswith("/灾害预警"):
+        # 处理更具体的命令优先，避免被“/灾害预警”通用前缀拦截。
+        if content.startswith("/灾害预警统计"):
+            self._handle_stats_command(chat_name, sender, content)
+        elif content.startswith("/灾害预警"):
             self._handle_disaster_command(chat_name, sender, content)
         elif content.startswith("/地震列表查询"):
             self._handle_earthquake_list_command(chat_name, sender, content)
@@ -256,8 +258,6 @@ class DisasterWarningInstance(BaseInstance):
             self._handle_eew_command(chat_name, sender, content)
         elif content.startswith("/气象预警"):
             self._handle_weather_command(chat_name, sender, content)
-        elif content.startswith("/灾害预警统计"):
-            self._handle_stats_command(chat_name, sender, content)
 
     def _handle_disaster_command(self, chat_name: str, sender: str, content: str):
         """处理灾害预警命令"""
