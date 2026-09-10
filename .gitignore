@@ -69,6 +69,7 @@ data/cs2-video/
 !tests/
 tests/*
 !tests/test_cs2_video.py
+!tests/test_cs2_news_updates.py
 
 # KouriChat 配置文件
 KouriChat/data/config/

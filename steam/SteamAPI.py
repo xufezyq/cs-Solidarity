@@ -180,7 +180,8 @@ class SteamAPI:
             "key": self.api_key,
             "appid": app_id,
             "count": count,
-            "maxlength": 300
+            # Steam API: 0 表示返回完整正文，而不是生成定长摘要。
+            "maxlength": 0
         }
         try:
             response = self.session.get(url, params=params, verify=False, timeout=self.timeout)

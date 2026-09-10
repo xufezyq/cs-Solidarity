@@ -19,6 +19,7 @@ from cs2_platforms.cs2_pw.request import PerfectWorldApi
 from utils.steam_archive import archive_pw_season_data
 from utils.steam_timeline import SteamTimelineRecorder
 import logging
+import requests
 from dotenv import load_dotenv
 import os
 
@@ -639,13 +640,10 @@ class SteamAuto(BaseInstance):
                 # 但为了用户体验，我们从最新的开始发送（列表已经是倒序）
 
                 for news in new_news_list:
-                    title = news.get('title', '无标题')
+                    title = self._clean_cs2_news_contents(news.get('title', '无标题'))
                     url = news.get('url', '#')
-                    contents = news.get('contents', '无摘要')
-
-                    # 截断摘要内容（最多 200 字）
-                    if len(contents) > 300:
-                        contents = contents[:300] + '...'
+                    contents = self._clean_cs2_news_contents(news.get('contents', '无摘要'))
+                    title, contents, translated = self._translate_cs2_news(title, contents)
 
                     # 构建消息
                     message = f"【CS2 更新】\n\n"
@@ -653,8 +651,11 @@ class SteamAuto(BaseInstance):
                     message += f"{contents}\n\n"
                     message += f"原文链接：{url}"
 
-                    log.info(f"[{datetime.now()}] 发送新新闻：{title}")
-                    self.send_message(message)
+                    language = '中文译文' if translated else '英文原文'
+                    chunks = self._split_cs2_news_message(message)
+                    log.info(f"[{datetime.now()}] 发送新新闻（{language}，共 {len(chunks)} 段）：{title}")
+                    for chunk in chunks:
+                        self.send_message(chunk)
 
                 # 更新缓存：只把新新闻 gid 加入缓存（用时间戳标记）
                 for news in new_news_list:
@@ -672,6 +673,135 @@ class SteamAuto(BaseInstance):
 
         except Exception as e:
             log.info(f"[{datetime.now()}] 检查 CS2 新闻失败：{e}")
+
+    @staticmethod
+    def _clean_cs2_news_contents(contents):
+        """把 Steam 新闻中的 HTML/BBCode 转成适合微信发送的纯文本。"""
+        text = str(contents or '')
+        text = re.sub(r'<\s*br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<\s*/\s*p\s*>', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<\s*p(?:\s+[^>]*)?>', '', text, flags=re.IGNORECASE)
+        text = re.sub(
+            r'<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',
+            r'\2 (\1)',
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        text = re.sub(
+            r'<img\s+[^>]*src=["\']([^"\']+)["\'][^>]*>',
+            r'图片：\1',
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r'<\s*(?:ul|ol)(?:\s+[^>]*)?>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<\s*/\s*(?:ul|ol)\s*>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<\s*li(?:\s+[^>]*)?>', '- ', text, flags=re.IGNORECASE)
+        text = re.sub(r'<\s*/\s*li\s*>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\[url=([^\]]+)\](.*?)\[/url\]', r'\2 (\1)', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'\[img\](.*?)\[/img\]', r'\n图片：\1', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'\[/?[a-z][^\]]*\]', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', '', text)
+        text = html.unescape(text)
+        text = re.sub(r'[ \t]+\n', '\n', text)
+        text = re.sub(r'\n[ \t]+', '\n', text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    @staticmethod
+    def _split_cs2_news_message(message, max_length=1800):
+        """按段落拆分长消息，同时保留全部字符。"""
+        if not message:
+            return []
+
+        chunks = []
+        remaining = message
+        while len(remaining) > max_length:
+            split_at = remaining.rfind('\n', 0, max_length)
+            if split_at < 0:
+                split_at = max_length - 1
+            chunks.append(remaining[:split_at + 1])
+            remaining = remaining[split_at + 1:]
+        if remaining:
+            chunks.append(remaining)
+        return chunks
+
+    def _translate_cs2_news(self, title, contents):
+        """使用 DeepSeek 翻译新闻；失败后重试一次，仍失败则返回英文原文。"""
+        api_key = os.getenv('DEEPSEEK_API_KEY')
+        if not api_key:
+            log.warning("DeepSeek API Key 未配置，CS2 新闻将发送英文原文")
+            return title, contents, False
+
+        base_url = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')
+        model = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+        content_segments = self._split_cs2_news_message(contents, max_length=6000) or ['']
+        translated_segments = []
+        translated_title = None
+
+        for segment_number, segment in enumerate(content_segments, 1):
+            payload = {
+                'model': model,
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': (
+                            '你是专业的游戏更新公告翻译。把输入的英文标题和正文完整翻译成简体中文，'
+                            '不得摘要、删减或补充内容；保留段落、项目符号、专有名词、数字和 URL。'
+                            '只返回 JSON 对象，字段名必须是 title 和 contents。'
+                        ),
+                    },
+                    {
+                        'role': 'user',
+                        'content': json.dumps({'title': title, 'contents': segment}, ensure_ascii=False),
+                    },
+                ],
+                'response_format': {'type': 'json_object'},
+                'temperature': 0.1,
+                'max_tokens': 8192,
+            }
+
+            segment_result = None
+            for attempt in range(2):
+                try:
+                    response = requests.post(
+                        f'{base_url}/chat/completions',
+                        headers={
+                            'Authorization': f'Bearer {api_key}',
+                            'Content-Type': 'application/json',
+                        },
+                        json=payload,
+                        timeout=120,
+                    )
+                    response.raise_for_status()
+                    choice = response.json()['choices'][0]
+                    if choice.get('finish_reason') != 'stop':
+                        raise ValueError(f"DeepSeek 返回未完成：{choice.get('finish_reason')}")
+                    result = json.loads(choice['message']['content'])
+                    if not isinstance(result, dict):
+                        raise ValueError('DeepSeek 返回的 JSON 不是对象')
+                    result_title = result.get('title')
+                    result_contents = result.get('contents')
+                    if not isinstance(result_title, str) or not result_title.strip():
+                        raise ValueError('DeepSeek 返回的标题为空')
+                    if not isinstance(result_contents, str) or not result_contents:
+                        raise ValueError('DeepSeek 返回的正文为空')
+                    segment_result = (result_title.strip(), result_contents)
+                    break
+                except (requests.RequestException, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e:
+                    log.warning(
+                        f"DeepSeek 翻译 CS2 新闻第 {segment_number}/{len(content_segments)} 段失败"
+                        f"（第 {attempt + 1}/2 次）：{e}"
+                    )
+
+            if segment_result is None:
+                log.warning("DeepSeek 翻译连续失败，CS2 新闻将发送英文原文")
+                return title, contents, False
+
+            if translated_title is None:
+                translated_title = segment_result[0]
+            translated_segments.append(segment_result[1])
+
+        return translated_title, ''.join(translated_segments).strip(), True
 
     async def _fetch_pw_stats_async(self, steam_ids):
         """异步获取完美平台战绩（委托给 PwStatsReporter）"""
